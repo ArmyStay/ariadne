@@ -1,0 +1,4 @@
+amount_minor=120000
+currency=INR
+merchant=City Shoes
+notes=Example expected outcome for a retail receipt fixture. Replace/add a real image file (shoes-receipt.jpg) for recogniser integration tests.

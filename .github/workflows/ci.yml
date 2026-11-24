@@ -59,7 +59,7 @@ jobs:
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{www.armystay.github.io/ariadne/}}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

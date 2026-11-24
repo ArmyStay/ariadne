@@ -17,9 +17,19 @@ kotlin {
                 implementation(project(":core:time"))
                 implementation(project(":core:queue"))
                 implementation(project(":core:extract"))
+                implementation(project(":core:model"))
                 implementation(libs.sqldelight.jvm)
                 implementation(libs.kotlinx.coroutines.swing)
                 implementation(compose.desktop.currentOs)
+                implementation("net.sourceforge.tess4j:tess4j:5.12.0")
+            }
+        }
+        val jvmTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(libs.kotlinx.coroutines.test)
+                implementation(project(":core:extract"))
+                implementation(project(":core:model"))
             }
         }
     }

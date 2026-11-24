@@ -1,0 +1,4 @@
+amount_minor=8500
+currency=THB
+merchant=Bangkok Taxi
+notes=Example expected outcome for a transport receipt fixture. Replace/add a real image file (taxi-receipt.jpg) for recogniser integration tests.

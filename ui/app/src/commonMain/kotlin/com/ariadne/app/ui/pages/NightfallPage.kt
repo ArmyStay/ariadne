@@ -295,6 +295,14 @@ private fun Decisions(
                 paper,
                 { model.confirmCurrent(noAmount = true) },
             )
+            if (state.stack.size > 1) {
+                Spacer(Modifier.height(6.dp))
+                OutlineAction(
+                    "Confirm rest as no amount",
+                    paper,
+                    { model.confirmRestAsNoAmount() },
+                )
+            }
             Spacer(Modifier.height(18.dp))
             Rule(paper)
             Spacer(Modifier.height(12.dp))
@@ -337,6 +345,14 @@ private fun Decisions(
                 Box(Modifier.weight(1.4f)) {
                     Action("Confirm", paper, { model.confirmCurrent() }, accent = true)
                 }
+            }
+            if (state.stack.size > 1) {
+                Spacer(Modifier.height(8.dp))
+                OutlineAction(
+                    "Confirm rest as no amount",
+                    paper,
+                    { model.confirmRestAsNoAmount() },
+                )
             }
             Spacer(Modifier.height(4.dp))
             Row(

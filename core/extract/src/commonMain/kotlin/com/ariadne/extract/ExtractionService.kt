@@ -117,6 +117,18 @@ public class ExtractionService(
                         markedNoAmount = false,
                         confirmedAt = null,
                     )
+                    val current = repository.findById(id)
+                    val suggested = MerchantRules.suggestCategory(outcome.merchant)
+                    if (current != null && current.category == null && suggested != null) {
+                        repository.updateDetail(
+                            id = id,
+                            amountMinor = outcome.amountMinor,
+                            currencyCode = outcome.currency.code,
+                            merchant = outcome.merchant,
+                            category = suggested.name,
+                            note = current.note,
+                        )
+                    }
                     outbox.apply(id, QueueEvent.ExtractionFoundAmount(confident = true))
                 }
             }

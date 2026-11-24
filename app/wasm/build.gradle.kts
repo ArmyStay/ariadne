@@ -17,8 +17,11 @@ kotlin {
         wasmJsMain.dependencies {
             implementation(project(":ui:app"))
             implementation(project(":core:store"))
+            implementation(project(":core:extract"))
+            implementation(project(":core:time"))
             implementation(libs.sqldelight.web)
             implementation(libs.kotlinx.browser)
+            implementation(libs.kotlinx.coroutines.core)
         }
     }
 }

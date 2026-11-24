@@ -26,6 +26,7 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
 
@@ -92,7 +93,8 @@ private class MlKitTextRecognizer(private val context: Context) : TextRecognizer
             val file = File(imagePath)
             if (!file.exists()) return@withContext OcrResult.Failure("Photo file missing")
             val image = InputImage.fromFilePath(context, Uri.fromFile(file))
-            val result = client.process(image).awaitTask()
+            val result = withTimeoutOrNull(8_000L) { client.process(image).awaitTask() }
+                ?: return@withContext OcrResult.Failure("Text recognition timed out")
             val lines = result.textBlocks
                 .flatMap { block -> block.lines.map { it.text.trim() }.filter { it.isNotEmpty() } }
                 .ifEmpty { result.text.lines().map { it.trim() }.filter { it.isNotEmpty() } }

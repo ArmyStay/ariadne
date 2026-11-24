@@ -707,8 +707,8 @@ public class AppModel(
         _state.value = _state.value.copy(
             stackIndex = index,
             amountInput = capture.amountMinor?.let { minor ->
-                val code = capture.currency ?: return@let ""
-                Money.ofMinor(minor).format(code, grouping = false)
+                val code = capture.currency ?: _state.value.trip?.baseCurrency?.code ?: return@let ""
+                Money.ofMinor(minor).format(CurrencyCode.of(code), grouping = false)
             } ?: "",
         )
     }
@@ -723,6 +723,7 @@ public class AppModel(
      */
     public fun confirmCurrent(noAmount: Boolean = false) {
         val capture = _state.value.current ?: return
+        val currentIndex = _state.value.stackIndex
         val currency = capture.currency ?: _state.value.trip?.baseCurrency ?: CurrencyCode.of("INR")
         val parsed = if (noAmount) null else Money.parseOrNull(_state.value.amountInput, currency)
         scope.launch {
@@ -739,12 +740,40 @@ public class AppModel(
             val day = capture.localDate
             refreshDay(day)
             val remaining = _state.value.stack.filter { it.id != capture.id }
-            _state.value = _state.value.copy(stack = remaining, stackIndex = 0)
+            _state.value = _state.value.copy(stack = remaining)
             if (remaining.isEmpty()) {
-                _state.value = _state.value.copy(route = Route.Record(day), amountInput = "")
+                _state.value = _state.value.copy(route = Route.Record(day), amountInput = "", stackIndex = 0)
             } else {
-                selectStackIndex(0)
+                selectStackIndex(currentIndex.coerceAtMost(remaining.lastIndex))
             }
+        }
+    }
+
+    /** Marks every remaining capture in the current stack as "no amount" and confirms it in one pass. */
+    public fun confirmRestAsNoAmount() {
+        val stack = _state.value.stack
+        if (stack.isEmpty()) return
+        val now = clock.nowMillis()
+        val day = (state.value.route as? Route.Nightfall)?.day ?: state.value.today ?: stack.first().localDate
+        scope.launch {
+            stack.forEach { capture ->
+                store.updateDetails(
+                    id = capture.id,
+                    amountMinor = null,
+                    currencyCode = null,
+                    merchant = capture.merchant,
+                    markedNoAmount = true,
+                    confirmedAt = now,
+                )
+                when (capture.state) {
+                    CaptureState.CONFIRMED, CaptureState.ARCHIVED -> Unit
+                    CaptureState.NEEDS_CONFIRMATION -> Unit
+                    else -> outbox.apply(capture.id, QueueEvent.MarkedNoAmount)
+                }
+                runCatching { outbox.apply(capture.id, QueueEvent.Confirmed) }
+            }
+            refreshDay(day)
+            _state.value = _state.value.copy(stack = emptyList(), stackIndex = 0, amountInput = "", route = Route.Record(day))
         }
     }
 
