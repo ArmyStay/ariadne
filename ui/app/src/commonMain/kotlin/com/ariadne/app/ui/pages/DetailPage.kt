@@ -39,7 +39,7 @@ import com.ariadne.design.Bone
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
-import com.ariadne.design.PageHeader
+import com.ariadne.design.Masthead
 import com.ariadne.design.Paper
 import com.ariadne.design.Plate
 import com.ariadne.design.QuietAction
@@ -83,11 +83,12 @@ public fun DetailPage(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = if (wide) Bone.MarginWide else Bone.Margin, vertical = 22.dp),
         ) {
-            PageHeader(
+            Masthead(
+                number = "07",
                 eyebrow = capture?.localDate?.iso ?: "Photograph",
                 title = "The photograph",
                 paper = paper,
-                italicTitle = true,
+                italic = true,
                 trailing = {
                     QuietAction("Back", paper, { model.openRecord(capture?.localDate) }, color = paper.inkSoft)
                 },
@@ -267,22 +268,22 @@ private fun CategoryChips(selected: Category?, paper: Paper, onSelect: (Category
                         Modifier
                             .background(
                                 if (chosen) paper.blueWash else paper.raised,
-                                androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+                                androidx.compose.foundation.shape.RoundedCornerShape(1.dp),
                             )
                             .border(
                                 Bone.Hairline,
                                 if (chosen) paper.blueEdge else paper.edge,
-                                androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+                                androidx.compose.foundation.shape.RoundedCornerShape(1.dp),
                             )
                             .pointerInput(category) { detectTapGestures(onTap = { onSelect(category) }) }
-                            .padding(horizontal = 14.dp, vertical = 9.dp),
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                     ) {
                         Label(
                             category.label,
                             paper,
-                            color = if (chosen) paper.blue else paper.inkMid,
-                            size = 10.sp,
-                            tracking = 1.4.sp,
+                            color = if (chosen) paper.blue else paper.inkSoft,
+                            size = 9.sp,
+                            tracking = 1.5.sp,
                         )
                     }
                 }

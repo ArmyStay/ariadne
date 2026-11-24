@@ -2,7 +2,6 @@ package com.ariadne.app.ui.pages
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,7 +30,7 @@ import com.ariadne.design.Bone
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
-import com.ariadne.design.PageHeader
+import com.ariadne.design.Masthead
 import com.ariadne.design.Paper
 import com.ariadne.design.Plate
 import com.ariadne.design.Subject
@@ -70,10 +69,12 @@ public fun NightfallPage(
             .background(paper.bg)
             .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
     ) {
-        PageHeader(
+        Masthead(
+            number = "05",
             eyebrow = day?.iso ?: "Nightfall",
             title = "Nightfall",
             paper = paper,
+            wide = wide,
             trailing = {
                 Column(horizontalAlignment = Alignment.End) {
                     Label("Today", paper, color = paper.inkFaint)
@@ -285,42 +286,38 @@ private fun Decisions(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
     }
 }
 
+/**
+ * The keypad, ruled.
+ *
+ * Drawn as a grid of hairlines with no fills — a till slip rules its columns, it
+ * does not draw a calculator. Rounded keys with white fills would be the single
+ * most generic object on the most important page in the app.
+ */
 @Composable
 private fun Keypad(paper: Paper, model: AppModel) {
     val rows = listOf("123", "456", "789", "0.")
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        rows.forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                row.forEach { digit ->
+    Column(Modifier.fillMaxWidth()) {
+        Rule(paper)
+        rows.forEachIndexed { r, row ->
+            if (r > 0) Rule(paper)
+            Row(Modifier.fillMaxWidth()) {
+                row.forEachIndexed { c, digit ->
+                    if (c > 0) Box(Modifier.width(Bone.Hairline).height(50.dp).background(paper.edge))
                     Box(
-                        Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .background(paper.raised, RoundedCornerShape(Bone.Radius))
-                            .border(Bone.Hairline, paper.edge, RoundedCornerShape(Bone.Radius))
-                            .androidTap { model.typeAmount(digit) },
+                        Modifier.weight(1f).height(50.dp).androidTap { model.typeAmount(digit) },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Numeral(digit.toString(), paper, size = 20.sp, weight = FontWeight.Medium)
+                        Numeral(digit.toString(), paper, size = 21.sp, weight = FontWeight.Medium)
                     }
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Box(
-                Modifier
-                    .weight(1f)
-                    .height(42.dp)
-                    .androidTap { model.backspace() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Label("Delete", paper, color = paper.inkSoft)
-            }
+        Rule(paper)
+        Box(
+            Modifier.fillMaxWidth().height(44.dp).androidTap { model.backspace() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Label("Delete", paper, color = paper.inkSoft)
         }
     }
 }

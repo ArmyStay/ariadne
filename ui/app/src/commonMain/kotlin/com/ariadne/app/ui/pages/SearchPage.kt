@@ -35,7 +35,7 @@ import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
-import com.ariadne.design.PageHeader
+import com.ariadne.design.Masthead
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
@@ -62,7 +62,8 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             .verticalScroll(rememberScrollState())
             .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
     ) {
-        PageHeader(
+        Masthead(
+            number = "08",
             eyebrow = "The record",
             title = "Remember a thing",
             paper = paper,

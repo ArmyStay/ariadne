@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.ui.text.font.FontWeight
 import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
@@ -36,7 +38,12 @@ import com.ariadne.design.Label
 import com.ariadne.design.LinkAction
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
+import com.ariadne.design.Masthead
+import com.ariadne.design.Page
 import com.ariadne.design.PageHeader
+import com.ariadne.design.RailFigure
+import com.ariadne.design.SectionHead
+import com.ariadne.design.Grid
 import com.ariadne.design.Paper
 import com.ariadne.design.Panel
 import com.ariadne.design.Pill
@@ -52,6 +59,7 @@ import com.ariadne.model.CurrencyCode
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
 import com.ariadne.model.dayRange
+import com.ariadne.model.symbol
 
 
 /**
@@ -63,23 +71,26 @@ import com.ariadne.model.dayRange
  * rules, tracked-out labels, one blue action.
  */
 
-/** Wraps every tab view in the same page furniture so the app reads as one book. */
+/**
+ * Wraps every tab view in the same page furniture.
+ *
+ * The shell is the grid from `:core:design`: a hanging rail on the left for dates
+ * and figures, the measure-bounded column on the right. On a phone the rail folds
+ * away and the same content is one column at 24dp margins.
+ */
 @Composable
 private fun TabPage(
     paper: Paper,
     wide: Boolean,
-    content: @Composable () -> Unit,
+    rail: (@Composable ColumnScope.() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    Box(Modifier.fillMaxSize().background(paper.bg), contentAlignment = Alignment.TopCenter) {
+    Page(paper, wide, rail = rail) {
         Column(
             Modifier
-                .widthIn(max = if (wide) Bone.Measure + 180.dp else Dp.Unspecified)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(
-                    horizontal = if (wide) Bone.MarginWide else Bone.Margin,
-                    vertical = 24.dp,
-                ),
+                .padding(bottom = 40.dp),
         ) { content() }
     }
 }
@@ -88,112 +99,115 @@ private fun TabPage(
 
 @Composable
 public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
-    TabPage(paper, wide) {
-        PageHeader(
+    val trip = state.trip
+    TabPage(
+        paper,
+        wide,
+        rail = {
+            if (trip != null) {
+                RailFigure("today", state.today?.iso ?: "—", paper, 13.sp)
+                Spacer(Modifier.height(26.dp))
+                RailFigure("days", "${dayRange(trip.startDate, trip.endDate).size}", paper, 26.sp)
+                Spacer(Modifier.height(4.dp))
+                Label("closed ${state.dayCards.count { it.isClosed }}", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
+                Spacer(Modifier.height(26.dp))
+                RailFigure("waiting", "${state.stack.size}", paper, 26.sp)
+                Spacer(Modifier.height(4.dp))
+                Label("photographs", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
+            }
+        },
+    ) {
+        Masthead(
+            number = "01",
             eyebrow = "Ariadne",
-            title = state.trip?.name ?: "No trips yet",
+            title = trip?.name ?: "No trips yet",
             paper = paper,
-            italicTitle = false,
-            trailing = {
-                QuietAction("Prefs", paper, { model.go(Route.Settings) })
-            },
+            italic = true,
+            wide = wide,
+            trailing = { QuietAction("Prefs", paper, { model.go(Route.Settings) }) },
         )
 
-        Spacer(Modifier.height(24.dp))
-
-        val trip = state.trip
         if (trip == null) {
-            Spacer(Modifier.height(40.dp))
-            Title("Nothing kept yet.", paper, size = 26.sp, italic = true)
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(28.dp))
             Body(
                 "A trip starts on a date and ends on a date. Everything in between is a photograph " +
                     "you take now and finish tonight.",
                 paper,
+                serif = true,
                 color = paper.inkSoft,
-                lineHeight = 22.sp,
+                size = 18.sp,
+                lineHeight = 27.sp,
             )
-            Spacer(Modifier.height(26.dp))
+            Spacer(Modifier.height(30.dp))
             Action("Start a trip", paper, { model.startEmptyTrip() }, accent = true)
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             OutlineAction("Begin with the demo roll", paper, { model.startTripDemo() })
             return@TabPage
         }
 
-        // Today's state: the one number that matters, set as type.
-        Panel(paper) {
-            Column {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Label("Spent today", paper, color = paper.inkSoft)
-                        Spacer(Modifier.height(8.dp))
-                        Numeral(
-                            Money.ofMinor(state.dayTotalMinor)
-                                .formatWithSymbol(CurrencyCode.of(state.dayCurrency)),
-                            paper,
-                            size = 38.sp,
-                            weight = androidx.compose.ui.text.font.FontWeight.Medium,
-                        )
-                    }
-                    Pill(
-                        if (state.stack.isEmpty()) "Closed" else "${state.stack.size} waiting",
-                        paper,
-                        if (state.stack.isEmpty()) PillTone.Quiet else PillTone.Blue,
-                    )
-                }
-                Spacer(Modifier.height(16.dp))
-                Rule(paper)
-                Spacer(Modifier.height(14.dp))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Label("${trip.startDate.iso} → ${trip.endDate.iso}", paper, color = paper.inkSoft)
-                    Label("${dayRange(trip.startDate, trip.endDate).size} days", paper, color = paper.inkSoft)
-                }
-            }
+        // The figure, hung directly on the paper with no card around it. A number
+        // this large does not need a box; the box was only ever decoration.
+        Spacer(Modifier.height(26.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Numeral(
+                CurrencyCode.of(state.dayCurrency).symbol(),
+                paper,
+                color = paper.inkFaint,
+                size = 22.sp,
+            )
+            Spacer(Modifier.width(6.dp))
+            Numeral(
+                Money.ofMinor(state.dayTotalMinor).format(CurrencyCode.of(state.dayCurrency)),
+                paper,
+                size = if (wide) 68.sp else 52.sp,
+                weight = FontWeight.Medium,
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Label("finished today", paper, color = paper.inkSoft)
+            Pill(
+                if (state.stack.isEmpty()) "all settled" else "${state.stack.size} waiting",
+                paper,
+                if (state.stack.isEmpty()) PillTone.Quiet else PillTone.Blue,
+            )
         }
 
-        Spacer(Modifier.height(22.dp))
-
-        // The one thing to do, in blue.
+        Spacer(Modifier.height(26.dp))
+        // A bar, not a wall: on a wide page the action keeps a button's width and
+        // sits under the figure it acts on.
         Action(
             if (state.stack.isEmpty()) "Begin tonight's tally" else
                 "Finish ${state.stack.size} photograph${if (state.stack.size == 1) "" else "s"}",
             paper,
             { model.openNightfall(state.today) },
             accent = true,
+            modifier = Modifier.widthIn(max = if (wide) 340.dp else Dp.Unspecified),
         )
 
-        Spacer(Modifier.height(26.dp))
-        Label("The trip", paper, color = paper.inkSoft)
-        Spacer(Modifier.height(12.dp))
+        SectionHead("II", "the trip", paper, trailing = "${trip.startDate.iso} → ${trip.endDate.iso}")
 
-        NavRow("Timeline", "${state.dayCards.count { it.isClosed }} days closed of ${state.dayCards.size}", paper) {
-            model.go(Route.Record(state.today))
+        NavRow("Timeline", "${state.dayCards.count { it.isClosed }} of ${state.dayCards.size} days closed", paper) {
+            model.go(Route.Timeline)
         }
         NavRow("The record", "${state.dayCaptures.size} kept today", paper) {
             model.go(Route.Record(state.today))
         }
-        NavRow("Search what you kept", "By shop, price, day", paper) {
+        NavRow("Search what you kept", "by shop, price, day", paper) {
             model.go(Route.Search)
         }
-        NavRow("The trip's page", "Dates, currencies, the card", paper) {
+        NavRow("The trip's page", "dates, currencies, the card", paper) {
             model.go(Route.Trip)
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(30.dp))
         Body(
             "No account. No sync. Nothing leaves this device — a record of what you spent should " +
                 "not need permission to exist.",
             paper,
             color = paper.inkFaint,
             size = 12.sp,
-            lineHeight = 18.sp,
+            lineHeight = 19.sp,
         )
         Spacer(Modifier.height(96.dp))
     }
@@ -222,16 +236,29 @@ private fun NavRow(label: String, detail: String, paper: Paper, onClick: () -> U
 @Composable
 public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
     val days = state.dayCards
-    TabPage(paper, wide) {
-        PageHeader(
+    TabPage(
+        paper,
+        wide,
+        rail = {
+            RailFigure("closed", "${days.count { it.isClosed }}", paper, 26.sp)
+            Spacer(Modifier.height(26.dp))
+            RailFigure("open", "${days.count { !it.isClosed }}", paper, 26.sp)
+            Spacer(Modifier.height(26.dp))
+            Label("the trip as a run of days", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
+        },
+    ) {
+        Masthead(
+            number = "02",
             eyebrow = state.trip?.name ?: "Timeline",
             title = "Timeline",
             paper = paper,
-            italicTitle = true,
+            italic = true,
+            wide = wide,
+            lede = "Every day you kept something, and the hours it happened in.",
             trailing = { QuietAction("Record", paper, { model.go(Route.Record(state.today)) }) },
         )
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(10.dp))
 
         if (days.isEmpty()) {
             Body("A trip has no days until it has dates.", paper, color = paper.inkSoft, size = 16.sp)
@@ -239,13 +266,6 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
             Action("Start a trip", paper, { model.startEmptyTrip() }, accent = true)
             return@TabPage
         }
-
-        Label(
-            "${days.count { it.isClosed }} closed · ${days.count { !it.isClosed }} open",
-            paper,
-            color = paper.inkSoft,
-        )
-        Spacer(Modifier.height(14.dp))
 
         days.forEach { card ->
             // Every day, loaded in one pass — never "no photographs" for a day the
@@ -314,15 +334,33 @@ private fun DayRow(
 
 @Composable
 public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
-    TabPage(paper, wide) {
-        PageHeader(
+    TabPage(
+        paper,
+        wide,
+        rail = {
+            RailFigure(
+                "the trip",
+                Money.ofMinor(state.categoryTotals.sumOf { it.baseMinor })
+                    .formatWithSymbol(state.trip?.baseCurrency ?: CurrencyCode.of(state.dayCurrency)),
+                paper,
+                16.sp,
+            )
+            Spacer(Modifier.height(26.dp))
+            RailFigure("photographs", "${state.categoryTotals.sumOf { it.captures }}", paper, 26.sp)
+            Spacer(Modifier.height(26.dp))
+            Label("finished only", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
+        },
+    ) {
+        Masthead(
+            number = "03",
             eyebrow = state.trip?.name ?: "Stats",
             title = "What it came to",
             paper = paper,
-            italicTitle = true,
+            italic = true,
+            wide = wide,
         )
 
-        Spacer(Modifier.height(26.dp))
+        Spacer(Modifier.height(20.dp))
 
         // The trip's figure, not the open day's: this page is about the whole thing,
         // and a headline that disagreed with the breakdown below it would be a bug
@@ -330,33 +368,35 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         val tripTotal = state.categoryTotals.sumOf { it.baseMinor }
         val base = state.trip?.baseCurrency ?: CurrencyCode.of(state.dayCurrency)
 
-        Panel(paper) {
-            Column {
-                Label("The trip so far", paper, color = paper.inkSoft)
-                Spacer(Modifier.height(8.dp))
-                Numeral(
-                    Money.ofMinor(tripTotal).formatWithSymbol(base),
-                    paper,
-                    size = 44.sp,
-                    weight = androidx.compose.ui.text.font.FontWeight.Medium,
-                )
-                Spacer(Modifier.height(6.dp))
-                Body(
-                    "Only photographs that were finished. Anything still waiting tonight is not in " +
-                        "this figure, and is not counted as zero.",
-                    paper,
-                    color = paper.inkFaint,
-                    size = 12.sp,
-                    lineHeight = 18.sp,
-                )
-            }
+        // The figure, set on the paper itself. No card: a number this size carries
+        // its own emphasis, and a white box around it is decoration that also
+        // happens to be the default container in every generated layout.
+        Label("the trip so far", paper, color = paper.inkSoft)
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Numeral(CurrencyCode.of(base.code).symbol(), paper, color = paper.inkFaint, size = 22.sp)
+            Spacer(Modifier.width(6.dp))
+            Numeral(
+                Money.ofMinor(tripTotal).format(base),
+                paper,
+                size = if (wide) 64.sp else 50.sp,
+                weight = FontWeight.Medium,
+            )
         }
-
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(12.dp))
+        Rule(paper, color = paper.ink)
+        Spacer(Modifier.height(10.dp))
+        Body(
+            "Only photographs that were finished. Anything still waiting tonight is not in " +
+                "this figure, and is not counted as zero.",
+            paper,
+            color = paper.inkFaint,
+            size = 12.sp,
+            lineHeight = 18.sp,
+        )
 
         if (state.categoryTotals.isNotEmpty()) {
-            Label("What it was", paper, color = paper.inkSoft)
-            Spacer(Modifier.height(10.dp))
+            SectionHead("II", "what it was", paper)
             Breakdown(
                 totals = state.categoryTotals,
                 baseCurrency = base,
@@ -379,8 +419,7 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         if (state.perCurrency.isNotEmpty()) {
             // The same finished photographs, seen from the other side. The two
             // columns must always add to the same figure.
-            Label("By currency, before conversion", paper, color = paper.inkSoft)
-            Spacer(Modifier.height(8.dp))
+            SectionHead("III", "by currency, before conversion", paper)
             state.perCurrency.forEach { (code, minor) ->
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 14.dp),
@@ -431,15 +470,25 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
 
 @Composable
 public fun PrefsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
-    TabPage(paper, wide) {
-        PageHeader(
+    TabPage(
+        paper,
+        wide,
+        rail = {
+            Label("on device only", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
+            Spacer(Modifier.height(10.dp))
+            Label("no account · no sync", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
+        },
+    ) {
+        Masthead(
+            number = "04",
             eyebrow = "Ariadne",
             title = "Preferences",
             paper = paper,
+            wide = wide,
             trailing = { QuietAction("Done", paper, { model.go(Route.Home) }) },
         )
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(14.dp))
 
         PrefRow("Base currency", state.trip?.baseCurrency?.code ?: "INR", paper)
         PrefRow("Home currency", state.trip?.homeCurrency?.code ?: "INR", paper)

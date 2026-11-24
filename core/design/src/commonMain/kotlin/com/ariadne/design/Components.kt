@@ -102,7 +102,7 @@ public fun Body(
     serif: Boolean = false,
     italic: Boolean = false,
     align: TextAlign = TextAlign.Start,
-    lineHeight: TextUnit = size * 1.55f,
+    lineHeight: TextUnit = size * 1.62f,
     modifier: Modifier = Modifier,
 ) {
     Text(
@@ -113,6 +113,7 @@ public fun Body(
             lineHeight = lineHeight,
             fontWeight = FontWeight.Normal,
             fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
+            letterSpacing = if (serif) Optical.headingTracking else Optical.bodyTracking,
         ),
         color = color,
         textAlign = align,
@@ -133,8 +134,8 @@ public fun Title(
     italic: Boolean = false,
     modifier: Modifier = Modifier,
     align: TextAlign = TextAlign.Start,
-    lineHeight: TextUnit = size * 1.08f,
-) {
+    lineHeight: TextUnit = size * 1.04f,
+    ) {
     Text(
         text = text,
         style = TextStyle(
@@ -143,7 +144,10 @@ public fun Title(
             lineHeight = lineHeight,
             fontWeight = FontWeight.Normal,
             fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
-            letterSpacing = (-0.3).sp,
+            // Optical: the bigger the serif, the tighter it must be tracked. One
+            // tracking value for every size is what makes a headline look set by
+            // a machine rather than by an editor.
+            letterSpacing = if (size.value >= 36f) Optical.displayTracking else Optical.titleTracking,
         ),
         color = color,
         textAlign = align,
@@ -187,7 +191,7 @@ public fun Numeral(
             lineHeight = size * 1.1f,
             fontWeight = weight,
             fontFeatureSettings = "tnum",
-            letterSpacing = (-0.4).sp,
+            letterSpacing = if (size.value >= 34f) Optical.numeralTracking else (-0.2).sp,
         ),
         color = color,
         textAlign = align,
@@ -197,8 +201,12 @@ public fun Numeral(
 }
 
 /**
- * The primary action: a filled blue block with white type. One per page.
- * Square-cornered enough to read as a printed rule, rounded enough to feel made.
+ * The primary action: a blue bar with the type tracked out like a page footer.
+ *
+ * Square-cornered, full width, and it sits at the *edge* of its container rather
+ * than floating in the middle of a padded card. Material's default is a 12dp
+ * rounded filled button centred in a gutter; this is a ruled bar that belongs to
+ * the page, which is why it reads as print rather than as a widget.
  */
 @Composable
 public fun Action(
@@ -223,7 +231,10 @@ public fun Action(
         modifier
             .fillMaxWidth()
             .heightIn(min = Bone.ButtonHeight)
-            .background(bg, shape(Bone.Radius))
+            // A 2dp square radius: enough that it does not look like a broken
+            // corner on a renderer without antialiasing, too little to read as a
+            // card. The reference's blocks are rectangles.
+            .background(bg, shape(2.dp))
             .semantics {
                 contentDescription = text
                 role = Role.Button
@@ -231,16 +242,16 @@ public fun Action(
             .pointerInput(text, enabled) {
                 if (enabled) detectTapGestures(onTap = { onClick() })
             }
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = 20.dp, vertical = 17.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = text,
+            text = text.uppercase(),
             style = TextStyle(
                 fontFamily = Bone.Sans,
-                fontSize = 14.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.6.sp,
+                letterSpacing = 2.sp,
             ),
             color = fg,
             textAlign = TextAlign.Center,
@@ -262,7 +273,7 @@ public fun OutlineAction(
         modifier
             .fillMaxWidth()
             .heightIn(min = Bone.ButtonHeight)
-            .border(Bone.Hairline, if (enabled) paper.edgeStrong else paper.edge, shape(Bone.Radius))
+            .border(Bone.Hairline, if (enabled) paper.edgeStrong else paper.edge, shape(2.dp))
             .semantics {
                 contentDescription = text
                 role = Role.Button
@@ -270,16 +281,16 @@ public fun OutlineAction(
             .pointerInput(text, enabled) {
                 if (enabled) detectTapGestures(onTap = { onClick() })
             }
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = 20.dp, vertical = 17.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = text,
+            text = text.uppercase(),
             style = TextStyle(
                 fontFamily = Bone.Sans,
-                fontSize = 14.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                letterSpacing = 0.6.sp,
+                letterSpacing = 2.sp,
             ),
             color = if (enabled) paper.ink else paper.inkFaint,
             textAlign = TextAlign.Center,
@@ -363,12 +374,9 @@ public fun Field(
     modifier: Modifier = Modifier,
     emphasised: Boolean = false,
 ) {
-    Box(
+    Column(
         modifier
             .fillMaxWidth()
-            .heightIn(min = Bone.FieldHeight)
-            .background(paper.raised, shape(Bone.Radius))
-            .border(Bone.Hairline, if (emphasised) paper.edgeStrong else paper.edge, shape(Bone.Radius))
             .then(
                 if (onClick != null) {
                     Modifier
@@ -378,24 +386,36 @@ public fun Field(
                     Modifier
                 }
             )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        contentAlignment = Alignment.CenterStart,
+            .padding(vertical = 12.dp),
     ) {
+        Label(label, paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+        Spacer(Modifier.height(7.dp))
         Text(
             text = value.ifEmpty { placeholder },
             style = TextStyle(
                 fontFamily = Bone.Sans,
-                fontSize = 15.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Normal,
+                letterSpacing = Optical.bodyTracking,
             ),
             color = if (value.isEmpty()) paper.inkFaint else paper.ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        Spacer(Modifier.height(9.dp))
+        // The rule *is* the field. A rounded 52dp box with an inset label is the
+        // default shape every generated form uses; a labelled hairline is not.
+        Rule(paper, color = if (emphasised) paper.edgeStrong else paper.edge)
     }
 }
 
-/** A small pill: "OPEN", "WAITING", a count. Never coloured except in blue wash. */
+/**
+ * A tag: "OPEN", "3 WAITING", a count.
+ *
+ * Square, not a capsule. Capsules are the single most over-used shape in
+ * generated interfaces; a rule-bordered rectangle on paper is what a printed
+ * index uses, and it sits beside hairlines instead of fighting them.
+ */
 @Composable
 public fun Pill(
     text: String,
@@ -403,8 +423,13 @@ public fun Pill(
     tone: PillTone = PillTone.Quiet,
 ) {
     val bg = when (tone) {
-        PillTone.Quiet -> paper.sunk
+        PillTone.Quiet -> Color.Transparent
         PillTone.Blue -> paper.blueWash
+        PillTone.Ink -> paper.ink
+    }
+    val edge = when (tone) {
+        PillTone.Quiet -> paper.edgeStrong
+        PillTone.Blue -> paper.blueEdge
         PillTone.Ink -> paper.ink
     }
     val fg = when (tone) {
@@ -414,10 +439,11 @@ public fun Pill(
     }
     Box(
         Modifier
-            .background(bg, shape(999.dp))
-            .padding(horizontal = 9.dp, vertical = 4.dp),
+            .background(bg, shape(1.dp))
+            .border(Bone.Hairline, edge, shape(1.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
-        Label(text, paper, color = fg, size = 9.sp, tracking = 1.2.sp)
+        Label(text, paper, color = fg, size = 9.sp, tracking = 1.3.sp)
     }
 }
 
@@ -482,9 +508,9 @@ public fun Panel(
     Box(
         modifier
             .fillMaxWidth()
-            .background(paper.raised, shape(Bone.RadiusLarge))
-            .border(Bone.Hairline, paper.edge, shape(Bone.RadiusLarge))
-            .padding(20.dp),
+            .background(paper.raised, shape(2.dp))
+            .border(Bone.Hairline, paper.edge, shape(2.dp))
+            .padding(horizontal = 22.dp, vertical = 20.dp),
     ) { content() }
 }
 
@@ -500,7 +526,7 @@ public fun InkBlock(
     Box(
         modifier
             .size(size)
-            .background(paper.ink, shape(Bone.Radius))
+            .background(paper.ink, shape(2.dp))
             .semantics {
                 contentDescription = glyph
                 role = Role.Button

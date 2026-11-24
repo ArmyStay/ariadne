@@ -28,7 +28,7 @@ import com.ariadne.design.FigureRow
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
-import com.ariadne.design.PageHeader
+import com.ariadne.design.Masthead
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
@@ -55,7 +55,8 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper) {
             .verticalScroll(rememberScrollState())
             .padding(horizontal = Bone.Margin, vertical = 26.dp),
     ) {
-        PageHeader(
+        Masthead(
+            number = "09",
             eyebrow = "Trip",
             title = trip.name,
             paper = paper,

@@ -99,7 +99,6 @@ public fun dayRange(start: LocalDay, end: LocalDay): List<LocalDay> {
 /** ISO weekday index, Monday = 1 … Sunday = 7. */
 public fun LocalDay.isoWeekday(): Int {
     val epoch = LocalDay.toEpochDay(this)
-    // 1970-01-01 was a Thursday (index 4 in ISO).
     val shifted = (epoch + 3).mod(7L)
     return (shifted + 1).toInt()
 }

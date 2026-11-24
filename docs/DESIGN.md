@@ -36,6 +36,58 @@ are ink, and a failure says what happened in words.
 
 ## 2. Type
 
+### Weights, and the bug that hid them
+
+`Sans` was bound to a single 400-weight font file, so every `fontWeight =
+Medium` or `SemiBold` in the app silently resolved back to 400: the entire
+product rendered in one weight. That is the single most recognisable tell of
+generated UI, and it was invisible in review because the type looked "clean".
+Inter Tight is now bound at four static instances — Light 300, Regular 400,
+Medium 500, SemiBold 600 — instanced from the variable font with fontTools and
+committed under `core/design/src/commonMain/resources/fonts/`.
+
+### Optical tracking
+
+Type set at 44px and type set at 10px cannot share one letter-spacing value.
+`Optical` in `Bone.kt` holds the corrections and the components apply them by
+size:
+
+| Size | Tracking | Why |
+| --- | --- | --- |
+| display 44 (desktop 56) | **-0.9sp** | Big serif set at default spacing looks gappy and amateur. |
+| title 30 | -0.5sp | |
+| heading 19 | -0.15sp | |
+| body 15 | +0.05sp | Small type wants a hair of air. |
+| numerals ≥34 | **-0.8sp** | A long amount should read as one object, not as digits. |
+| labels 9–10 | +1.6 to +2.2sp | Tracked-out capitals, as a printed index uses. |
+
+### Shapes: square, not rounded
+
+Radii were 10dp on controls and 16dp on cards, which is the default shape
+vocabulary of every Material-derived layout. The book now uses **2dp on
+controls and 1dp on tags**: enough to survive a renderer without
+antialiasing, too little to read as a card. Capsule pills became
+rule-bordered rectangles; the keypad became a grid of hairlines with no fills.
+
+### The grid
+
+Every page used to be one centred 620dp column at 24dp margins with everything
+stacked in it — a single axis, uniform rhythm, no left edge to hang anything
+from. That shape reads as a form whatever type you put in it.
+
+`Page` in `:core:design` gives a two-axis grid instead: a **132dp hanging rail**
+carrying dates, figures and marks; a **28dp gutter**; then the measure-bounded
+text column; the whole spread hung from the **left** of the page, capped at
+980dp, as a printed book does. On a phone the rail folds to zero and the same
+content is one column again.
+
+Every page opens with a `Masthead`: a **plate number** (01…09), a hairline, an
+eyebrow, then the headline at 44px (56px wide), then optionally a serif lede,
+then a rule. The number is what makes the app a sequence of plates rather than a
+set of screens. Sections inside a page are numbered in roman (`SectionHead`).
+
+## 4. Legacy layout notes: the grid, not the column
+
 | Role | Family | Size | Notes |
 | --- | --- | --- | --- |
 | Display | Instrument Serif | 40 | Page headlines. Italic where a page wants to whisper. |
@@ -51,7 +103,24 @@ The rule that matters: **a number is never a float and never shifts.** Every
 amount is `Long` minor units rendered through `Numeral`, and `tnum` keeps 1,200.00
 and 25.00 in the same column.
 
-## 3. Layout
+### The grid
+
+Every page used to be one centred 620dp column at 24dp margins with everything
+stacked in it — a single axis, uniform rhythm, no left edge to hang anything
+from. That shape reads as a form whatever type you put in it.
+
+`Page` in `:core:design` gives a two-axis grid instead: a **132dp hanging rail**
+carrying dates, figures and marks; a **28dp gutter**; then the measure-bounded
+text column; the whole spread hung from the **left** of the page, capped at
+980dp, as a printed book does. On a phone the rail folds to zero and the same
+content is one column again.
+
+Every page opens with a `Masthead`: a **plate number** (01…09), a hairline, an
+eyebrow, then the headline at 44px (56px wide), then optionally a serif lede,
+then a rule. The number is what makes the app a sequence of plates rather than a
+set of screens. Sections inside a page are numbered in roman (`SectionHead`).
+
+## 4. Legacy layout notes
 
 - Page margin **24dp** (56dp on wide), vertical **24dp**.
 - Text measure caps at **620dp**, centred. Desktop never stretches to the window.

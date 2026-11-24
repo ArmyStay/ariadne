@@ -25,7 +25,7 @@ import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
-import com.ariadne.design.PageHeader
+import com.ariadne.design.Masthead
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
@@ -47,7 +47,8 @@ public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             .verticalScroll(rememberScrollState())
             .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 26.dp),
     ) {
-        PageHeader(
+        Masthead(
+            number = "01",
             eyebrow = "Ariadne",
             title = if (state.trip == null) "No trips yet" else "Trips",
             paper = paper,

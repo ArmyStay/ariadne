@@ -2,6 +2,7 @@ package com.ariadne.app.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -123,7 +124,10 @@ public fun TabBar(
             TabItem(Tab.Prefs, selected, paper, 0, Modifier.weight(1f)) { onSelect(Tab.Prefs) }
         }
 
-        // The shutter itself: an ink disc lifted clear of the bar.
+        // The shutter: a blue plate sitting in the notch, ringed by a hairline so
+        // it reads as seated in the paper rather than pasted on top of it. It was
+        // an ink disc; ink is the colour of type here, and the one control that is
+        // always one tap away should be the one blue thing on the page.
         Box(
             Modifier
                 .align(Alignment.TopCenter)
@@ -131,7 +135,8 @@ public fun TabBar(
                 .size(shutter)
                 .background(paper.isNight.let { if (it) paper.raised else paper.bg }, CircleShape)
                 .padding(5.dp)
-                .background(paper.ink, CircleShape)
+                .background(paper.blue, CircleShape)
+                .border(Bone.Hairline, paper.bluePressed.copy(alpha = 0.35f), CircleShape)
                 .semantics {
                     contentDescription = if (waiting > 0) {
                         "Capture a photograph. $waiting waiting for tonight."
@@ -145,13 +150,17 @@ public fun TabBar(
         ) {
             ApertureGlyph(paper.onBlue)
             if (waiting > 0) {
+                // The count, seated at the edge of the plate: a numeral, not a dot.
                 Box(
                     Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = (-2).dp, y = 2.dp)
-                        .size(9.dp)
-                        .background(paper.blue, CircleShape),
-                )
+                        .offset(x = 1.dp, y = 1.dp)
+                        .size(17.dp)
+                        .background(paper.ink, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Label("$waiting", paper, color = paper.onBlue, size = 8.sp, tracking = 0.4.sp)
+                }
             }
         }
     }

@@ -32,7 +32,7 @@ import com.ariadne.design.Bone
 import com.ariadne.design.FigureRow
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
-import com.ariadne.design.PageHeader
+import com.ariadne.design.Masthead
 import com.ariadne.design.Paper
 import com.ariadne.design.Plate
 import com.ariadne.design.Subject
@@ -68,7 +68,8 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             .verticalScroll(rememberScrollState())
             .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
     ) {
-        PageHeader(
+        Masthead(
+            number = "06",
             eyebrow = state.trip?.name ?: "Record",
             title = "The record",
             paper = paper,

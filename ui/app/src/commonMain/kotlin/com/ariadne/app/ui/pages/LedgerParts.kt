@@ -35,6 +35,7 @@ import com.ariadne.model.Category
 import com.ariadne.model.CategoryTotal
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.Money
+import com.ariadne.model.isoWeekday
 import kotlin.math.abs
 
 /**
@@ -243,7 +244,15 @@ internal fun PatternLine(totals: List<CategoryTotal>, baseCurrency: CurrencyCode
     )
 }
 
-/** A day card in the timeline: the date, the day's figure, and its band. */
+/**
+ * A day in the timeline.
+ *
+ * The date hangs in its own narrow column — day number set large, month and
+ * weekday tracked underneath — and the band sits in the column beside it. That
+ * left-hand date column is what makes a run of days read as a ledger spine; the
+ * same content stacked in one column reads as a feed, which is the shape every
+ * generic app has.
+ */
 @Composable
 internal fun DayPlate(
     day: com.ariadne.model.LocalDay,
@@ -254,38 +263,64 @@ internal fun DayPlate(
     paper: Paper,
     onClick: () -> Unit,
 ) {
-    Column(
+    Row(
         Modifier
             .fillMaxWidth()
             .pointerInput(day) { detectTapGestures(onTap = { onClick() }) }
-            .padding(vertical = 16.dp),
+            .padding(vertical = 18.dp),
+        verticalAlignment = Alignment.Top,
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f)) {
-                Label(if (closed) "in the record" else "still open", paper, color = paper.inkFaint, tracking = 1.2.sp)
-                Spacer(Modifier.height(4.dp))
-                Title(day.iso, paper, size = 20.sp, color = if (selected) paper.ink else paper.inkMid)
-            }
-            Numeral(figure, paper, size = 17.sp, weight = FontWeight.Medium)
+        // The spine.
+        Column(Modifier.width(64.dp)) {
+            Numeral(
+                day.iso.takeLast(2),
+                paper,
+                size = 30.sp,
+                weight = FontWeight.Medium,
+                color = if (selected) paper.ink else paper.inkMid,
+            )
+            Spacer(Modifier.height(2.dp))
+            Label(localMonthName(day), paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
+            Label(weekdayName(day), paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
         }
-        if (captures.isNotEmpty()) {
-            Spacer(Modifier.height(14.dp))
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .border(Bone.Hairline, paper.edge)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-            ) {
+
+        Spacer(Modifier.width(18.dp))
+
+        Column(Modifier.weight(1f)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Label(
+                    if (closed) "in the record" else "still open",
+                    paper,
+                    color = if (closed) paper.inkFaint else paper.blue,
+                    tracking = 1.3.sp,
+                    size = 9.sp,
+                )
+                Spacer(Modifier.weight(1f))
+                if (captures.isNotEmpty()) {
+                    Numeral(figure, paper, size = 15.sp, weight = FontWeight.Medium)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            if (captures.isNotEmpty()) {
                 DayBand(captures, paper)
+            } else {
+                Box(Modifier.fillMaxWidth().height(Bone.Hairline).background(paper.edge))
+                Spacer(Modifier.height(9.dp))
+                Label("nothing kept", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
             }
-        } else {
-            Spacer(Modifier.height(8.dp))
-            Body("No photographs on this day.", paper, color = paper.inkFaint, size = 13.sp)
         }
-        Spacer(Modifier.height(14.dp))
-        Rule(paper)
     }
+    Rule(paper)
 }
+
+private fun localMonthName(day: com.ariadne.model.LocalDay): String = listOf(
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+)[(day.month - 1).coerceIn(0, 11)]
+
+private fun weekdayName(day: com.ariadne.model.LocalDay): String = listOf(
+    "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
+)[(day.isoWeekday() - 1).coerceIn(0, 6)]
 
 /** Every category, whether or not it has anything in it. */
 internal fun Category.all(): List<Category> = Category.entries.toList()

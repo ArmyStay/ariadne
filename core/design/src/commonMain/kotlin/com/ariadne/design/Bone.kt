@@ -93,6 +93,11 @@ public object Bone {
     /**
      * Headline serif: Instrument Serif. High contrast, tight, and set large
      * enough that it carries the page on its own.
+     *
+     * It is used at *display* sizes only, and always with negative tracking (see
+     * [Optical]). Set at 40px with default spacing it reads like a default font;
+     * set at 44px and tracked to -0.9 it reads like a masthead, which is the
+     * whole difference between a template and a book.
      */
     public val Serif: FontFamily by lazy {
         FontFamily(
@@ -101,25 +106,72 @@ public object Bone {
         )
     }
 
-    /** UI grotesque: Inter Tight. Everything that is read rather than admired. */
+    /**
+     * UI grotesque: Inter Tight.
+     *
+     * Bound at four real weights. It used to be bound once at Normal, which meant
+     * every `fontWeight = Medium` or `SemiBold` in the app silently resolved to
+     * 400 — the whole product rendered in one weight, which is exactly what makes
+     * generated UI look generated. Static instances are used rather than the
+     * variable font because Compose resolves a weight from the family, and a
+     * single-font family cannot.
+     */
     public val Sans: FontFamily by lazy {
-        FontFamily(Font("fonts/InterTight-Variable.ttf", FontWeight.Normal))
+        FontFamily(
+            Font("fonts/InterTight-Light.ttf", FontWeight.Light),
+            Font("fonts/InterTight-Regular.ttf", FontWeight.Normal),
+            Font("fonts/InterTight-Medium.ttf", FontWeight.Medium),
+            Font("fonts/InterTight-SemiBold.ttf", FontWeight.SemiBold),
+        )
     }
 
-    /** Numbers. Tabular so a column of figures lines up like a ledger. */
+    /**
+     * Numbers: Inter Tight with tabular figures on.
+     *
+     * Deliberately the same face as [Sans] and not an imported mono. A second
+     * typeface would be a third voice on the page; the figures already stand
+     * apart because they are set far larger than everything around them. What
+     * matters is that the digits are tabular, so a column of amounts aligns.
+     */
     public val Mono: FontFamily get() = Sans
 
-    public val display: TextUnit = 40.sp
+    public val display: TextUnit = 44.sp
     public val title: TextUnit = 30.sp
     public val heading: TextUnit = 19.sp
     public val body: TextUnit = 15.sp
-    public val monoLarge: TextUnit = 40.sp
+    public val monoLarge: TextUnit = 48.sp
     public val monoSmall: TextUnit = 13.sp
 
     /** The label: 10px, uppercase, tracked. Used on every field and tab. */
     public val label: TextUnit = 10.sp
     public val labelTracking: TextUnit = 2.2.sp
     public val labelWeight: FontWeight = FontWeight.Medium
+}
+
+/**
+ * Optical corrections, applied per size.
+ *
+ * Type set at 44px and type set at 10px cannot share letter-spacing: big type
+ * needs to be pulled tight or it looks gappy and amateur, small tracked type
+ * needs air. Without this, every size in the app shares one tracking value, which
+ * is the single most recognisable tell of machine-set design.
+ */
+public object Optical {
+    /** Display serif: tight, tight, tight. -0.02em at 44px. */
+    public val displayTracking: TextUnit = (-0.9).sp
+    public val titleTracking: TextUnit = (-0.5).sp
+    public val headingTracking: TextUnit = (-0.15).sp
+    /** Body copy wants a hair of positive tracking at small sizes. */
+    public val bodyTracking: TextUnit = (0.05).sp
+    /** Figures are pulled tight so a long amount reads as one object. */
+    public val numeralTracking: TextUnit = (-0.8).sp
+
+    /**
+     * The scale factor for a fluid headline: type grows with the measure, so a
+     * desktop window does not show a phone-sized headline in the middle of a
+     * field of white.
+     */
+    public fun displayScale(wide: Boolean): Float = if (wide) 1.28f else 1f
 }
 
 /** Which stock the app is currently printed on. */
@@ -139,6 +191,9 @@ public data class Paper(
     public val blue: Color get() = if (isNight) Bone.NightBlue else Bone.Blue
     public val blueWash: Color get() = if (isNight) Bone.NightBlueWash else Bone.BlueWash
     public val blueEdge: Color get() = if (isNight) Bone.NightBlueEdge else Bone.BlueEdge
+
+    /** The pressed state of blue. Exposed so a control can ring itself in it. */
+    public val bluePressed: Color get() = if (isNight) Bone.NightBlueEdge else Bone.BluePressed
 
     /** Ink for text that sits *on* blue. */
     public val onBlue: Color get() = if (isNight) Bone.Night else Bone.PaperRaised
