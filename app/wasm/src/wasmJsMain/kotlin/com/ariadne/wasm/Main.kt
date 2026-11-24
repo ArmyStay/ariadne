@@ -23,6 +23,12 @@ fun main() {
     val graph = AppGraph(WasmServices(), SystemClock())
     val body = document.body ?: error("Ariadne needs a <body> to mount into")
     val reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    // A deterministic seed behind a flag: `?seed=demo` opens on the demo roll as
+    // soon as the app boots, so a visitor who lands on the Pages deploy sees the
+    // app populated rather than on the front door.
+    if (seedRequested()) {
+        graph.model.onStarted { graph.model.startTripDemo() }
+    }
     ComposeViewport(body) {
         AriadneApp(
             model = graph.model,
@@ -31,6 +37,10 @@ fun main() {
         )
     }
 }
+
+/** True when the URL carries the seed flag: `?seed` or `?seed=demo`. */
+private fun seedRequested(): Boolean =
+    window.location.search.trimStart('?').split('&').any { it.substringBefore('=') == "seed" }
 
 private class WasmServices : PlatformServices {
 

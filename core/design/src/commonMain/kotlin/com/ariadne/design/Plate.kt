@@ -13,6 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 /**
@@ -51,7 +53,7 @@ public fun Plate(
     modifier: Modifier = Modifier,
     caption: String? = null,
 ) {
-    Box(modifier) {
+    Box(modifier.semantics { contentDescription = caption ?: "Plate study of ${subject.name}" }) {
         // Ruled ground, very faint: the paper the drawing sits on.
         Canvas(Modifier.fillMaxSize()) {
             var y = 26f

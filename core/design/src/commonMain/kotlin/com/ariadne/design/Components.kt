@@ -57,13 +57,27 @@ public fun Rule(
     color: Color = paper.edge,
     thickness: Dp = Bone.Hairline,
 ) {
-    Box(modifier.fillMaxWidth().height(thickness).background(color))
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(thickness)
+            .background(color)
+            // Rules are drawn lines: without this a screen reader announces nothing
+            // where the eye sees a divider.
+            .semantics { contentDescription = "Rule line" },
+    )
 }
 
 /** A short rule that marks a section without spanning the page. */
 @Composable
 public fun Tick(paper: Paper, width: Dp = 28.dp, color: Color = paper.ink) {
-    Box(Modifier.width(width).height(2.dp).background(color))
+    Box(
+        Modifier
+            .width(width)
+            .height(2.dp)
+            .background(color)
+            .semantics { contentDescription = "Tick mark" },
+    )
 }
 
 /** Uppercase, tracked, 10px. Every field name, every tab, every eyebrow. */

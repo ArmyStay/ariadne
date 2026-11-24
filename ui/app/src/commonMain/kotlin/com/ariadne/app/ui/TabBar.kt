@@ -77,7 +77,8 @@ public fun TabBar(
         Canvas(
             Modifier
                 .fillMaxWidth()
-                .height(barHeight + 18.dp),
+                .height(barHeight + 18.dp)
+                .semantics { contentDescription = "Ariadne bottom bar" },
         ) {
             val barTop = 18.dp.toPx()
             val cx = size.width / 2f
@@ -217,7 +218,11 @@ private fun TabItem(
  */
 @Composable
 private fun TabGlyph(tab: Tab, color: Color) {
-    Canvas(Modifier.size(22.dp)) {
+    Canvas(
+        Modifier
+            .size(22.dp)
+            .semantics { contentDescription = "${tab.label} marker" },
+    ) {
         val w = size.width
         val h = size.height
         val s = Stroke(width = 1.4.dp.toPx())
