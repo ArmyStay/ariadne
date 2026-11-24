@@ -193,6 +193,13 @@ public class InMemoryStore : Store {
 
     public override suspend fun allRates(): List<Rate> = rates.values.toList()
 
+    public override suspend fun deleteRate(base: CurrencyCode, quote: CurrencyCode) {
+        // Keyed "BASE:QUOTE:date", so a pair filter has to read the key.
+        val prefix = "${base.code}:${quote.code}:"
+        rates.keys.removeAll { it.startsWith(prefix) }
+        bump()
+    }
+
     public override suspend fun upsertRate(rate: Rate) {
         rates["${rate.base.code}:${rate.quote.code}:${rate.date.iso}"] = rate
         bump()

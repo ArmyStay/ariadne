@@ -39,6 +39,7 @@ import com.ariadne.design.NavRow
 import com.ariadne.design.SectionBreak
 import com.ariadne.design.Numeral
 import com.ariadne.design.Masthead
+import com.ariadne.design.PageAction
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Plate
@@ -76,7 +77,7 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             eyebrow = "The record",
             title = "Remember a thing",
             paper = paper,
-            trailing = { QuietAction("Record", paper, { model.go(Route.Record(state.today)) }) },
+            trailing = { PageAction("Record", paper, { model.go(Route.Record(state.today)) }) },
         )
 
         Spacer(Modifier.height(26.dp))

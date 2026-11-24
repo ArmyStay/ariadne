@@ -186,6 +186,43 @@ fun main() {
     check("deletion sends you back to the front door", model.state.value.route == Route.NewTrip)
     check("deletion clears the trip from state", model.state.value.trip == null)
 
+    // ---- the exchange actually converts ------------------------------------
+    //
+    // The FX engine was always exact and always had no input: `upsertRate` existed
+    // and nothing ever called it, so a THB amount silently stayed a THB amount and
+    // the trip total under-reported. These checks exist so that cannot happen
+    // again without a gate going red.
+    val fxGraph = AppGraph(FlowServices(), SystemClock())
+    fxGraph.model.start()
+    settle()
+    fxGraph.model.editDraft(name = "Bangkok", startIso = "2026-11-24", endIso = "2026-11-30")
+    fxGraph.model.commitDraft()
+    settle()
+
+    check("no rate is on file to begin with", fxGraph.model.rateLabel("THB") == null)
+    check("a bad rate is refused", fxGraph.model.setFxRate("THB", "abc") == false)
+    check("a zero rate is refused", fxGraph.model.setFxRate("THB", "0") == false)
+    check("a real rate is accepted", fxGraph.model.setFxRate("THB", "2.5") == true)
+    settle()
+    check("the rate is stated as a sentence", fxGraph.model.rateLabel("THB") == "1 THB = 2.5 INR")
+    check("the rate is on disk", fxGraph.store.allRatesSnapshot().isNotEmpty())
+
+    // 100.00 THB at 2.5 INR = 250.00 INR, through the same engine the app uses.
+    val table = com.ariadne.fx.FxTable(fxGraph.store.allRatesSnapshot())
+    val converted = table.convert(
+        com.ariadne.model.Money.ofMinor(10_000L),
+        com.ariadne.model.CurrencyCode.of("THB"),
+        com.ariadne.model.CurrencyCode.of("INR"),
+        com.ariadne.model.LocalDay.of(2026, 11, 24),
+    )
+    check("a foreign amount converts", converted.amount.minorUnits == 25_000L)
+    check("and the conversion is reported as applied", converted.applied)
+
+    fxGraph.model.clearFxRate("THB")
+    settle()
+    check("clearing removes the rate", fxGraph.model.rateLabel("THB") == null)
+    check("and it is gone from disk", fxGraph.store.allRatesSnapshot().isEmpty())
+
     // ---- a failed write is shown, not swallowed ----------------------------
     //
     // The rule this round established: no visible control may do nothing. If the
@@ -280,6 +317,9 @@ private class RecordingFiles : com.ariadne.app.PhotoFiles {
 
     override suspend fun footprintBytes(): Long = bytes.values.sumOf { it.size.toLong() }
 }
+
+private fun com.ariadne.store.Store.allRatesSnapshot() =
+    kotlinx.coroutines.runBlocking { allRates() }
 
 private fun com.ariadne.store.Store.tripsSnapshot(): List<com.ariadne.model.Trip> =
     kotlinx.coroutines.runBlocking { trips() }

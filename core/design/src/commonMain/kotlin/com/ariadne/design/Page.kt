@@ -3,6 +3,7 @@ package com.ariadne.design
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Text
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
@@ -141,6 +142,50 @@ public fun Page(
 }
 
 /**
+ * A top-of-page action.
+ *
+ * Everything at the top of a page used to render at 9-10px in `inkFaint` with a
+ * hairline under it, which is invisible at a glance on a real screen - the report
+ * was "all the features on top are kinda invisible", and it was accurate. The
+ * type goes up a step, the ink goes to `inkMid`, and the target gets a real hit
+ * area. Restrained is not the same as faint.
+ */
+@Composable
+public fun PageAction(
+    label: String,
+    paper: Paper,
+    onClick: () -> Unit,
+    accent: Boolean = false,
+) {
+    Box(
+        Modifier
+            .clipToBounds()
+            .pointerInput(label) { detectTapGestures(onTap = { onClick() }) }
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = label.uppercase(),
+                style = androidx.compose.ui.text.TextStyle(
+                    fontFamily = Bone.Sans,
+                    fontSize = 10.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                    letterSpacing = 1.6.sp,
+                ),
+                color = if (accent) paper.blue else paper.inkMid,
+            )
+            Spacer(Modifier.height(5.dp))
+            Box(
+                Modifier
+                    .width(if (accent) 26.dp else 16.dp)
+                    .height(if (accent) 2.dp else Bone.Hairline)
+                    .background(if (accent) paper.blue else paper.edgeStrong),
+            )
+        }
+    }
+}
+
+/**
  * The fold control for the hanging margin.
  *
  * A glyph rather than a word, because "collapse sidebar" in 10px tracked uppercase
@@ -156,24 +201,26 @@ private fun FoldRail(
 ) {
     Box(
         Modifier
-            .size(26.dp)
+            .size(30.dp)
             .semantics { contentDescription = description }
             .pointerInput(docked) {
                 detectTapGestures(onTap = { onClick() })
             },
         contentAlignment = Alignment.Center,
     ) {
-        androidx.compose.foundation.Canvas(Modifier.size(14.dp)) {
-            val ink = paper.inkFaint
+        androidx.compose.foundation.Canvas(Modifier.size(17.dp)) {
+            // inkSoft, not inkFaint: the point of a control is that it can be
+            // found without hunting for it.
+            val ink = paper.inkSoft
             // Two vertical rules: the page and its margin.
-            drawLine(ink, androidx.compose.ui.geometry.Offset(size.width * 0.18f, 0f), androidx.compose.ui.geometry.Offset(size.width * 0.18f, size.height), 1.2f)
+            drawLine(ink, androidx.compose.ui.geometry.Offset(size.width * 0.18f, 0f), androidx.compose.ui.geometry.Offset(size.width * 0.18f, size.height), 1.6f)
             // The arrow points the way the margin will go.
             val from = if (docked) size.width * 0.95f else size.width * 0.45f
             val to = if (docked) size.width * 0.45f else size.width * 0.95f
-            drawLine(ink, androidx.compose.ui.geometry.Offset(from, size.height / 2), androidx.compose.ui.geometry.Offset(to, size.height / 2), 1.2f)
+            drawLine(ink, androidx.compose.ui.geometry.Offset(from, size.height / 2), androidx.compose.ui.geometry.Offset(to, size.height / 2), 1.6f)
             val tip = if (docked) to else from
-            drawLine(ink, androidx.compose.ui.geometry.Offset(tip, size.height / 2), androidx.compose.ui.geometry.Offset(tip - 3f * (if (docked) -1f else 1f), size.height / 2 - 3f), 1.2f)
-            drawLine(ink, androidx.compose.ui.geometry.Offset(tip, size.height / 2), androidx.compose.ui.geometry.Offset(tip - 3f * (if (docked) -1f else 1f), size.height / 2 + 3f), 1.2f)
+            drawLine(ink, androidx.compose.ui.geometry.Offset(tip, size.height / 2), androidx.compose.ui.geometry.Offset(tip - 3.5f * (if (docked) -1f else 1f), size.height / 2 - 3.5f), 1.6f)
+            drawLine(ink, androidx.compose.ui.geometry.Offset(tip, size.height / 2), androidx.compose.ui.geometry.Offset(tip - 3.5f * (if (docked) -1f else 1f), size.height / 2 + 3.5f), 1.6f)
         }
     }
 }

@@ -148,6 +148,9 @@ INSERT OR REPLACE INTO rate(base, quote, rateDate, rateScaled) VALUES (?, ?, ?, 
 selectAllRates:
 SELECT * FROM rate;
 
+deleteRate:
+DELETE FROM rate WHERE base = ? AND quote = ?;
+
 selectSettings:
 SELECT * FROM settings WHERE id = 1;
 

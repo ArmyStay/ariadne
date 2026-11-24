@@ -66,6 +66,19 @@ public class AppModel(
     }
 
     private var fx = FxTable(emptyList())
+
+    /**
+     * Rates, in the currency the traveller actually types.
+     *
+     * The engine in `:core:fx` was always exact - scaled integers, HALF_UP once,
+     * no floats - but nothing ever wrote a row into the rate table, so every
+     * foreign amount silently failed to convert and the totals quietly fell back
+     * to showing the raw figure. A mechanism with no input is a mechanism that
+     * does not work, however well it is written.
+     */
+    public var fxRates: List<com.ariadne.model.Rate> = emptyList()
+        private set
+
     private var settings = Settings()
 
     // -- lifecycle ---------------------------------------------------------
@@ -82,7 +95,10 @@ public class AppModel(
             // default screen with no trip state at all, looking like a form whose
             // button was wired to nothing. A failure in the background work must
             // never be able to prevent the app from showing a screen.
-            runCatching { fx = FxTable(store.allRates()) }.onFailure(::report)
+            runCatching {
+                fxRates = store.allRates()
+                fx = FxTable(fxRates)
+            }.onFailure(::report)
             runCatching { settings = store.settings() }.onFailure(::report)
             runCatching { outbox.resume() }.onFailure(::report)
             runCatching { extraction.drain() }.onFailure(::report)
@@ -530,6 +546,80 @@ public class AppModel(
     }
 
     /** Base currency is what every total is stated in, so changing it re-states them. */
+    /**
+     * Record how one unit of [code] trades against the trip's base currency.
+     *
+     * Stated as "1 THB = 2.5 INR" rather than as a pair of abstract numbers,
+     * because that is the sentence a person can check against a receipt or a
+     * board at the airport. Stored scaled by 1e6, so it survives the database
+     * exactly and converts without ever becoming a float.
+     *
+     * Returns false when the text is not a number, so the page can say so rather
+     * than leaving a field that silently did nothing.
+     */
+    public fun setFxRate(code: String, decimal: String): Boolean {
+        val trip = _state.value.trip ?: return false
+        val from = com.ariadne.model.CurrencyCode.parseOrNull(code.trim().uppercase()) ?: return false
+        val scaled = FxTable.rateFromDecimal(decimal) ?: return false
+        if (scaled <= 0L) return false
+        val rate = com.ariadne.model.Rate(
+            base = from,
+            quote = trip.baseCurrency,
+            date = _state.value.today ?: clock.today(),
+            rateScaled = scaled,
+        )
+        scope.launch {
+            store.upsertRate(rate)
+            fxRates = store.allRates()
+            fx = FxTable(fxRates)
+            _state.value = _state.value.copy(rateError = null)
+            // Every figure on every page is downstream of this table, so the day
+            // and the trip both have to be re-read.
+            _state.value.today?.let { refreshDay(it) }
+            loadTripDays(trip)
+        }
+        return true
+    }
+
+    /** Forget a rate, so a wrong one cannot keep converting silently. */
+    public fun clearFxRate(code: String) {
+        val trip = _state.value.trip ?: return
+        val from = com.ariadne.model.CurrencyCode.parseOrNull(code.trim().uppercase()) ?: return
+        scope.launch {
+            store.deleteRate(from, trip.baseCurrency)
+            fxRates = store.allRates()
+            fx = FxTable(fxRates)
+            _state.value.today?.let { refreshDay(it) }
+            loadTripDays(trip)
+        }
+    }
+
+    /** "1 THB = 2.5000 INR", or null when no rate is on file. */
+    public fun rateLabel(code: String): String? {
+        val trip = _state.value.trip ?: return null
+        val from = com.ariadne.model.CurrencyCode.parseOrNull(code.trim().uppercase()) ?: return null
+        if (from == trip.baseCurrency) return null
+        val scaled = fx.rateOrNull(from, trip.baseCurrency, _state.value.today ?: clock.today())
+            ?: return null
+        return "1 ${from.code} = ${formatScaled(scaled)} ${trip.baseCurrency.code}"
+    }
+
+    /** Every foreign currency this trip's captures actually used. */
+    public fun currenciesInUse(): List<String> {
+        val base = _state.value.trip?.baseCurrency?.code ?: return emptyList()
+        return (_state.value.dayCapturesAll.values.flatten() + _state.value.dayCaptures)
+            .mapNotNull { it.currency?.code }
+            .distinct()
+            .filter { it != base }
+            .sorted()
+    }
+
+    private fun formatScaled(scaled: Long): String {
+        val whole = scaled / FxTable.SCALE
+        val fraction = (scaled % FxTable.SCALE).toString().padStart(6, '0').trimEnd('0')
+        return if (fraction.isEmpty()) whole.toString() else "$whole.$fraction"
+    }
+
     public fun editTripCurrency(code: String) {
         val trip = _state.value.trip ?: return
         val currency = CurrencyCode.parseOrNull(code) ?: return

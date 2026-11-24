@@ -171,6 +171,9 @@ public data class AppUiState(
      */
     public val railDocked: Boolean = true,
 
+    /** A refused exchange rate, in one line, for the field that refused it. */
+    public val rateError: String? = null,
+
     /**
      * The last error the app caught, as one line, for the diagnostic on
      * Preferences. Null almost always — it is here so that a failure is written

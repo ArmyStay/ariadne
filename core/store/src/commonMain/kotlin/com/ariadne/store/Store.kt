@@ -1,6 +1,7 @@
 package com.ariadne.store
 
 import com.ariadne.model.Capture
+import com.ariadne.model.CurrencyCode
 import com.ariadne.model.DayCard
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Rate
@@ -41,6 +42,9 @@ public interface Store : CaptureRepository {
 
     public suspend fun allRates(): List<Rate>
     public suspend fun upsertRate(rate: Rate)
+
+    /** Forget every rate for this pair: a wrong rate must be removable. */
+    public suspend fun deleteRate(base: CurrencyCode, quote: CurrencyCode)
 
     public suspend fun settings(): Settings
     public suspend fun saveSettings(settings: Settings)

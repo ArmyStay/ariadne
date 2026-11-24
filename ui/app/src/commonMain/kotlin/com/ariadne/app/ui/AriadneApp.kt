@@ -144,7 +144,10 @@ private fun Destination(
             paper = paper,
             wide = wide,
             onShutter = onShutter,
-            onImport = { model.go(Route.Record(state.today)) },
+            // No fallback needed: the capture page opens the platform picker
+            // itself through LocalPhotoPicker, and on a target with no picker it
+            // does not offer the control at all.
+            onImport = {},
             // Bytes from the platform camera go straight into the record; the
             // page then holds the frame up and asks what to do with it.
             onFrame = { bytes -> if (bytes.isNotEmpty()) model.capturePhoto(bytes) },
