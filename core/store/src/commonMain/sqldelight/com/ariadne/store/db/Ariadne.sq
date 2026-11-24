@@ -1,0 +1,163 @@
+-- Ariadne schema, v1.
+--
+-- Money is stored as INTEGER minor units next to a three-letter currency code:
+-- a REAL column for an amount is a bug that outlives the reviewer who let it in.
+-- Days are ISO-8601 TEXT so they sort lexicographically and survive every
+-- driver; they are never stored as epoch millis, because a day is a calendar
+-- fact, not an instant.
+
+CREATE TABLE trip (
+    id              TEXT NOT NULL PRIMARY KEY,
+    name            TEXT NOT NULL,
+    startDate       TEXT NOT NULL,
+    endDate         TEXT NOT NULL,
+    baseCurrency    TEXT NOT NULL,
+    homeCurrency    TEXT NOT NULL,
+    closedAt        INTEGER
+);
+
+CREATE INDEX trip_start ON trip(startDate);
+
+CREATE TABLE capture (
+    id                      TEXT NOT NULL PRIMARY KEY,
+    tripId                  TEXT NOT NULL REFERENCES trip(id) ON DELETE CASCADE,
+    localDate               TEXT NOT NULL,
+    photoPath               TEXT NOT NULL,
+    createdAt               INTEGER NOT NULL,
+    state                   TEXT NOT NULL,
+    amountMinor             INTEGER,
+    currency                TEXT,
+    merchant                TEXT,
+    extractionConfidence    REAL,
+    confirmedAt             INTEGER,
+    markedNoAmount          INTEGER NOT NULL DEFAULT 0,
+    -- Retry bookkeeping lives with the row, not in memory, so a process death
+    -- in a dead zone resumes exactly where it stopped.
+    failedAttempts          INTEGER NOT NULL DEFAULT 0,
+    retryNotBefore          INTEGER
+);
+
+CREATE INDEX capture_trip_day ON capture(tripId, localDate, createdAt);
+CREATE INDEX capture_state ON capture(state);
+CREATE INDEX capture_merchant ON capture(merchant);
+
+CREATE TABLE dayCard (
+    id          TEXT NOT NULL PRIMARY KEY,
+    tripId      TEXT NOT NULL REFERENCES trip(id) ON DELETE CASCADE,
+    localDate   TEXT NOT NULL,
+    closedAt    INTEGER,
+    UNIQUE(tripId, localDate)
+);
+
+CREATE TABLE rate (
+    base        TEXT NOT NULL,
+    quote       TEXT NOT NULL,
+    rateDate    TEXT NOT NULL,
+    rateScaled  INTEGER NOT NULL,
+    PRIMARY KEY (base, quote, rateDate)
+);
+
+CREATE TABLE settings (
+    id              INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    baseCurrency    TEXT NOT NULL,
+    homeCurrency    TEXT NOT NULL,
+    theme           TEXT NOT NULL,
+    ocrProvider     TEXT NOT NULL
+);
+
+-- -- queries ---------------------------------------------------------------
+
+selectTrips:
+SELECT * FROM trip ORDER BY startDate DESC;
+
+selectTripById:
+SELECT * FROM trip WHERE id = ?;
+
+insertTrip:
+INSERT INTO trip(id, name, startDate, endDate, baseCurrency, homeCurrency, closedAt)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+closeTrip:
+UPDATE trip SET closedAt = ? WHERE id = ?;
+
+deleteTrip:
+DELETE FROM trip WHERE id = ?;
+
+selectCapturesForDay:
+SELECT * FROM capture
+WHERE tripId = ? AND localDate = ?
+ORDER BY createdAt ASC;
+
+selectOpenCaptures:
+SELECT * FROM capture
+WHERE state IN ('QUEUED', 'EXTRACTING', 'NEEDS_AMOUNT', 'NEEDS_CONFIRMATION', 'FAILED')
+ORDER BY createdAt ASC;
+
+selectOpenCapturesReady:
+SELECT * FROM capture
+WHERE state = 'QUEUED' AND (retryNotBefore IS NULL OR retryNotBefore <= ?)
+ORDER BY createdAt ASC;
+
+selectExtracting:
+SELECT * FROM capture WHERE state = 'EXTRACTING' ORDER BY createdAt ASC;
+
+selectCaptureById:
+SELECT * FROM capture WHERE id = ?;
+
+selectConfirmedForTrip:
+SELECT * FROM capture
+WHERE tripId = ? AND state IN ('CONFIRMED', 'ARCHIVED')
+ORDER BY localDate ASC, createdAt ASC;
+
+insertCapture:
+INSERT INTO capture(
+    id, tripId, localDate, photoPath, createdAt, state, amountMinor, currency,
+    merchant, extractionConfidence, confirmedAt, markedNoAmount, failedAttempts, retryNotBefore
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL);
+
+updateCaptureState:
+UPDATE capture SET state = ? WHERE id = ?;
+
+updateCaptureDetails:
+UPDATE capture
+SET amountMinor = ?, currency = ?, merchant = ?, markedNoAmount = ?, confirmedAt = ?
+WHERE id = ?;
+
+updateCaptureRetry:
+UPDATE capture SET failedAttempts = ?, retryNotBefore = ? WHERE id = ?;
+
+deleteCapture:
+DELETE FROM capture WHERE id = ?;
+
+countCapturesForTrip:
+SELECT COUNT(*) FROM capture WHERE tripId = ?;
+
+selectDayCards:
+SELECT * FROM dayCard WHERE tripId = ? ORDER BY localDate ASC;
+
+upsertDayCard:
+INSERT OR IGNORE INTO dayCard(id, tripId, localDate, closedAt) VALUES (?, ?, ?, NULL);
+
+closeDay:
+UPDATE dayCard SET closedAt = ? WHERE tripId = ? AND localDate = ?;
+
+reopenDay:
+UPDATE dayCard SET closedAt = NULL WHERE tripId = ? AND localDate = ?;
+
+selectRate:
+SELECT rateScaled FROM rate
+WHERE base = ? AND quote = ? AND rateDate <= ?
+ORDER BY rateDate DESC LIMIT 1;
+
+upsertRate:
+INSERT OR REPLACE INTO rate(base, quote, rateDate, rateScaled) VALUES (?, ?, ?, ?);
+
+selectAllRates:
+SELECT * FROM rate;
+
+selectSettings:
+SELECT * FROM settings WHERE id = 1;
+
+upsertSettings:
+INSERT OR REPLACE INTO settings(id, baseCurrency, homeCurrency, theme, ocrProvider)
+VALUES (1, ?, ?, ?, ?);

@@ -1,0 +1,28 @@
+plugins {
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.library)
+}
+
+kotlin {
+    jvm()
+    androidTarget()
+    iosX64()
+    iosArm64()
+    iosSimulatorArm64()
+    wasmJs { browser(); nodejs() }
+
+    sourceSets {
+        commonTest.dependencies { implementation(libs.kotlin.test) }
+        commonMain.dependencies { implementation(project(":core:model")) }
+    }
+}
+
+android {
+    namespace = "com.ariadne.core.search"
+    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    defaultConfig.minSdk = libs.versions.android.minSdk.get().toInt()
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
