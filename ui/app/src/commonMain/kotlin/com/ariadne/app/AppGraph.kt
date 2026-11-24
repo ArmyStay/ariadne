@@ -7,6 +7,7 @@ import com.ariadne.model.CurrencyCode
 import com.ariadne.queue.Outbox
 import com.ariadne.search.SearchIndex
 import com.ariadne.store.Store
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,7 +26,29 @@ public class AppGraph(
     private val platform: PlatformServices,
     private val clock: Clock,
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    /**
+     * Every failure in the model is reported here before it disappears.
+     *
+     * A launch that throws inside a SupervisorJob is swallowed — which is how a
+     * missing column became "the button does nothing" on a device with no crash
+     * and no log to explain it. The handler does not make the app fail loudly to
+     * the user; it makes the failure visible to whoever is looking.
+     */
+    private val failures = CoroutineExceptionHandler { _, error ->
+        lastFailure = error
+        println("ariadne: ${error::class.simpleName}: ${error.message}")
+        error.printStackTrace()
+    }
+
+    /**
+     * The last error anything in the app saw, for the diagnostic line in
+     * Preferences. Written from both the coroutine handler and the model's own
+     * `runCatching`, so a failure that was caught and reported to the page is
+     * still visible afterwards.
+     */
+    public var lastFailure: Throwable? = null
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + failures)
     private var idCounter = 0L
     private var baseCurrency: CurrencyCode = CurrencyCode.of("INR")
 
@@ -56,7 +79,7 @@ public class AppGraph(
         // Time-ordered ids sort the way the photographs were taken, so the record
         // and the queue agree without a sequence table.
         newId = { "c-${clock.nowMillis()}-${idCounter++}" },
-    )
+    ).also { m -> m.onFailure = { lastFailure = it } }
 
     public fun setBaseCurrency(currency: CurrencyCode) {
         baseCurrency = currency

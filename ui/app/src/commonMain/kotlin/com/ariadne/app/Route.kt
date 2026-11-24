@@ -148,6 +148,13 @@ public data class AppUiState(
 
     /** True for a moment after the card was copied, so the label can say so. */
     public val cardCopied: Boolean = false,
+
+    /**
+     * The last error the app caught, as one line, for the diagnostic on
+     * Preferences. Null almost always — it is here so that a failure is written
+     * down somewhere a person can find rather than only in a console.
+     */
+    public val failureNote: String? = null,
 ) {
     public val current: Capture? get() = stack.getOrNull(stackIndex)
     public val remaining: Int get() = (stack.size - stackIndex).coerceAtLeast(0)

@@ -40,7 +40,13 @@ import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.Label
 import com.ariadne.design.LinkAction
+import com.ariadne.design.Motion
+import com.ariadne.design.NavRow
+import com.ariadne.design.Reveal
+import com.ariadne.design.SectionBreak
+import com.ariadne.design.Rule
 import com.ariadne.design.Numeral
+import com.ariadne.design.motionSpec
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.Masthead
 import com.ariadne.design.Page
@@ -48,6 +54,7 @@ import com.ariadne.design.PageHeader
 import com.ariadne.design.RailFigure
 import com.ariadne.design.SectionHead
 import com.ariadne.design.Glyph
+import com.ariadne.design.animatedLong
 import com.ariadne.design.Grid
 import com.ariadne.design.Icon
 import com.ariadne.design.Paper
@@ -193,18 +200,32 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
 
         SectionHead("II", "the trip", paper, trailing = "${trip.startDate.iso} → ${trip.endDate.iso}")
 
-        NavRow(Glyph.Date, "Timeline", "${state.dayCards.count { it.isClosed }} of ${state.dayCards.size} days closed", paper) {
-            model.go(Route.Timeline)
+        // The index settles in, one row behind the next. Each row is a Reveal, so
+        // the page arrives as a composed set rather than as a block that appears.
+        Reveal(0) {
+            NavRow(Glyph.Date, "Timeline", "${state.dayCards.count { it.isClosed }} of ${state.dayCards.size} days closed", paper) {
+                model.go(Route.Timeline)
+            }
         }
-        NavRow(Glyph.Record, "The record", "${state.dayCaptures.size} kept today", paper) {
-            model.go(Route.Record(state.today))
+        Rule(paper)
+        Reveal(1) {
+            NavRow(Glyph.Record, "The record", "${state.dayCaptures.size} kept today", paper) {
+                model.go(Route.Record(state.today))
+            }
         }
-        NavRow(Glyph.Search, "Search what you kept", "by shop, price, day", paper) {
-            model.go(Route.Search)
+        Rule(paper)
+        Reveal(2) {
+            NavRow(Glyph.Search, "Search what you kept", "by shop, price, day", paper) {
+                model.go(Route.Search)
+            }
         }
-        NavRow(Glyph.Trip, "The trip's page", "dates, currencies, the card", paper) {
-            model.go(Route.Trip)
+        Rule(paper)
+        Reveal(3) {
+            NavRow(Glyph.Trip, "The trip's page", "dates, currencies, the card", paper) {
+                model.go(Route.Trip)
+            }
         }
+        Rule(paper)
 
         Spacer(Modifier.height(30.dp))
         Body(
@@ -216,35 +237,6 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             lineHeight = 19.sp,
         )
         Spacer(Modifier.height(96.dp))
-    }
-}
-
-@Composable
-private fun NavRow(
-    glyph: Glyph,
-    label: String,
-    detail: String,
-    paper: Paper,
-    onClick: () -> Unit,
-) {
-    Column {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .pointerInput(label) { detectTapGestures(onTap = { onClick() }) }
-                .padding(vertical = 15.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // A glyph in the hanging margin, so the index scans as a list of places
-            // rather than four lines of serif that happen to be different words.
-            Box(Modifier.width(26.dp)) {
-                Icon(glyph, paper, size = 16.dp, color = paper.inkSoft)
-            }
-            Title(label, paper, size = 19.sp)
-            Spacer(Modifier.weight(1f))
-            Label(detail, paper, color = paper.inkFaint, tracking = 1.2.sp)
-        }
-        Rule(paper)
     }
 }
 
@@ -393,8 +385,11 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         Row(verticalAlignment = Alignment.Bottom) {
             Numeral(CurrencyCode.of(base.code).symbol(), paper, color = paper.inkFaint, size = 22.sp)
             Spacer(Modifier.width(6.dp))
+            // Counts to the new total rather than snapping: this figure is read
+            // against a fence, and seeing which way it moved is the point.
+            val shown = animatedLong(tripTotal)
             Numeral(
-                Money.ofMinor(tripTotal).format(base),
+                Money.ofMinor(shown).format(base),
                 paper,
                 size = if (wide) 64.sp else 50.sp,
                 weight = FontWeight.Medium,
@@ -522,7 +517,13 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
 // ── 4. Prefs ────────────────────────────────────────────────────────────────
 
 @Composable
-public fun PrefsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
+public fun PrefsPage(
+    state: AppUiState,
+    model: AppModel,
+    paper: Paper,
+    wide: Boolean,
+    lastFailure: String? = null,
+) {
     TabPage(
         paper,
         wide,
@@ -584,6 +585,24 @@ public fun PrefsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             size = 14.sp,
             lineHeight = 21.sp,
         )
+
+        // The honest diagnostic. If anything threw and was swallowed - which is
+        // exactly how a dead button happens - it is written here rather than
+        // living only in a console nobody has attached to.
+        if (lastFailure != null) {
+            Spacer(Modifier.height(22.dp))
+            SectionBreak("something failed", paper, top = 0.dp)
+            Label(lastFailure, paper, color = paper.inkSoft, size = 9.sp, tracking = 0.6.sp)
+            Spacer(Modifier.height(6.dp))
+            Body(
+                "This is the last error the app saw. Nothing was lost; it is written here " +
+                    "because a failure that only happens in a log is a failure nobody fixes.",
+                paper,
+                color = paper.inkFaint,
+                size = 12.sp,
+                lineHeight = 18.sp,
+            )
+        }
 
         Spacer(Modifier.height(28.dp))
         SectionHead("III", "this trip", paper)
@@ -675,7 +694,13 @@ private fun PrefChoice(
             Spacer(Modifier.width(8.dp))
             Icon(Glyph.Edit, paper, size = 14.dp, color = paper.inkFaint)
         }
-        if (open) {
+        androidx.compose.animation.AnimatedVisibility(
+            visible = open,
+            enter = androidx.compose.animation.expandVertically(motionSpec(Motion.Reveal)) +
+                androidx.compose.animation.fadeIn(motionSpec(Motion.Reveal)),
+            exit = androidx.compose.animation.shrinkVertically(motionSpec(Motion.Reveal)) +
+                androidx.compose.animation.fadeOut(motionSpec(Motion.Reveal)),
+        ) {
             Row(
                 Modifier.fillMaxWidth().padding(bottom = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -709,16 +734,11 @@ private fun PrefChoice(
 /** A setting that is a fact, not a choice. It says so rather than pretending. */
 @Composable
 private fun PrefReadout(glyph: Glyph, label: String, value: String, paper: Paper) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 15.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(glyph, paper, size = 16.dp, color = paper.inkFaint)
-        Spacer(Modifier.width(12.dp))
-        Title(label, paper, size = 17.sp)
-        Spacer(Modifier.weight(1f))
-        Label(value, paper, color = paper.inkSoft, tracking = 1.2.sp)
-    }
+    // Same block as the index rows on the front page: glyph in the hanging
+    // margin, title, a figure set in the sans face. A read-out is simply a row
+    // that does nothing when tapped, which is why it is the shared one with a
+    // no-op rather than a second copy that looks almost the same.
+    NavRow(glyph, label, value, paper, onClick = {})
     Rule(paper)
 }
 

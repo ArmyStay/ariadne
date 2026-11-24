@@ -10,9 +10,10 @@ Last updated: 2026-11-23.
 | Domain logic | `tools/test-domain.sh` | **OK (70 tests)** |
 | Real UI renders | `tools/run-preview.sh --shots docs/shots` | **21 frames, PNG** |
 | Real UI window | `tools/run-preview.sh` | launches under Xvfb |
-| SQLDelight codegen | `tools/store-check.sh` | generates from `Ariadne.sq` |
-| `AriadneStore` vs real SQLite | `tools/store-check.sh` | **30 checks pass** |
-| The capture flow, walked | `tools/flow-check.sh` | **50 checks pass** |
+| SQLDelight codegen | `tools/store-check.sh` | generates from `Ariadne.sq`, `verifyMigrations` on |
+| v1 database migrates and keeps its trip | `tools/store-check.sh` | **ok**, real file, real `openOrMigrate` |
+| `AriadneStore` vs real SQLite | `tools/store-check.sh` | **41 checks pass** |
+| The capture flow, walked | `tools/flow-check.sh` | **54 checks pass** |
 | Four entry points compile | `tools/entry-check.sh` | **all four** |
 | Desktop app launches + persists | manual, under Xvfb | window opens, DB written |
 
@@ -204,3 +205,29 @@ real defects, all now fixed:
    Tesseract (desktop), none (Wasm — by design).
 4. Wasm: replace `InMemoryStore` with the IndexedDB driver before the Pages deploy.
 5. A real camera/photo picker behind `PlatformPhotos`.
+
+## Reliability + motion pass (same day, after a side-by-side test round)
+
+Three reports came back from someone running the app on their own machine: "Open
+the trip" did nothing, the app felt laggy, and there were no modular effects.
+
+**The button.** Not a UI bug. `trip` had gained `place` and `budgetMinor` while
+the SQLDelight schema stayed at version 1, so an existing device never ran a
+migration; the INSERT named columns the table did not have, threw inside a
+`SupervisorJob` coroutine, and was swallowed. A fresh install worked, which is
+why it passed every gate. Fixed with `1.sqm`, `verifyMigrations.set(true)`, and
+`openOrMigrate` in `core/store` used by both the desktop entry point and the
+store gate. Proven by building a v1 file by hand and migrating it.
+
+**The silence.** A failure now reaches the page: `commitDraft` catches, shows a
+sentence on the form, and records `failureNote`, which Preferences displays.
+
+**The lag.** `ExtractionService.drain()` was single-flight already this round;
+the remaining source was recomposition width - `Amount(state, paper)` took the
+whole `AppUiState`, so a keystroke recomposed the plate, band and keypad. Those
+take primitives now, and the Nightfall columns are keyed on the card and the
+typed text.
+
+**The effects.** `core/design/Blocks.kt` (NavRow, SectionBreak, Framed,
+FigureRow, TapSurface) and four effects in `Motion.kt` (Reveal, page drift,
+animatedLong, motionSpec), all honouring `LocalMotionPreference`.

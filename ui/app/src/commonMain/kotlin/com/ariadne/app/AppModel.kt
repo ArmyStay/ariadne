@@ -44,6 +44,27 @@ public class AppModel(
     private val _state = MutableStateFlow(AppUiState())
     public val state: StateFlow<AppUiState> = _state.asStateFlow()
 
+    /**
+     * Where a failed write is reported.
+     *
+     * Set by the graph so the same error the user is shown is the one the
+     * diagnostic line in Preferences can quote. Left alone in tests, which is
+     * why it is a plain assignable rather than a constructor parameter.
+     */
+    public var onFailure: ((Throwable) -> Unit)? = null
+
+    /**
+     * Records a failure twice: once in state, where the page can show it, and
+     * once to the graph, where the console handler can print it. Both, because a
+     * failure caught here never reaches the coroutine handler.
+     */
+    private fun report(failure: Throwable) {
+        onFailure?.invoke(failure)
+        _state.value = _state.value.copy(
+            failureNote = "${failure::class.simpleName}: ${failure.message ?: "no message"}",
+        )
+    }
+
     private var fx = FxTable(emptyList())
     private var settings = Settings()
 
@@ -406,10 +427,28 @@ public class AppModel(
         )
         scope.launch {
             _state.value = _state.value.copy(busy = true)
-            store.createTrip(trip)
-            store.saveSettings(settings.copy(baseCurrency = currency))
-            if (withDemoRoll) seedDemoRoll(trip)
-            bindTrip(trip)
+            // Whatever goes wrong here has to reach the page. This is the call
+            // that used to fail silently: it threw inside a launched coroutine,
+            // the exception was swallowed, and "Open the trip" simply did
+            // nothing, which reads as a dead button rather than as an error.
+            val failure = runCatching {
+                store.createTrip(trip)
+                store.saveSettings(settings.copy(baseCurrency = currency))
+                if (withDemoRoll) seedDemoRoll(trip)
+                bindTrip(trip)
+            }.exceptionOrNull()
+            if (failure != null) {
+                report(failure)
+                _state.value = _state.value.copy(
+                    busy = false,
+                    draft = d.copy(
+                        error = "The trip could not be saved. " +
+                            (failure.message ?: failure::class.simpleName ?: "Unknown error") +
+                            " — nothing was lost; try again.",
+                    ),
+                )
+                return@launch
+            }
             _state.value = _state.value.copy(busy = false, draft = TripDraft(), route = Route.Home)
         }
     }

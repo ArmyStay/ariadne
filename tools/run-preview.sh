@@ -36,7 +36,10 @@ SOURCES=(
   $(find "$ROOT/core/model" "$ROOT/core/queue" "$ROOT/core/extract" "$ROOT/core/fx" \
          "$ROOT/core/search" "$ROOT/core/time" "$ROOT/core/design" \
          "$ROOT/core/store" "$ROOT/ui" -name '*.kt' -path '*commonMain*' \
-         ! -name 'AriadneStore.kt' ! -name 'PhotoStore.kt')
+         ! -name 'AriadneStore.kt' ! -name 'PhotoStore.kt' ! -name 'Open.kt')
+  # Open.kt is excluded with the other two: it names the generated SQLDelight
+  # schema, which only exists after codegen. Its own gate is tools/store-check.sh,
+  # which generates that schema and drives the migration over a real file.
   # The preview is a JVM target, so it needs the desktop actuals of every
   # expect/actual pair (the camera is the only one so far).
   $(find "$ROOT/ui" -name '*.kt' -path '*desktopMain*')

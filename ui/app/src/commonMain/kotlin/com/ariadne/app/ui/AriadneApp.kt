@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
@@ -87,7 +89,13 @@ public fun AriadneApp(
                         animationSpec = spec,
                         label = "route",
                     ) { target ->
-                        Destination(target, state, model, paper, wide, onShutter)
+                        // A few points of sideways drift as the page arrives: the
+                        // app is a book, so pages turn across, not up.
+                        val drift = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(Motion.Drift) }
+                        androidx.compose.runtime.LaunchedEffect(target) { drift.animateTo(0f, spec) }
+                        Box(Modifier.offset(x = drift.value.dp)) {
+                            Destination(target, state, model, paper, wide, onShutter)
+                        }
                     }
                 }
 
@@ -125,7 +133,7 @@ private fun Destination(
         Route.Home -> HomePage(state, model, paper, wide)
         Route.Timeline -> TimelinePage(state, model, paper, wide)
         Route.Stats -> StatsPage(state, model, paper, wide)
-        Route.Prefs -> PrefsPage(state, model, paper, wide)
+        Route.Prefs -> PrefsPage(state, model, paper, wide, state.failureNote)
 
         Route.Trip -> TripPage(state, model, paper, wide)
 
@@ -155,7 +163,7 @@ private fun Destination(
         // them rather than a second copy of it.
         Route.Trips -> if (state.trip == null) NewTripPage(state, model, paper, wide) else HomePage(state, model, paper, wide)
 
-        Route.Settings -> PrefsPage(state, model, paper, wide)
+        Route.Settings -> PrefsPage(state, model, paper, wide, state.failureNote)
     }
 }
 

@@ -37,7 +37,11 @@ sqldelight {
         create("AriadneDb") {
             packageName.set("com.ariadne.store.db")
             schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
-            verifyMigrations.set(false)
+            // On. The schema is versioned through .sqm files and every migration
+            // is checked against the generated schema at build time — the failure
+            // this guards against (a table that grew while its version did not) is
+            // exactly the one that made "Open the trip" do nothing on a device.
+            verifyMigrations.set(true)
         }
     }
 }

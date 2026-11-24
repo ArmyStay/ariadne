@@ -1,0 +1,14 @@
+-- Migration 1 -> 2.
+--
+-- A trip gained two facts it can hold: where it is ([place]) and the fence the
+-- traveller set for it ([budgetMinor]). Both are nullable, because a trip without
+-- a place or a budget is a trip, not an incomplete one.
+--
+-- This file exists because the `trip` table grew while the schema version stayed
+-- at 1, which meant every device holding a v1 database got a silent failure: the
+-- INSERT named columns the table did not have, the exception was swallowed inside
+-- a launched coroutine, and "Open the trip" did nothing at all.
+
+ALTER TABLE trip ADD COLUMN place TEXT;
+
+ALTER TABLE trip ADD COLUMN budgetMinor INTEGER;

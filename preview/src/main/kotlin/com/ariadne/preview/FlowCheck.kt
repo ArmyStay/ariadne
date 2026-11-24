@@ -186,6 +186,26 @@ fun main() {
     check("deletion sends you back to the front door", model.state.value.route == Route.NewTrip)
     check("deletion clears the trip from state", model.state.value.trip == null)
 
+    // ---- a failed write is shown, not swallowed ----------------------------
+    //
+    // The rule this round established: no visible control may do nothing. If the
+    // store refuses, the form says so in a sentence and stays where it is.
+    val refusing = AppGraph(
+        object : PlatformServices by FlowServices() {
+            override fun store(): com.ariadne.store.Store = RefusingStore(InMemoryStore())
+        },
+        SystemClock(),
+    )
+    refusing.model.start()
+    settle()
+    refusing.model.editDraft(name = "A trip that will not save", startIso = "2026-12-01", endIso = "2026-12-06")
+    refusing.model.commitDraft()
+    settle()
+    check("a refused write reports an error on the form", refusing.model.state.value.draft.error != null)
+    check("the error says it could not be saved", refusing.model.state.value.draft.error?.contains("could not be saved") == true)
+    check("a refused write does not pretend the trip opened", refusing.model.state.value.route == Route.NewTrip)
+    check("the failure is kept for the diagnostic line", refusing.model.state.value.failureNote != null)
+
     println()
     if (failures == 0) {
         println("ALL FLOW CHECKS PASSED ($checks)")
@@ -219,6 +239,20 @@ private class FlowServices : PlatformServices {
     override fun files() = files
 
     override fun close() = Unit
+}
+
+/**
+ * A store whose writes throw, standing in for the real defect: when `trip` grew
+ * two columns without the schema version moving, the INSERT named columns the
+ * table did not have. The exception was swallowed inside a launched coroutine
+ * and the page sat there looking like a button that does not work.
+ *
+ * This class exists so that behaviour is asserted rather than remembered.
+ */
+private class RefusingStore(private val delegate: com.ariadne.store.Store) : com.ariadne.store.Store by delegate {
+    override suspend fun createTrip(trip: com.ariadne.model.Trip) {
+        throw IllegalStateException("no such column: place (code 1 SQLITE_ERROR)")
+    }
 }
 
 private class RecordingFiles : com.ariadne.app.PhotoFiles {

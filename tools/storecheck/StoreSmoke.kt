@@ -9,6 +9,8 @@ import com.ariadne.model.Trip
 import com.ariadne.queue.Outbox
 import com.ariadne.queue.QueueEvent
 import com.ariadne.store.AriadneStore
+import com.ariadne.store.openOrMigrate
+import com.ariadne.store.schemaVersion
 import com.ariadne.store.db.AriadneDb
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -216,6 +218,90 @@ fun main() = runBlocking {
 
     println("persistence")
     expect("db file written", file.length() > 0, true)
+
+    // ── The upgrade path ────────────────────────────────────────────────────
+    //
+    // Everything above ran against a database created at the current version,
+    // which is exactly the case that hid the "Open the trip" bug: a fresh
+    // install worked and an existing one did not. So build a *v1* database by
+    // hand — the schema as it shipped — put a trip in it, then migrate it and
+    // prove the trip is still readable and that a new one can be written.
+    println("migration from v1")
+    val old = File(System.getProperty("java.io.tmpdir"), "ariadne-store-v1.db")
+    old.delete()
+    val oldDriver = JdbcSqliteDriver("jdbc:sqlite:${old.absolutePath}")
+    // SqlDriver.execute prepares exactly one statement - a multi-statement
+    // string silently runs only its first line. Hence one call per line.
+    // The schema exactly as it shipped at version 1: no place, no budgetMinor on
+    // trip, and everything else as Ariadne.sq has it today.
+    val v1Schema = listOf(
+        "CREATE TABLE trip (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
+            "startDate TEXT NOT NULL, endDate TEXT NOT NULL, baseCurrency TEXT NOT NULL, " +
+            "homeCurrency TEXT NOT NULL, closedAt INTEGER)",
+        "CREATE INDEX trip_start ON trip(startDate)",
+        "CREATE TABLE capture (id TEXT NOT NULL PRIMARY KEY, " +
+            "tripId TEXT NOT NULL REFERENCES trip(id) ON DELETE CASCADE, " +
+            "localDate TEXT NOT NULL, photoPath TEXT NOT NULL, createdAt INTEGER NOT NULL, " +
+            "state TEXT NOT NULL, amountMinor INTEGER, currency TEXT, merchant TEXT, " +
+            "extractionConfidence REAL, confirmedAt INTEGER, " +
+            "markedNoAmount INTEGER NOT NULL DEFAULT 0, category TEXT, note TEXT, " +
+            "failedAttempts INTEGER NOT NULL DEFAULT 0, retryNotBefore INTEGER)",
+        "CREATE INDEX capture_trip_day ON capture(tripId, localDate, createdAt)",
+        "CREATE INDEX capture_state ON capture(state)",
+        "CREATE INDEX capture_merchant ON capture(merchant)",
+        "CREATE TABLE dayCard (id TEXT NOT NULL PRIMARY KEY, " +
+            "tripId TEXT NOT NULL REFERENCES trip(id) ON DELETE CASCADE, " +
+            "localDate TEXT NOT NULL, closedAt INTEGER, UNIQUE(tripId, localDate))",
+        "CREATE TABLE rate (base TEXT NOT NULL, quote TEXT NOT NULL, " +
+            "rateDate TEXT NOT NULL, rateScaled INTEGER NOT NULL, " +
+            "PRIMARY KEY (base, quote, rateDate))",
+        "CREATE TABLE settings (id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1), " +
+            "baseCurrency TEXT NOT NULL, homeCurrency TEXT NOT NULL, " +
+            "theme TEXT NOT NULL, ocrProvider TEXT NOT NULL)",
+        "PRAGMA user_version = 1",
+    )
+    v1Schema.forEach { oldDriver.execute(null, it, 0) }
+    oldDriver.execute(
+        null,
+        "INSERT INTO trip (id, name, startDate, endDate, baseCurrency, homeCurrency) " +
+            "VALUES ('trip-old', 'An older trip', '2026-11-01', '2026-11-05', 'INR', 'INR')",
+        0,
+    )
+    expect("v1 database reports version 1", oldDriver.schemaVersion(), 1L)
+
+    // Not a reimplementation: the exact function Main.kt calls on startup.
+    com.ariadne.store.openOrMigrate(oldDriver)
+    expect("migrated to the current version", oldDriver.schemaVersion(), AriadneDb.Schema.version.toLong())
+
+    val oldStore = AriadneStore(oldDriver)
+    val migrated = oldStore.trip("trip-old")
+    expect("the old trip survived the migration", migrated?.name, "An older trip")
+    expect("it starts without a place", migrated?.place, null)
+    expect("it starts without a budget", migrated?.budgetMinor, null)
+
+    // The bug itself: writing a trip with place and budget into a migrated
+    // database. Before 1.sqm this threw and the button did nothing.
+    oldStore.createTrip(
+        Trip(
+            id = "trip-new",
+            name = "The one that would not open",
+            startDate = LocalDay.of(2026, 12, 1),
+            endDate = LocalDay.of(2026, 12, 6),
+            baseCurrency = CurrencyCode.of("INR"),
+            homeCurrency = CurrencyCode.of("INR"),
+            place = "Bangkok",
+            budgetMinor = 3_000_000L,
+        ),
+    )
+    expect("a new trip writes into a migrated database", oldStore.trip("trip-new")?.name, "The one that would not open")
+    expect("its place is there", oldStore.trip("trip-new")?.place, "Bangkok")
+    expect("its fence is there", oldStore.trip("trip-new")?.budgetMinor, 3_000_000L)
+    expect("it becomes the active trip", oldStore.activeTrip()?.id, "trip-new")
+    // Opening again must be a no-op: this is the call that used to run `create`
+    // and throw on every launch after the first.
+    com.ariadne.store.openOrMigrate(oldDriver)
+    expect("re-opening keeps the data", AriadneStore(oldDriver).trip("trip-new")?.place, "Bangkok")
+    old.delete()
 
     file.delete()
     if (failures > 0) {

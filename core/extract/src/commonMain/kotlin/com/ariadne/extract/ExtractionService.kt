@@ -35,11 +35,33 @@ public class ExtractionService(
     public val lastOutcome: StateFlow<ExtractionOutcome?> = _lastOutcome
 
     /** Walks the queue once, oldest first. Safe to call on every app start. */
+    /**
+     * One drain at a time.
+     *
+     * Every capture used to start its own loop, so five photographs meant five
+     * loops pulling from the same queue, racing on the same rows and each
+     * re-triggering a refresh. On a device with no recogniser bound every one of
+     * them also retried with backoff, which is how a shutter tap turned into a
+     * stutter across the whole app. The flag makes drain idempotent: asking twice
+     * costs nothing.
+     */
+    @kotlin.concurrent.Volatile
+    private var draining = false
+
     public fun drain() {
+        // Checked and set on the caller's thread. A lost race costs one extra loop
+        // that finds an empty queue and exits; a mutex here would suspend the
+        // shutter handler, which is the thing this is trying to avoid.
+        if (draining) return
+        draining = true
         scope.launch {
-            while (true) {
-                val next = outbox.nextForExtraction() ?: break
-                extractOne(next.id, next.photoPath)
+            try {
+                while (true) {
+                    val next = outbox.nextForExtraction() ?: break
+                    extractOne(next.id, next.photoPath)
+                }
+            } finally {
+                draining = false
             }
         }
     }

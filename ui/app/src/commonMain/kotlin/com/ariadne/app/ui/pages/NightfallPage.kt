@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -62,6 +63,9 @@ public fun NightfallPage(
 ) {
     val capture = state.current
     val day = (state.route as? Route.Nightfall)?.day
+    // Read here, once, and passed down as values. Everything below is boxed on
+    // its own keys, so a keypress recomposes the amount and nothing else.
+    val typed = state.amountInput
 
     Column(
         Modifier
@@ -122,7 +126,14 @@ public fun NightfallPage(
                     }
                 }
                 Column(Modifier.weight(1f)) {
-                    Triage(state, model, paper, capture, wide = true)
+                    // Boxing on the card, not on the state: the whole of the
+                    // right-hand column only has to recompose when the card
+                    // changes. The amount it holds is boxed again further down.
+                    val card = state.current
+                    val typedIn = state.amountInput
+                    key(card?.id, card?.amountMinor, card?.markedNoAmount, card?.currency) {
+                        Triage(state, model, paper, capture, wide = true, typed = typedIn)
+                    }
                 }
             }
         } else {
@@ -147,7 +158,7 @@ public fun NightfallPage(
                     Spacer(Modifier.height(10.dp))
                 }
                 Spacer(Modifier.height(10.dp))
-                Amount(state, paper)
+                Amount(typed, state.dayCurrency, paper)
                 Spacer(Modifier.height(12.dp))
                 // The decision never scrolls away: two taps finish a card, so both
                 // taps have to be on screen at the same time as the number.
@@ -165,17 +176,22 @@ private fun Triage(
     paper: Paper,
     capture: Capture,
     wide: Boolean = false,
+    typed: String = "",
 ) {
     Column(Modifier.fillMaxWidth()) {
         Header(state, model, paper, capture)
         Spacer(Modifier.height(18.dp))
         Rule(paper)
         Spacer(Modifier.height(18.dp))
-        Amount(state, paper)
+        key(typed) { Amount(typed, state.dayCurrency, paper) }
         Spacer(Modifier.height(18.dp))
         Rule(paper)
         Spacer(Modifier.height(20.dp))
-        Decisions(state, model, paper, wide = true)
+        // Decisions reads only two facts: which card, and whether anything has
+        // been typed. Keying on those keeps the buttons still under a keystroke.
+        key(state.current?.id, typed.isEmpty(), state.stackIndex, state.stack.size) {
+            Decisions(state, model, paper, wide = true, typed = typed)
+        }
     }
 }
 
@@ -211,20 +227,20 @@ private fun Header(state: AppUiState, model: AppModel, paper: Paper, capture: Ca
 
 /** The amount: the largest thing on the page, monospace, tabular. */
 @Composable
-private fun Amount(state: AppUiState, paper: Paper) {
+private fun Amount(amountInput: String, dayCurrency: String, paper: Paper) {
     Column(Modifier.fillMaxWidth()) {
         Label("Amount", paper, color = paper.inkSoft)
         Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Numeral(
-                CurrencyCode.of(state.dayCurrency).symbol(),
+                CurrencyCode.of(dayCurrency).symbol(),
                 paper,
                 color = paper.inkSoft,
                 size = 20.sp,
             )
             Spacer(Modifier.width(8.dp))
             Numeral(
-                state.amountInput.ifEmpty { "0" },
+                amountInput.ifEmpty { "0" },
                 paper,
                 size = 44.sp,
                 weight = androidx.compose.ui.text.font.FontWeight.Medium,
@@ -239,13 +255,19 @@ private fun Amount(state: AppUiState, paper: Paper) {
  * holds priced things is a spreadsheet.
  */
 @Composable
-private fun Decisions(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
+private fun Decisions(
+    state: AppUiState,
+    model: AppModel,
+    paper: Paper,
+    wide: Boolean,
+    typed: String = "",
+) {
     Column(Modifier.fillMaxWidth()) {
         if (wide) {
             Action("Confirm", paper, { model.confirmCurrent() }, accent = true)
             Spacer(Modifier.height(6.dp))
             QuietAction(
-                if (state.current?.amountMinor == null && state.amountInput.isEmpty()) {
+                if (state.current?.amountMinor == null && typed.isEmpty()) {
                     "Keep it without an amount"
                 } else {
                     "No amount"

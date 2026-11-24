@@ -14,7 +14,7 @@ CP="$CP$T/kotlinc/lib/kotlin-stdlib.jar:$T/kotlinc/lib/kotlin-stdlib-jdk8.jar:$T
 COMPILER_CP="$T/kotlinc/lib/kotlin-compiler-embeddable-2.4.21.jar:$T/kotlinc/lib/kotlin-stdlib.jar:$T/kotlinc/lib/kotlin-reflect.jar:$T/kotlinc/lib/annotations-13.0.jar:$T/kotlinc/lib/kotlinx-coroutines-core-jvm.jar:"
 SOURCES=$(find "$ROOT/core/model" "$ROOT/core/queue" "$ROOT/core/extract" "$ROOT/core/fx" \
   "$ROOT/core/search" "$ROOT/core/time" "$ROOT/core/design" "$ROOT/core/store" "$ROOT/ui" \
-  -name '*.kt' -path '*commonMain*' ! -name 'AriadneStore.kt' ! -name 'PhotoStore.kt')
+  -name '*.kt' -path '*commonMain*' ! -name 'AriadneStore.kt' ! -name 'PhotoStore.kt' ! -name 'Open.kt')
 rm -rf "$OUT"; mkdir -p "$OUT"
 "$JAVA_HOME/bin/java" -cp "$COMPILER_CP" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \
   -nowarn -jvm-target 17 -Xplugin="$T/kotlinc/lib/compose-compiler-plugin.jar" \

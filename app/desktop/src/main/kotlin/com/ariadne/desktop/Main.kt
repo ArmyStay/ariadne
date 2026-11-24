@@ -46,29 +46,13 @@ private class DesktopServices : PlatformServices {
         driver = run {
             dbFile.parentFile?.mkdirs()
             val driver = JdbcSqliteDriver("jdbc:sqlite:${dbFile.absolutePath}")
-            // The schema must be created once, not on every launch: `CREATE TABLE`
-            // on an existing database throws "table already exists" and takes the
-            // app down before the window opens.
-            if (!databaseInitialised(driver)) {
-                com.ariadne.store.db.AriadneDb.Schema.create(driver)
-            }
+            // Create at the current version, or migrate a database that predates
+            // it. Doing nothing when the file already exists is what let a v1
+            // database meet a v2 query and fail silently.
+            com.ariadne.store.openOrMigrate(driver)
             driver
         },
     )
-
-    private fun databaseInitialised(driver: SqlDriver): Boolean = try {
-        driver.executeQuery(
-            identifier = null,
-            sql = "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'trip'",
-            mapper = { cursor ->
-                cursor.next()
-                app.cash.sqldelight.db.QueryResult.Value(cursor.getLong(0) ?: 0L)
-            },
-            parameters = 0,
-        ).value > 0L
-    } catch (e: Exception) {
-        false
-    }
 
     override fun recognizer(): TextRecognizer = object : TextRecognizer {
         override suspend fun recognize(imagePath: String): OcrResult =
