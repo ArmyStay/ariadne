@@ -37,6 +37,8 @@ fun main(args: Array<String>) {
         val night: Boolean = false,
         val route: (AppModel) -> Unit = {},
         val settle: Int = 0,
+        /** How far down the page to scroll before the still is taken. */
+        val scrollTo: Float = 0f,
     )
 
     // Each shot's route lambda is called `settle` times, so a flow that needs more
@@ -50,6 +52,11 @@ fun main(args: Array<String>) {
         Shot("01-onboarding", 440, 900, seed = false),
         Shot("02-home", 440, 900, route = { it.go(Route.Home) }),
         Shot("02-home-desktop", 1200, 800, route = { it.go(Route.Home) }),
+        // Part-scrolled, so the still shows the scroll rail half way down and not
+        // only in the state where it is easy to draw.
+        Shot("02-home-scrolled", 440, 900, route = { it.go(Route.Home) }, scrollTo = 0.55f),
+        Shot("02b-timeline-scrolled", 440, 900, route = { it.go(Route.Timeline) }, scrollTo = 0.4f),
+        Shot("06-record-scrolled", 440, 900, route = { it.openRecord(null) }, settle = 1, scrollTo = 0.6f),
         Shot("02b-timeline", 440, 900, route = { it.go(Route.Timeline) }),
         // The register: every trip on this device, one of them active.
         Shot("02a-trips", 440, 900, route = { it.go(Route.Trips) }),
@@ -100,7 +107,7 @@ fun main(args: Array<String>) {
     )
 
     shots.forEach { shot ->
-        render(outDir, shot.name, shot.w, shot.h, shot.seed, shot.settle, shot.night, shot.route)
+        render(outDir, shot.name, shot.w, shot.h, shot.seed, shot.settle, shot.night, shot.scrollTo, shot.route)
     }
     println("rendered ${shots.size} pages into ${outDir.absolutePath}")
 }
@@ -113,6 +120,7 @@ private fun render(
     seed: Boolean,
     settle: Int,
     night: Boolean,
+    scrollTo: Float,
     route: (AppModel) -> Unit,
 ) {
     val graph = AppGraph(ShotServices(), SystemClock())
@@ -142,6 +150,21 @@ private fun render(
     }
     // Advance the scene clock past the 180ms page turn, otherwise the still
     // catches a cross-fade at its first frame and looks like a broken route.
+    // A wheel a person would have made. The rail has to be right at rest and in
+    // motion, so at least three stills catch it part-way down a page.
+    if (scrollTo > 0f) {
+        scene.render(50_000_000L)
+        val target = kotlin.math.round(140f * scrollTo).toInt()
+        repeat(target) {
+            scene.sendPointerEvent(
+                eventType = androidx.compose.ui.input.pointer.PointerEventType.Scroll,
+                position = androidx.compose.ui.geometry.Offset(width / 2f, height / 2f),
+                scrollDelta = androidx.compose.ui.geometry.Offset(0f, 1f),
+            )
+        }
+        settleBlocking(220)
+    }
+
     var nano = 1_000_000_000L
     repeat(24) {
         scene.render(nano)

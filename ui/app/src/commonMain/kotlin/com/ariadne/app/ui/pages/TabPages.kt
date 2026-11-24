@@ -1,6 +1,7 @@
 package com.ariadne.app.ui.pages
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,6 +40,7 @@ import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
+import com.ariadne.design.ScrollRail
 import com.ariadne.design.Label
 import com.ariadne.design.LinkAction
 import com.ariadne.design.Motion
@@ -57,6 +60,7 @@ import com.ariadne.design.Glyph
 import com.ariadne.design.animatedLong
 import com.ariadne.design.Grid
 import com.ariadne.design.Icon
+import com.ariadne.design.PageAction
 import com.ariadne.design.Paper
 import com.ariadne.design.Panel
 import com.ariadne.design.Pill
@@ -107,12 +111,20 @@ private fun TabPage(
         onToggleRail = onToggleRail,
         rail = rail,
     ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 40.dp),
-        ) { content() }
+        Row(Modifier.fillMaxWidth()) {
+            val scroll = rememberScrollState()
+            Column(
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(scroll)
+                    .padding(bottom = 40.dp),
+            ) { content() }
+            // The bar hangs in the margin, level with the text it measures and
+            // never on top of it.
+            Box(Modifier.fillMaxHeight().padding(start = 18.dp)) {
+                ScrollRail(scroll, paper, Modifier.fillMaxHeight())
+            }
+        }
     }
 }
 
@@ -129,7 +141,8 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         rail = {
             if (trip != null) {
                 RailFigure("today", state.today?.iso ?: "—", paper, 13.sp)
-                Spacer(Modifier.height(26.dp))
+                Spacer(Modifier.height(22.dp))
+
                 RailFigure("days", "${dayRange(trip.startDate, trip.endDate).size}", paper, 26.sp)
                 Spacer(Modifier.height(4.dp))
                 Label("closed ${state.dayCards.count { it.isClosed }}", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
@@ -147,7 +160,7 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             paper = paper,
             italic = true,
             wide = wide,
-            trailing = { QuietAction("Prefs", paper, { model.go(Route.Settings) }) },
+            trailing = { PageAction("Prefs", paper, { model.go(Route.Settings) }) },
         )
 
         if (trip == null) {
@@ -195,16 +208,41 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             )
         }
 
-        Spacer(Modifier.height(26.dp))
-        // A bar, not a wall: on a wide page the action keeps a button's width and
-        // sits under the figure it acts on.
-        Action(
-            if (state.stack.isEmpty()) "Begin tonight's tally" else
-                "Finish ${state.stack.size} photograph${if (state.stack.size == 1) "" else "s"}",
+        Spacer(Modifier.height(24.dp))
+
+        // The shutter is the product, so it gets the page's one blue - always,
+        // not only on the days a stack happens to exist. Before this, a fresh day
+        // showed "Begin tonight's tally" and no way to take a photograph at all,
+        // which is the wrong hierarchy for an app whose whole claim is the photo.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.weight(1.5f)) {
+                Action(
+                    // Short enough to fit beside Finish at 440dp without the
+                    // word photograph being clipped to "A".
+                    "Take a photo",
+                    paper,
+                    { model.go(Route.Capture) },
+                    accent = true,
+                    icon = Glyph.Shutter,
+                )
+            }
+            if (state.stack.isNotEmpty()) {
+                Box(Modifier.weight(1f)) {
+                    OutlineAction(
+                        "Finish ${state.stack.size}",
+                        paper,
+                        { model.openNightfall(state.today) },
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        // The library is the second way in - a real action, not a label.
+        QuietAction(
+            "or bring one in from the library",
             paper,
-            { model.openNightfall(state.today) },
-            accent = true,
-            modifier = Modifier.widthIn(max = if (wide) 340.dp else Dp.Unspecified),
+            { model.go(Route.Capture) },
+            color = paper.inkSoft,
         )
 
         SectionHead("II", "the trip", paper, trailing = "${trip.startDate.iso} → ${trip.endDate.iso}")
@@ -290,7 +328,7 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
             italic = true,
             wide = wide,
             lede = "Each day, and the hours it was spent in.",
-            trailing = { QuietAction("Record", paper, { model.go(Route.Record(state.today)) }) },
+            trailing = { PageAction("Record", paper, { model.go(Route.Record(state.today)) }) },
         )
 
         Spacer(Modifier.height(10.dp))
@@ -569,7 +607,7 @@ public fun PrefsPage(
             title = "Preferences",
             paper = paper,
             wide = wide,
-            trailing = { QuietAction("Done", paper, { model.go(Route.Home) }) },
+            trailing = { PageAction("Done", paper, { model.go(Route.Home) }) },
         )
 
         Spacer(Modifier.height(14.dp))
@@ -600,6 +638,41 @@ public fun PrefsPage(
         )
         PrefReadout(Glyph.Date, "Dates", "2026-11-23, ISO order", paper)
         PrefReadout(Glyph.Paper, "Paper", "Follows the system", paper)
+
+        // ── The exchange rate ────────────────────────────────────────────────
+        //
+        // Not decoration: without a rate a foreign amount cannot be converted,
+        // and every total silently under-reports. The figures are exact scaled
+        // integers all the way down; this is the only place a human types one.
+        Spacer(Modifier.height(26.dp))
+        SectionHead("I", "the exchange", paper)
+
+        val inUse = model.currenciesInUse()
+        val foreign = (inUse + listOf("THB", "USD", "EUR", "GBP", "JPY"))
+            .filter { it != state.trip?.baseCurrency?.code }
+            .distinct()
+
+        if (foreign.isEmpty()) {
+            Body("Everything so far is already in the base currency.", paper, color = paper.inkFaint, size = 12.sp)
+        } else {
+            foreign.forEachIndexed { index, code ->
+                RateRow(
+                    code = code,
+                    label = model.rateLabel(code),
+                    used = inUse.contains(code),
+                    paper = paper,
+                    base = state.trip?.baseCurrency?.code ?: "INR",
+                    onSet = { text -> model.setFxRate(code, text) },
+                    onClear = { model.clearFxRate(code) },
+                )
+                if (index == foreign.lastIndex) Rule(paper)
+            }
+        }
+
+        if (state.rateError != null) {
+            Spacer(Modifier.height(8.dp))
+            Body(state.rateError, paper, color = paper.inkMid, size = 12.sp)
+        }
 
         Spacer(Modifier.height(26.dp))
         SectionHead("II", "what leaves this device", paper)
@@ -758,6 +831,108 @@ private fun PrefChoice(
             }
         }
         Rule(paper)
+    }
+}
+
+/**
+ * One exchange rate, as a sentence.
+ *
+ * "1 THB = [ 2.5 ] INR" is the form a traveller can check against a receipt or a
+ * board at the airport. The alternative - two abstract numbers - is what an
+ * engineer would write and what nobody can verify.
+ *
+ * When a rate is on file the field shows it and the row carries the pair; when
+ * one is not, the row says so plainly, because a missing rate is the difference
+ * between a total that is right and a total that is quietly wrong.
+ */
+@Composable
+private fun RateRow(
+    code: String,
+    label: String?,
+    used: Boolean,
+    paper: Paper,
+    base: String,
+    onSet: (String) -> Boolean,
+    onClear: () -> Unit,
+) {
+    var text by remember { mutableStateOf("") }
+    var refused by remember { mutableStateOf(false) }
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(26.dp)) {
+                Icon(Glyph.Budget, paper, size = 15.dp, color = if (label == null) paper.inkGhost else paper.inkSoft)
+            }
+            Title(code, paper, size = 17.sp)
+            Spacer(Modifier.width(10.dp))
+            if (used) {
+                // Marks the currencies this trip actually holds, so the list is
+                // not four speculative rows.
+                Tick(paper, width = 14.dp, color = paper.blue)
+            }
+            Spacer(Modifier.weight(1f))
+            if (label != null) {
+                QuietAction("Clear", paper, onClear, color = paper.inkFaint)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Label("1 $code =", paper, color = paper.inkSoft, size = 10.sp, tracking = 1.2.sp)
+            Spacer(Modifier.width(12.dp))
+            // The field is the thing you have to find and hit, so it is a ruled
+            // box with a visible baseline rather than a line of floating type.
+            Box(
+                Modifier
+                    .width(104.dp)
+                    .background(paper.sunk)
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+            ) {
+                BasicTextField(
+                    value = text,
+                    onValueChange = { v ->
+                        text = v.filter { it.isDigit() || it == '.' }.take(12)
+                        refused = false
+                    },
+                    singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        fontFamily = Bone.Sans,
+                        fontSize = 16.sp,
+                        color = paper.ink,
+                    ),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(paper.ink),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (text.isEmpty()) {
+                    Label("rate", paper, color = paper.inkFaint, size = 10.sp, tracking = 1.2.sp)
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+            Label(base, paper, color = paper.inkSoft, size = 10.sp, tracking = 1.2.sp)
+            Spacer(Modifier.weight(1f))
+            if (text.isNotEmpty()) {
+                QuietAction("Set", paper, {
+                    val accepted = onSet(text)
+                    refused = !accepted
+                    if (accepted) text = ""
+                }, color = paper.blue)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Label(
+            when {
+                refused -> "not a number"
+                label != null -> label
+                used -> "no rate on file — this currency is not being converted"
+                else -> "no rate on file"
+            },
+            paper,
+            color = when {
+                refused || (label == null && used) -> paper.inkSoft
+                else -> paper.inkGhost
+            },
+            size = 9.5.sp,
+            tracking = 1.2.sp,
+        )
     }
 }
 

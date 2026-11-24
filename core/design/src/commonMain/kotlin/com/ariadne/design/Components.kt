@@ -217,6 +217,11 @@ public fun Action(
     accent: Boolean = false,
     enabled: Boolean = true,
     fill: Boolean = true,
+    /**
+     * A glyph inside the button. The shutter is the product, and a word alone in
+     * a blue block was doing the least interesting possible version of that.
+     */
+    icon: Glyph? = null,
 ) {
     val bg = when {
         !enabled -> paper.sunk
@@ -245,18 +250,38 @@ public fun Action(
             .padding(horizontal = 20.dp, vertical = 17.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = text.uppercase(),
-            style = TextStyle(
-                fontFamily = Bone.Sans,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 2.sp,
-            ),
-            color = fg,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-        )
+        if (icon == null) {
+            Text(
+                text = text.uppercase(),
+                style = TextStyle(
+                    fontFamily = Bone.Sans,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 2.sp,
+                ),
+                color = fg,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+        } else {
+            androidx.compose.foundation.layout.Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(icon, paper, size = 17.dp, color = fg)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = text.uppercase(),
+                    style = TextStyle(
+                        fontFamily = Bone.Sans,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 2.sp,
+                    ),
+                    color = fg,
+                    maxLines = 1,
+                )
+            }
+        }
     }
 }
 
@@ -322,10 +347,13 @@ public fun QuietAction(
             .pointerInput(text) { detectTapGestures(onTap = { onClick() }) }
             .padding(vertical = 6.dp),
     ) {
-        Label(text, paper, color = c, size = 10.sp, tracking = 1.4.sp)
+        // 11sp and a full-weight rule. At 10sp with a 1dp mark this read as a
+        // caption rather than as something you can press, which is exactly why the
+        // top of every page felt dead.
+        Label(text, paper, color = c, size = 11.sp, tracking = 1.4.sp)
         if (underline) {
             Spacer(Modifier.height(4.dp))
-            Box(Modifier.width(if (text.length > 8) 44.dp else 26.dp).height(1.dp).background(c))
+            Box(Modifier.width(if (text.length > 8) 44.dp else 26.dp).height(1.5.dp).background(c))
         }
     }
 }

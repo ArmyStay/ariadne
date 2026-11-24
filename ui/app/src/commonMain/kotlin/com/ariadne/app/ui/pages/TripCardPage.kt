@@ -30,6 +30,7 @@ import com.ariadne.design.Glyph
 import com.ariadne.design.Icon
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
+import com.ariadne.design.ScrollingMargin
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
@@ -52,13 +53,8 @@ public fun TripCardPage(state: AppUiState, model: AppModel, paper: Paper, wide: 
     val trip = state.trip ?: return
     val closed = state.dayCards.count { it.isClosed }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(paper.sunk)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = if (wide) 96.dp else 20.dp, vertical = 28.dp),
-    ) {
+    // The card is a printed object on darker stock, so it keeps its own ground.
+    ScrollingMargin(paper, wide, margin = if (wide) 96.dp else 20.dp, vertical = 28.dp) { _ ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             QuietAction("Back to the record", paper, { model.go(Route.Record(state.today)) })
             // Share copies the card as text, built from the same state the page is

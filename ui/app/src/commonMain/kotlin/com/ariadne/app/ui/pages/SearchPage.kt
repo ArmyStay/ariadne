@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,6 +40,9 @@ import com.ariadne.design.NavRow
 import com.ariadne.design.SectionBreak
 import com.ariadne.design.Numeral
 import com.ariadne.design.Masthead
+import com.ariadne.design.PageAction
+import com.ariadne.design.ScrollRail
+import com.ariadne.design.ScrollingMargin
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Plate
@@ -76,7 +80,7 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             eyebrow = "The record",
             title = "Remember a thing",
             paper = paper,
-            trailing = { QuietAction("Record", paper, { model.go(Route.Record(state.today)) }) },
+            trailing = { PageAction("Record", paper, { model.go(Route.Record(state.today)) }) },
         )
 
         Spacer(Modifier.height(26.dp))
@@ -106,7 +110,9 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
 
         Spacer(Modifier.height(24.dp))
 
-        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth().weight(1f)) {
+        val railScroll = rememberScrollState()
+        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(railScroll)) {
         when {
             state.searchQuery.isEmpty() -> {
                 Body(
@@ -153,6 +159,9 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
                 }
             }
         }
+        }
+        // The results scroll on their own; the field above never moves.
+        ScrollRail(railScroll, paper, Modifier.fillMaxHeight())
         }
     }
 }

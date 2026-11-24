@@ -34,6 +34,8 @@ import com.ariadne.design.Masthead
 import com.ariadne.design.Motion
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.ariadne.design.ScrollRail
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Reveal
@@ -76,7 +78,9 @@ public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         Spacer(Modifier.height(10.dp))
         Rule(paper, color = paper.ink)
 
-        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth().weight(1f)) {
+        val scroll = rememberScrollState()
+        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(scroll)) {
             Spacer(Modifier.height(8.dp))
 
             if (state.trips.isEmpty()) {
@@ -138,6 +142,8 @@ public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
                 size = 15.sp,
             )
             Spacer(Modifier.height(40.dp))
+        }
+        ScrollRail(scroll, paper, Modifier.fillMaxHeight())
         }
     }
 }

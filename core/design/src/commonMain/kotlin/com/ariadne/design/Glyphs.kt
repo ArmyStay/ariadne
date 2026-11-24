@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
  * definition works at 14dp beside a label and at 40dp as a page ornament.
  */
 public enum class Glyph {
+    /** The shutter: a ring with a disc inside it. */
+    Shutter,
     /** A trip: a folder with a strap, or a suitcase seen from above. */
     Trip,
     /** A calendar page: a date, not a schedule. */
@@ -131,6 +133,12 @@ private fun DrawScope.drawGlyph(glyph: Glyph, color: Color, stroke: Float) {
     }
 
     when (glyph) {
+        Glyph.Shutter -> {
+            // A ring with a disc in it: the shutter, drawn the way the control on
+            // the capture page is drawn, so the button and the glyph agree.
+            circle(0.5f, 0.5f, 0.44f)
+            drawCircle(color, radius = (w.coerceAtMost(h)) * 0.22f, center = Offset(w * 0.5f, h * 0.5f))
+        }
         Glyph.Trip -> {
             rect(0.14f, 0.34f, 0.86f, 0.82f)
             // The handle, drawn as a strap over the top edge.

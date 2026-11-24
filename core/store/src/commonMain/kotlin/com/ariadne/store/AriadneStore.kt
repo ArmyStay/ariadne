@@ -224,6 +224,10 @@ public class AriadneStore(
         }
     }
 
+    public suspend override fun deleteRate(base: CurrencyCode, quote: CurrencyCode): Unit = withContext(io) {
+        q.deleteRate(base.code, quote.code)
+    }
+
     public suspend override fun upsertRate(rate: Rate): Unit = withContext(io) {
         q.upsertRate(rate.base.code, rate.quote.code, rate.date.iso, rate.rateScaled)
         bump()

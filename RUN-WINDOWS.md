@@ -74,8 +74,12 @@ rest will not work.
 To prove the migrations themselves are sound:
 
 ```powershell
-.\gradlew.bat :core:store:verifyCommonMainAriadneDbMigration
+.\gradlew.bat :core:store:verifySqlDelightMigration
 ```
+
+(That is the aggregate migration task; the per-database `verify...Migration` name
+does not exist in this build. If a task name is ever in doubt, list them with
+`.\gradlew.bat :core:store:tasks --all`.)
 
 ---
 
@@ -87,6 +91,16 @@ To prove the migrations themselves are sound:
 
 First run compiles the Compose UI and takes a few minutes. A window opens on the
 trip form.
+
+Two things worth knowing on desktop:
+
+- **Library import is the system file dialog.** On the Capture page the control
+  reads *From the library*; on Home it is *or bring one in from the library*. Both
+  open the real Windows open-file dialog and read the bytes into the same record
+  the shutter writes to.
+- **Exchange rates are set, not assumed.** Preferences → *the exchange*: type a
+  rate for any currency the trip uses and press **Set**. Until a rate exists the
+  row says so in words, and no figure is converted for you.
 
 ---
 

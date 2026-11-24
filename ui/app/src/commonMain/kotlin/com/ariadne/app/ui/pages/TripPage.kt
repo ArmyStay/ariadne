@@ -31,6 +31,8 @@ import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.Masthead
+import com.ariadne.design.PageAction
+import com.ariadne.design.ScrollingMargin
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
@@ -50,19 +52,13 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
     val trip = state.trip ?: return
     val closed = state.dayCards.count { it.isClosed }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(paper.bg)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = if (wide) Bone.MarginWide else Bone.Margin, vertical = 26.dp),
-    ) {
+    ScrollingMargin(paper, wide, vertical = 26.dp) { _ ->
         Masthead(
             number = "09",
             eyebrow = "Trip",
             title = trip.name,
             paper = paper,
-            trailing = { QuietAction("Back", paper, { model.go(Route.Home) }) },
+            trailing = { PageAction("Back", paper, { model.go(Route.Home) }) },
         )
 
         Spacer(Modifier.height(22.dp))
