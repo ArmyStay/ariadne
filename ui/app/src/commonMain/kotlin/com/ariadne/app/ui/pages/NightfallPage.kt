@@ -70,7 +70,10 @@ public fun NightfallPage(
     Column(
         Modifier
             .fillMaxSize()
-            .background(paper.bg)
+            // Nightfall is the one page that is not a "record of something" — it
+            // is a calm commit — so it gets the sunk ground, the same warm
+            // paper the table headers read on.
+            .background(if (paper.isNight) paper.bg else paper.sunk)
             .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
     ) {
         Masthead(

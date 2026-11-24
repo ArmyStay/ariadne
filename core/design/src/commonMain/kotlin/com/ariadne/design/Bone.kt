@@ -44,11 +44,15 @@ public object Bone {
     public val Edge: Color = Color(0xFFE2E8F0)
     public val EdgeStrong: Color = Color(0xFFCBD5E1)
 
+    /** The trip page's ground: the same paper, warmed a touch so the keepsake
+     *  page does not read as the rest of the book. */
+    public val TripGround: Color = Color(0xFFF5F2E7)
+
     // ── ink ──────────────────────────────────────────────────────────────────
     public val Ink: Color = Color(0xFF1F1F20)
     public val InkMid: Color = Color(0xFF475569)
-    public val InkSoft: Color = Color(0xFF64748B)
-    public val InkFaint: Color = Color(0xFF94A3B8)
+    public val InkSoft: Color = Color(0xFF475569)
+    public val InkFaint: Color = Color(0xFF64748B)
     public val InkGhost: Color = Color(0xFFCBD5E1)
 
     /** The one chromatic value. A button, a selected tab, a figure you acted on. */
@@ -64,6 +68,7 @@ public object Bone {
     public val NightSunk: Color = Color(0xFF0C0E12)
     public val NightEdge: Color = Color(0xFF272B33)
     public val NightEdgeStrong: Color = Color(0xFF3A404A)
+    public val NightTripGround: Color = Color(0xFF14181E)
 
     public val NightInk: Color = Color(0xFFF2F5F9)
     public val NightInkMid: Color = Color(0xFFB6C0CC)
@@ -177,8 +182,9 @@ public object Optical {
 /** Which stock the app is currently printed on. */
 public data class Paper(
     public val isNight: Boolean,
+    public val ground: Color? = null,
 ) {
-    public val bg: Color get() = if (isNight) Bone.Night else Bone.Paper
+    public val bg: Color get() = ground ?: if (isNight) Bone.Night else Bone.Paper
     public val raised: Color get() = if (isNight) Bone.NightRaised else Bone.PaperRaised
     public val sunk: Color get() = if (isNight) Bone.NightSunk else Bone.PaperSunk
     public val edge: Color get() = if (isNight) Bone.NightEdge else Bone.Edge
@@ -197,6 +203,12 @@ public data class Paper(
 
     /** Ink for text that sits *on* blue. */
     public val onBlue: Color get() = if (isNight) Bone.Night else Bone.PaperRaised
+
+    /** The trip page's ground, on this palette. */
+    public val tripGround: Color get() = if (isNight) Bone.NightTripGround else Bone.TripGround
+
+    /** The same palette, on the trip page's warmer ground. */
+    public fun onTripGround(): Paper = copy(ground = tripGround)
 
     /** Kept for the pages that still say `thread`; blue is the thread now. */
     public val thread: Color get() = blue

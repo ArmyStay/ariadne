@@ -40,13 +40,15 @@ You spent forty rupees on chai and twelve hundred on shoes, and by tonight you w
 Real frames, rendered from the shared Compose UI by `tools/run-preview.sh --shots` — not mockups. Palette and components from a sign-in reference, structure and type from a trips reference; see `docs/DESIGN.md`.
 
 <p align="center">
-  <img src="docs/shots/01b-shutter.png" width="200" alt="Shutter" />
+  <img src="docs/shots/04-capture.png" width="200" alt="Shutter" />
   <img src="docs/shots/05-nightfall.png" width="200" alt="Nightfall" />
-  <img src="docs/shots/02-home.png" width="200" alt="Home" />
+  <img src="docs/shots/06-record.png" width="200" alt="Record" />
   <img src="docs/shots/07-trip-card.png" width="200" alt="The trip card" />
+  <img src="docs/shots/02b-timeline.png" width="200" alt="Timeline" />
+  <img src="docs/shots/02c-stats.png" width="200" alt="Stats" />
 </p>
 
-Shutter · Nightfall · Home · the card. Timeline, the record, detail, search, onboarding, Stats, Prefs and more are in [`docs/shots/`](docs/shots/).
+Shutter · Nightfall · Record · the card · Timeline · Stats. Other frames (the register, the trip page, the library) are in [`docs/shots/`](docs/shots/); regenerate them all with `./tools/run-preview.sh --shots`.
 
 ## The design is a component library, not per-page layout
 

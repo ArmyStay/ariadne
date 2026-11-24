@@ -176,17 +176,20 @@ private fun Destination(
 /** Which tab the current route belongs to. */
 private fun Route.tab(): Tab = when (this) {
     Route.Trips -> Tab.Home
+    Route.Trip, is Route.TripCard -> Tab.Trip
     Route.Timeline, is Route.Record, is Route.Detail -> Tab.Timeline
     Route.Stats -> Tab.Stats
-    Route.Prefs, Route.Settings -> Tab.Prefs
+    // The settings corner is no longer a tab; it resolves to the register behind
+    // it, the same shell the Home tab shows.
+    Route.Prefs, Route.Settings -> Tab.Home
     else -> Tab.Home
 }
 
 private fun Tab.route(): Route = when (this) {
-    Tab.Home -> Route.Home
+    Tab.Home -> Route.Trips
     Tab.Timeline -> Route.Timeline
     Tab.Stats -> Route.Stats
-    Tab.Prefs -> Route.Prefs
+    Tab.Trip -> Route.Trip
 }
 
 /**

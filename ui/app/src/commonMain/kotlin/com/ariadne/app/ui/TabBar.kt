@@ -55,8 +55,8 @@ import kotlin.math.sin
 public enum class Tab(public val label: String) {
     Home("Home"),
     Timeline("Timeline"),
+    Trip("Trip"),
     Stats("Stats"),
-    Prefs("Prefs"),
 }
 
 @Composable
@@ -120,8 +120,8 @@ public fun TabBar(
             TabItem(Tab.Timeline, selected, paper, 0, Modifier.weight(1f)) { onSelect(Tab.Timeline) }
             // Reserved for the shutter.
             Spacer(Modifier.width(84.dp))
+            TabItem(Tab.Trip, selected, paper, 0, Modifier.weight(1f)) { onSelect(Tab.Trip) }
             TabItem(Tab.Stats, selected, paper, 0, Modifier.weight(1f)) { onSelect(Tab.Stats) }
-            TabItem(Tab.Prefs, selected, paper, 0, Modifier.weight(1f)) { onSelect(Tab.Prefs) }
         }
 
         // The shutter: a blue plate sitting in the notch, ringed by a hairline so
@@ -213,7 +213,7 @@ private fun TabItem(
 
 /**
  * The four glyphs, drawn as line art at a single weight so the set looks cut
- * from the same plate: house, ticket, bar chart, gear.
+ * from the same plate: house, ticket, the trip's ruled column, bar chart.
  */
 @Composable
 private fun TabGlyph(tab: Tab, color: Color) {
@@ -255,23 +255,17 @@ private fun TabGlyph(tab: Tab, color: Color) {
                 drawLine(color, Offset(w * 0.84f, h * 0.86f), Offset(w * 0.84f, h * 0.44f), s.width)
             }
 
-            Tab.Prefs -> {
-                val cx = w / 2f
-                val cy = h / 2f
-                val teeth = 6
-                val ro = w * 0.34f
-                val ri = w * 0.24f
-                val p = Path()
-                for (i in 0 until teeth * 2) {
-                    val a = (PI * i / teeth) - PI / 2
-                    val r = if (i % 2 == 0) ro else ri
-                    val x = cx + (cos(a) * r).toFloat()
-                    val y = cy + (sin(a) * r).toFloat()
-                    if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
+            Tab.Trip -> {
+                val p = Path().apply {
+                    moveTo(w * 0.08f, h * 0.30f)
+                    lineTo(w * 0.92f, h * 0.30f)
+                    lineTo(w * 0.92f, h * 0.62f)
+                    lineTo(w * 0.08f, h * 0.62f)
+                    close()
                 }
-                p.close()
                 drawPath(p, color, style = s)
-                drawCircle(color, radius = w * 0.1f, center = Offset(cx, cy), style = s)
+                drawLine(color, Offset(w * 0.08f, h * 0.46f), Offset(w * 0.92f, h * 0.46f), s.width)
+                drawLine(color, Offset(w * 0.50f, h * 0.62f), Offset(w * 0.50f, h * 0.86f), s.width)
             }
         }
     }
