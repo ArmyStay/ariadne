@@ -5,6 +5,7 @@ import com.ariadne.extract.ExtractionService
 import com.ariadne.fx.FxTable
 import com.ariadne.fx.Tally
 import com.ariadne.model.Capture
+import com.ariadne.model.Category
 import com.ariadne.model.CaptureState
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.LocalDay
@@ -74,6 +75,7 @@ public class AppModel(
             route = Route.Capture,
         )
         refreshDay(day)
+        loadTripDays(trip)
     }
 
     // -- onboarding --------------------------------------------------------
@@ -127,6 +129,8 @@ public class AppModel(
                     currency = CurrencyCode.of(entry.currency),
                     merchant = entry.merchant,
                     extractionConfidence = entry.confidence,
+                    category = entry.category,
+                    note = entry.note,
                 ),
             )
         }
@@ -276,6 +280,113 @@ public class AppModel(
         }
     }
 
+    // -- detail -------------------------------------------------------------
+
+    /**
+     * Opens one capture for editing. Everything starts unset except the figures
+     * already stored, and the text fields start as empty buffers rather than as
+     * the stored value: a field you did not touch must not overwrite what the
+     * extraction found.
+     */
+    public fun openDetail(captureId: String) {
+        scope.launch {
+            val capture = store.findById(captureId) ?: return@launch
+            _state.value = _state.value.copy(
+                route = Route.Detail(captureId),
+                detail = capture,
+                detailAmount = amountBuffer(capture),
+                detailMerchant = capture.merchant ?: "",
+                detailNote = capture.note ?: "",
+                detailCategory = capture.category,
+            )
+        }
+    }
+
+    /** The typed figure as the field holds it: ungrouped, so it can be edited. */
+    private fun amountBuffer(capture: Capture): String {
+        val minor = capture.amountMinor ?: return ""
+        val currency = capture.currency ?: return ""
+        return Money.ofMinor(minor).format(currency, grouping = false)
+    }
+
+    public fun editDetailAmount(digit: Char) {
+        val current = _state.value.detailAmount
+        if (digit == '.') {
+            if (current.contains('.')) return
+            _state.value = _state.value.copy(detailAmount = if (current.isEmpty()) "0." else current + ".")
+            return
+        }
+        if (digit !in '0'..'9') return
+        if (current.length >= 9) return
+        _state.value = _state.value.copy(detailAmount = current + digit)
+    }
+
+    public fun clearDetailAmountDigit() {
+        _state.value = _state.value.copy(detailAmount = _state.value.detailAmount.dropLast(1))
+    }
+
+    public fun editDetailMerchant(text: String) {
+        _state.value = _state.value.copy(detailMerchant = text.take(60))
+    }
+
+    public fun editDetailNote(text: String) {
+        _state.value = _state.value.copy(detailNote = text.take(140))
+    }
+
+    /** Tapping the chosen category again clears it: a category is never required. */
+    public fun chooseCategory(category: Category?) {
+        val current = _state.value.detailCategory
+        _state.value = _state.value.copy(detailCategory = if (current == category) null else category)
+    }
+
+    public fun changeDetailCurrency(code: String) {
+        val currency = CurrencyCode.parseOrNull(code) ?: return
+        val capture = _state.value.detail ?: return
+        // Re-parse the typed figure in the new currency's scale, so 12.5 THB does
+        // not become 12.5 JPY.
+        val minor = Money.parseOrNull(_state.value.detailAmount, currency)?.minorUnits
+        _state.value = _state.value.copy(
+            detail = capture.copy(currency = currency),
+            detailAmount = minor?.let { Money.ofMinor(it).format(currency, grouping = false) }
+                ?: _state.value.detailAmount,
+        )
+    }
+
+    /**
+     * Saves and steps back. An empty amount field clears the figure rather than
+     * writing a zero: "I did not record this" and "this cost nothing" are
+     * different claims and the record keeps them apart.
+     */
+    public fun saveDetail(keepWithoutAmount: Boolean = false) {
+        val capture = _state.value.detail ?: return
+        val currency = capture.currency ?: _state.value.trip?.baseCurrency ?: CurrencyCode.of("INR")
+        val parsed = if (keepWithoutAmount) null else Money.parseOrNull(_state.value.detailAmount, currency)
+        scope.launch {
+            store.updateDetail(
+                id = capture.id,
+                amountMinor = parsed?.minorUnits,
+                currencyCode = if (parsed == null) null else currency.code,
+                merchant = _state.value.detailMerchant.trim().ifBlank { null },
+                category = _state.value.detailCategory?.name,
+                note = _state.value.detailNote.trim().ifBlank { null },
+            )
+            if (parsed != null || keepWithoutAmount) {
+                // A figure entered here is a decided figure, so the card leaves the
+                // Nightfall stack through the same door the ritual uses.
+                outbox.apply(capture.id, if (keepWithoutAmount) QueueEvent.MarkedNoAmount else QueueEvent.AmountEntered)
+                outbox.apply(capture.id, QueueEvent.Confirmed)
+            }
+            val saved = store.findById(capture.id)
+            index.rebuild(store.confirmedForTrip(capture.tripId))
+            refreshDay(capture.localDate)
+            _state.value = _state.value.copy(
+                route = Route.Record(capture.localDate),
+                detail = saved,
+                detailCategory = saved?.category,
+            )
+        }
+    }
+
     // -- search ------------------------------------------------------------
 
     public fun search(query: String) {
@@ -302,6 +413,28 @@ public class AppModel(
 
     // -- internals ---------------------------------------------------------
 
+    /**
+     * The whole trip in one pass: two queries, grouped by day.
+     *
+     * The timeline shows every day with its own band, so loading only the open day
+     * would leave the others claiming "no photographs here" — a statement the app
+     * has not earned the right to make. Figures are converted through the same FX
+     * table the ritual uses.
+     */
+    private suspend fun loadTripDays(trip: Trip) {
+        val all = store.confirmedForTrip(trip.id) + store.openCaptures().filter { it.tripId == trip.id }
+        val byDay = all.groupBy { it.localDate.iso }
+        val figures = byDay.mapValues { (_, captures) ->
+            Tally(fx, trip.baseCurrency)
+                .total(captures.filter { it.state == CaptureState.CONFIRMED || it.state == CaptureState.ARCHIVED }, captures.first().localDate)
+                .baseTotal.minorUnits
+        }
+        _state.value = _state.value.copy(
+            dayCapturesAll = byDay.mapKeys { it.key },
+            dayFigures = figures,
+        )
+    }
+
     private suspend fun refreshDay(day: LocalDay) {
         val trip = _state.value.trip ?: return
         val captures = store.capturesForDay(trip.id, day).sortedBy { it.createdAt }
@@ -325,6 +458,10 @@ public class AppModel(
             dayTotalMinor = tally.baseTotal.minorUnits,
             dayCurrency = trip.baseCurrency.code,
             perCurrency = tally.perCurrency.mapKeys { it.key.code }.mapValues { it.value },
+            categoryTotals = store.categoryTotals(trip.id),
+        )
+        loadTripDays(trip)
+        _state.value = _state.value.copy(
             amountInput = stack.getOrNull(indexNow)
                 ?.takeIf { it.amountMinor != null }
                 ?.let { c -> c.amountMinor?.let { Money.ofMinor(it).format(c.currency ?: trip.baseCurrency, false) } }

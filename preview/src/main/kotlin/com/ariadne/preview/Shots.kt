@@ -45,12 +45,22 @@ fun main(args: Array<String>) {
         Shot("02-home-desktop", 1200, 800, route = { it.go(Route.Home) }),
         Shot("02b-timeline", 440, 900, route = { it.go(Route.Timeline) }),
         Shot("02c-stats", 440, 900, route = { it.go(Route.Stats) }),
+        // Finished through the real ritual, so the breakdown below is the one the
+        // app would actually compute — not a fixture.
+        Shot(
+            "02c-stats-filled", 440, 900, settle = 8,
+            route = { m ->
+                if (m.state.value.stack.isNotEmpty()) m.confirmCurrent() else m.go(Route.Stats)
+            },
+        ),
         Shot("02d-prefs", 440, 900, route = { it.go(Route.Prefs) }),
         Shot("03-trip", 440, 900, route = { it.go(Route.Trip) }),
         Shot("04-capture", 440, 900, route = { it.go(Route.Capture) }),
         Shot("05-nightfall", 440, 900, route = { it.openNightfall(null) }),
         Shot("05-nightfall-desktop", 1200, 800, route = { it.openNightfall(null) }),
         Shot("06-record", 440, 900, route = { it.openRecord(null) }, settle = 1),
+        Shot("06b-detail", 440, 900, route = { it.openDetailFirst() }, settle = 1),
+        Shot("06b-detail-desktop", 1200, 800, route = { it.openDetailFirst() }, settle = 1),
         Shot("07-trip-card", 440, 1000, route = { it.go(Route.TripCard("0")) }),
         Shot("08-search", 440, 900, route = { it.go(Route.Search) }),
         Shot("10-night", 440, 900, night = true, route = { it.go(Route.Home) }),
@@ -111,6 +121,12 @@ private fun render(
     scene.close()
     graph.close()
     println("  $name (${width}×${height})")
+}
+
+/** Opens the first photograph of the day in the detail page. */
+private fun AppModel.openDetailFirst() {
+    val first = state.value.dayCaptures.firstOrNull() ?: return
+    openDetail(first.id)
 }
 
 /**

@@ -79,18 +79,56 @@ make it feel like an errand.
 | --- | --- | --- | --- |
 | 1 | `Onboarding` | — | One page, four sentences, two actions. States the inversion. |
 | 2 | `Home` | Home | Today's figure, the one blue action, and the way into everything else. |
-| 3 | `Timeline` | Timeline | The trip as a run of days; closed inked, open outlined. |
-| 4 | `Stats` | Stats | What it came to, by currency. Tallied figures only. |
+| 3 | `Timeline` | Timeline | The trip as a run of days, each with its 24-hour band. |
+| 4 | `Stats` | Stats | What it came to: by what it was, then by currency. Finished photographs only. |
 | 5 | `Prefs` | Prefs | Currency, paper, and plainly what leaves the device. |
 | 6 | `Trip` | — | Dates, progress, the card. |
 | 7 | `Capture` | — | The shutter. Full bleed, no chrome, no fields. |
 | 8 | `Nightfall` | — | The ritual. Plate, merchant, amount, two taps. |
 | 9 | `Record` | Timeline | A day, as it happened. No table, ever. |
 | 10 | `TripCard` | — | The thing you keep. |
-| 11 | `Search` | — | Remember a thing by shop, price, currency or day. |
+| 11 | `Detail` | Timeline | One photograph in the hand: amount, currency, category, a line to keep it by. |
+| 12 | `Search` | — | Remember a thing by shop, price, currency or day. |
 
 `Trips` and `Settings` survive in the sealed route type so an older persisted
 route still resolves, but they render the destination that replaced them.
+
+### Two pieces that read the data rather than collect it
+
+**The day band** (Timeline, and the record for the open day) plots each
+photograph at the hour it was taken — recorded ones filled, unfinished ones
+outlined. It says *when* the day happened and stops there: no streaks, no
+targets, no missing-hour guilt.
+
+**The breakdown** (Stats) is a ruled column, not a donut, because a ledger should
+be readable to the rupee rather than only glanceable. It is always in the trip's
+base currency, converted through the same `FxTable` the ritual uses, so the
+breakdown and the total can never disagree.
+
+The one sentence underneath it (`PatternLine`) states a fact about this trip's own
+numbers — "most of this trip so far went on shopping, 75% of it". It never
+compares the traveller to other people, to a previous month, or to a budget they
+never set.
+
+### What the reference screens added, and what they did not
+
+The uploaded references were treated as references, not a port. Each feature in
+them was kept only if it is either a competition "wow" or a plain need in the
+basic flow.
+
+| Feature in the references | Decision | Why |
+| --- | --- | --- |
+| Capture detail / edit page | **kept** — basic need | A night of triage cannot be the only editing surface. Now `Route.Detail`. |
+| Category chips | **kept** — basic need | Makes the breakdown possible; never required, never guessed by OCR. |
+| Currency picker on the detail page | **kept** — basic need | Correcting a misread currency is the most common fix. |
+| 24-hour day band on the timeline | **kept** — wow | Genuinely novel, on-thesis (a day has a shape), and cheap. |
+| Category breakdown + a pattern line | **kept** — wow, restyled | The reference's "5660% more than usual" is a machine grading a stranger; ours states a fact about the trip. |
+| SMS parsing ("speak or send SMS") | **left out** | Needs platform permissions for a flow the ritual already covers. |
+| Voice-to-expense | **left out** | Same: a second input path to maintain, no new idea. |
+| Group-trip bill splitting | **left out** | A different product; the brief is one traveller's ledger. |
+| Receipt auto-OAuth / cloud accounts | **left out** | Ariadne has no accounts and no server, by rule. |
+| "Re-extract from photo" as a primary button | **left out** | Extraction is best-effort and already automatic; a button would imply a promise the app cannot keep. |
+| Trip day counters ("Day 66 of 14") | **left out** | Contradictory arithmetic in the reference; dates are already on every surface. |
 
 ## 6. The ritual (Nightfall)
 

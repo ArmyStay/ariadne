@@ -60,7 +60,7 @@ shutter, the record, search, the desktop spread and the night paper — are in
 :core:search   in-memory inverted index
 :core:store    SQLDelight schema, AriadneStore, photo store
 :core:design   Ink: palette, Instrument Serif + Inter Tight, components, plate
-:ui:app        routes, AppModel, the four tabs and the five stacked pages
+:ui:app        routes, AppModel, the four tabs and the six stacked pages
 :app:android   :app:ios   :app:desktop   :app:wasm
 ```
 
@@ -107,7 +107,7 @@ See **[RUN.md](RUN.md)** for the full walkthrough, or `TESTING.md` for the short
 
 Nov 23 2026, day one of a fourteen-day build. What is done and verified here:
 the model, the queue machine and its tests, the receipt parser with thirty
-fixtures, FX, search, the schema, and the four tab destinations and five stacked pages. What is not yet
+fixtures, FX, search, the schema, and the four tab destinations and six stacked pages. What is not yet
 verified in this checkout: the four-target Gradle build itself has not been run
 end to end (see `BUILD-STATUS.md` for exactly what was and was not executed), and
 platform OCR is not yet bound on any target — it returns a failure value that the

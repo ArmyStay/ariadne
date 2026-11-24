@@ -109,7 +109,7 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             Action("Add a photograph", paper, { model.go(Route.Capture) })
         } else {
             captures.forEachIndexed { i, capture ->
-                ReceiptLine(capture, i, paper) { model.openRecord(capture.localDate) }
+                ReceiptLine(capture, i, paper) { model.openDetail(capture.id) }
             }
         }
 

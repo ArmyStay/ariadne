@@ -24,6 +24,7 @@ import androidx.compose.ui.input.key.type
 import com.ariadne.app.AppModel
 import com.ariadne.app.Route
 import com.ariadne.app.ui.pages.CapturePage
+import com.ariadne.app.ui.pages.DetailPage
 import com.ariadne.app.ui.pages.HomePage
 import com.ariadne.app.ui.pages.NightfallPage
 import com.ariadne.app.ui.pages.OnboardingPage
@@ -134,6 +135,7 @@ private fun Destination(
         is Route.Nightfall -> NightfallPage(state, model, paper, wide)
 
         is Route.Record -> RecordPage(state, model, paper, wide)
+        is Route.Detail -> DetailPage(state, model, paper, wide)
 
         is Route.TripCard -> TripCardPage(state, model, paper, wide)
 
@@ -150,7 +152,7 @@ private fun Destination(
 
 /** Which tab the current route belongs to. */
 private fun Route.tab(): Tab = when (this) {
-    Route.Timeline, is Route.Record -> Tab.Timeline
+    Route.Timeline, is Route.Record, is Route.Detail -> Tab.Timeline
     Route.Stats -> Tab.Stats
     Route.Prefs, Route.Settings -> Tab.Prefs
     else -> Tab.Home
@@ -168,7 +170,7 @@ private fun Tab.route(): Route = when (this) {
  * shutter, the ritual, and the card you keep.
  */
 private fun Route.showsTabBar(): Boolean = when (this) {
-    Route.Onboarding, Route.Capture, is Route.Nightfall, is Route.TripCard -> false
+    Route.Onboarding, Route.Capture, is Route.Nightfall, is Route.TripCard, is Route.Detail -> false
     else -> true
 }
 

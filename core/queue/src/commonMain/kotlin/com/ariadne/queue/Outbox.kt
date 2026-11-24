@@ -134,6 +134,23 @@ public interface CaptureRepository {
     public suspend fun openCaptures(): List<Capture>
     public suspend fun capturesForDay(tripId: String, day: LocalDay): List<Capture>
     public suspend fun delete(id: String)
+
+    /**
+     * Writes the whole editable surface of a capture in one statement. Used by the
+     * detail page, where someone corrects a figure the OCR got wrong minutes after
+     * the fact — the amount and its currency must move together or not at all.
+     */
+    public suspend fun updateDetail(
+        id: String,
+        amountMinor: Long?,
+        currencyCode: String?,
+        merchant: String?,
+        category: String?,
+        note: String?,
+    )
+
+    /** Category totals for the trip, largest first, with an uncategorised row. */
+    public suspend fun categoryTotals(tripId: String): List<com.ariadne.model.CategoryTotal>
 }
 
 /** In-memory implementation: the test double, and the shape every driver must match. */
@@ -179,4 +196,41 @@ public class InMemoryCaptureRepository(
     override suspend fun delete(id: String) {
         items.remove(id)
     }
+
+    override suspend fun updateDetail(
+        id: String,
+        amountMinor: Long?,
+        currencyCode: String?,
+        merchant: String?,
+        category: String?,
+        note: String?,
+    ) {
+        items[id]?.let {
+            items[id] = it.copy(
+                amountMinor = amountMinor,
+                currency = currencyCode?.let(com.ariadne.model.CurrencyCode::of),
+                merchant = merchant,
+                category = com.ariadne.model.Category.ofOrNull(category),
+                note = note,
+            )
+        }
+    }
+
+    /**
+     * No FX table here, so totals are reported per category in raw base-currency
+     * units. The interface allows that: a caller without rates must not invent a
+     * conversion, and this repository never has rates.
+     */
+    override suspend fun categoryTotals(tripId: String): List<com.ariadne.model.CategoryTotal> =
+        items.values
+            .filter { it.tripId == tripId && it.amountMinor != null && it.state.isFinished }
+            .groupBy { it.category }
+            .map { (category, list) ->
+                com.ariadne.model.CategoryTotal(
+                    category = category,
+                    captures = list.size,
+                    baseMinor = list.sumOf { it.amountMinor ?: 0L },
+                )
+            }
+            .sortedByDescending { it.baseMinor }
 }

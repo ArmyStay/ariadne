@@ -1,11 +1,15 @@
 package com.ariadne.store
 
 import app.cash.sqldelight.db.SqlDriver
+import com.ariadne.fx.FxTable
 import com.ariadne.model.Capture
+import com.ariadne.model.Category
+import com.ariadne.model.CategoryTotal
 import com.ariadne.model.CaptureState
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.DayCard
 import com.ariadne.model.LocalDay
+import com.ariadne.model.Money
 import com.ariadne.model.Rate
 import com.ariadne.model.Settings
 import com.ariadne.model.Trip
@@ -101,6 +105,8 @@ public class AriadneStore(
             extractionConfidence = capture.extractionConfidence,
             confirmedAt = capture.confirmedAt,
             markedNoAmount = if (capture.markedNoAmount) 1L else 0L,
+            category = capture.category?.name,
+            note = capture.note,
         )
         bump()
     }
@@ -266,5 +272,75 @@ public class AriadneStore(
         extractionConfidence = row.extractionConfidence,
         confirmedAt = row.confirmedAt,
         markedNoAmount = row.markedNoAmount != 0L,
+        category = Category.ofOrNull(row.category),
+        note = row.note,
     )
+
+    override suspend fun updateDetail(
+        id: String,
+        amountMinor: Long?,
+        currencyCode: String?,
+        merchant: String?,
+        category: String?,
+        note: String?,
+    ): Unit = withContext(io) {
+        q.updateCaptureDetail(
+            amountMinor = amountMinor,
+            currency = currencyCode,
+            merchant = merchant,
+            category = category,
+            note = note,
+            id = id,
+        )
+        revision.value++
+    }
+
+    /**
+     * Category totals, converted into the trip's base currency through the same
+     * FX table the ledger uses — so the breakdown and the total can never tell two
+     * different stories. Captures with no category come back as one row with a
+     * null category rather than being dropped: an uncategorised rupee is still a
+     * rupee you spent.
+     */
+    override suspend fun categoryTotals(tripId: String): List<CategoryTotal> = withContext(io) {
+        val trip = trip(tripId) ?: return@withContext emptyList()
+        val rates = allRates()
+        val rows = q.selectCategoryTotals(tripId).executeAsList().mapNotNull { row ->
+            val category = Category.ofOrNull(row.category) ?: return@mapNotNull null
+            val minor = row.minor?.toLong() ?: return@mapNotNull null
+            val currency = CurrencyCode.parseOrNull(row.currency) ?: trip.baseCurrency
+            CategoryTotal(
+                category = category,
+                captures = (row.captures ?: 0L).toInt(),
+                baseMinor = toBase(minor, currency, trip.baseCurrency, trip.startDate, rates),
+            )
+        }
+        val out = rows.toMutableList()
+        q.selectUncategorisedTotal(tripId).executeAsList().forEach { loose ->
+            val currency = CurrencyCode.parseOrNull(loose.currency) ?: trip.baseCurrency
+            out += CategoryTotal(
+                category = null,
+                captures = (loose.captures ?: 0L).toInt(),
+                baseMinor = toBase(loose.minor?.toLong() ?: 0L, currency, trip.baseCurrency, trip.startDate, rates),
+            )
+        }
+        out.sortedByDescending { it.baseMinor }
+    }
+
+    /** Converts minor units at the stored scaled rate, rounding once, HALF_UP. */
+    /**
+     * Converts one currency's minor units into the trip's base currency.
+     *
+     * Delegates to [FxTable], which is the app's single rounding site; this class
+     * must not grow a second one. `date` is the capture's own day so a rate
+     * entered later never rewrites a figure that was already closed — the amount
+     * was true on the day it was spent.
+     */
+    private fun toBase(
+        minor: Long,
+        from: CurrencyCode,
+        to: CurrencyCode,
+        date: LocalDay,
+        rates: List<Rate>,
+    ): Long = FxTable(rates).convert(Money.ofMinor(minor), from, to, date).amount.minorUnits
 }

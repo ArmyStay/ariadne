@@ -1,6 +1,8 @@
 package com.ariadne.app
 
 import com.ariadne.model.Capture
+import com.ariadne.model.Category
+import com.ariadne.model.CategoryTotal
 import com.ariadne.model.DayCard
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Trip
@@ -31,6 +33,17 @@ public sealed interface Route {
 
     /** 7. The trip card, which is the thing you keep. */
     public data class TripCard(val tripId: String) : Route
+
+    /**
+     * One capture, open in the hand: the photograph large, the figure editable,
+     * a category to claim, a line to remember it by.
+     *
+     * This is the page the ritual hands you to when a card is worth more than a
+     * yes or a no — a receipt from a shop you will want to name again. It is
+     * never required: Nightfall remains two taps end to end, and nothing here is
+     * mandatory, including the category and the note.
+     */
+    public data class Detail(val captureId: String) : Route
 
     /** 8. Search by what you remember. */
     public data object Search : Route
@@ -68,6 +81,21 @@ public data class AppUiState(
     public val dayTotalMinor: Long = 0,
     public val dayCurrency: String = "INR",
     public val perCurrency: Map<String, Long> = emptyMap(),
+    /** The capture open in the detail page, when one is. */
+    public val detail: Capture? = null,
+    public val detailAmount: String = "",
+    public val detailMerchant: String = "",
+    public val detailNote: String = "",
+    public val detailCategory: Category? = null,
+    /** The trip's spending by what it was, in base-currency minor units. */
+    public val categoryTotals: List<CategoryTotal> = emptyList(),
+    /**
+     * Every day of the trip with what was kept on it, and what it came to in base
+     * currency. Loaded in one pass so the timeline can show the shape of the whole
+     * trip rather than only the day currently open.
+     */
+    public val dayCapturesAll: Map<String, List<Capture>> = emptyMap(),
+    public val dayFigures: Map<String, Long> = emptyMap(),
     public val searchQuery: String = "",
     public val searchResults: List<Capture> = emptyList(),
     public val busy: Boolean = false,

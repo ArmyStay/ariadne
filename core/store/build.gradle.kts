@@ -14,7 +14,7 @@ kotlin {
 
     sourceSets {
         commonTest.dependencies { implementation(libs.kotlin.test) }
-        commonMain.dependencies { implementation(project(":core:model")); implementation(project(":core:queue")); implementation(libs.sqldelight.runtime); implementation(libs.sqldelight.coroutines); implementation(libs.kotlinx.coroutines.core); implementation(libs.okio) }
+        commonMain.dependencies { implementation(project(":core:model")); implementation(project(":core:queue")); implementation(project(":core:fx")); implementation(libs.sqldelight.runtime); implementation(libs.sqldelight.coroutines); implementation(libs.kotlinx.coroutines.core); implementation(libs.okio) }
         androidMain.dependencies { implementation(libs.sqldelight.android) }
         jvmMain.dependencies { implementation(libs.sqldelight.jvm) }
         iosMain.dependencies { implementation(libs.sqldelight.native) }

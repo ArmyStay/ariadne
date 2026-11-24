@@ -172,7 +172,9 @@ private fun Header(state: AppUiState, model: AppModel, paper: Paper, capture: Ca
             Column(horizontalAlignment = Alignment.End) {
                 Label(capture.currency?.code ?: state.dayCurrency, paper, color = paper.inkFaint)
                 Spacer(Modifier.height(6.dp))
-                QuietAction("Change", paper, { model.go(Route.Nightfall(capture.localDate)) }, color = paper.inkSoft)
+                // Opens the full sheet for this one photograph: currency, category,
+                // a note. The ritual still ends in two taps if you never come here.
+                QuietAction("Edit", paper, { model.openDetail(capture.id) }, color = paper.inkSoft)
             }
         }
 

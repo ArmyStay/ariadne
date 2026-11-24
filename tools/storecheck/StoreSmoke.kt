@@ -1,5 +1,6 @@
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.ariadne.model.Capture
+import com.ariadne.model.Category
 import com.ariadne.model.CaptureState
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.LocalDay
@@ -111,6 +112,95 @@ fun main() = runBlocking {
     expect("rate scaled integer", store.allRates().first().rateScaled, 250_000L)
     store.closeDay("trip-1", day, at = 50_000L)
     expect("day closed", store.dayCards("trip-1").count { it.isClosed }, 1)
+
+    println("detail + categories")
+    // A capture is valid with no category and no note; both must stay optional.
+    store.insert(
+        Capture(
+            id = "c-3",
+            tripId = "trip-1",
+            localDate = day,
+            photoPath = "trip-1/2026-11-23/c-3.jpg",
+            createdAt = 1_200L,
+            state = CaptureState.CONFIRMED,
+            amountMinor = 6_000L,
+            currency = CurrencyCode.of("INR"),
+            confirmedAt = 1_300L,
+        ),
+    )
+    store.insert(
+        Capture(
+            id = "c-4",
+            tripId = "trip-1",
+            localDate = day,
+            photoPath = "trip-1/2026-11-23/c-4.jpg",
+            createdAt = 1_400L,
+            state = CaptureState.CONFIRMED,
+            amountMinor = 2_500L,
+            currency = CurrencyCode.of("THB"),
+            confirmedAt = 1_500L,
+        ),
+    )
+    store.updateDetail(
+        id = "c-3",
+        amountMinor = 6_000L,
+        currencyCode = "INR",
+        merchant = "Kanchi Silks",
+        category = "Shopping",
+        note = "gift for amma",
+    )
+    val edited = store.findById("c-3")
+    expect("category written", edited?.category, Category.Shopping)
+    expect("note written", edited?.note, "gift for amma")
+    store.updateDetail(
+        id = "c-4",
+        amountMinor = 2_500L,
+        currencyCode = "THB",
+        merchant = null,
+        category = "Food",
+        note = null,
+    )
+    val uncategorised = store.findById("c-1")
+    expect("no category is a legal state", uncategorised?.category, null)
+
+    // c-1 = 4000 INR-minor, c-3 = 6000 INR-minor, c-4 = 2500 THB-minor @ 0.25
+    // INR per THB = 625 INR-minor. All figures are minor units, so 4000 is ₹40.00.
+    val totals = store.categoryTotals("trip-1")
+    expect("category rows", totals.size, 3)
+    expect("largest first", totals.first().category, Category.Shopping)
+    val food = totals.firstOrNull { it.category == Category.Food }
+    expect("fx converted to base", food?.baseMinor, 625L)
+    expect("food capture count", food?.captures, 1)
+    val none = totals.firstOrNull { it.category == null }
+    expect("uncategorised still totalled", none?.baseMinor, 4_000L)
+
+    // A currency with no rate must surface its raw figure, never a zero that
+    // reads as "you spent nothing".
+    store.insert(
+        Capture(
+            id = "c-5",
+            tripId = "trip-1",
+            localDate = day,
+            photoPath = "trip-1/2026-11-23/c-5.jpg",
+            createdAt = 1_600L,
+            // Deliberately left unfinished: it must not reach the ledger yet.
+            state = CaptureState.NEEDS_CONFIRMATION,
+            amountMinor = 9_900L,
+            currency = CurrencyCode.of("EUR"),
+            category = Category.Lodging,
+        ),
+    )
+    // An unfinished capture is not in the ledger yet: it is a guess until the
+    // human settles it, and the total above this line does not count it either.
+    expect(
+        "unfinished is not yet a figure",
+        store.categoryTotals("trip-1").map { it.category }.contains(Category.Lodging),
+        false,
+    )
+    expect("finished rows still there", store.categoryTotals("trip-1").size, 3)
+    store.updateState("c-5", CaptureState.CONFIRMED)
+    val orphan = store.categoryTotals("trip-1").firstOrNull { it.category == Category.Lodging }
+    expect("no rate is not a zero", orphan?.baseMinor, 9_900L)
 
     println("persistence")
     expect("db file written", file.length() > 0, true)

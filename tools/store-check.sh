@@ -43,7 +43,7 @@ GEN="$(find "$ROOT/tools/storecheck/build/generated" -name '*.kt')"
 echo "2/3  compiling AriadneStore against it…"
 OUT="$ROOT/build/store-check"
 rm -rf "$OUT"; mkdir -p "$OUT"
-SRCS="$(find "$ROOT"/core/model "$ROOT"/core/time "$ROOT"/core/queue "$ROOT"/core/store \
+SRCS="$(find "$ROOT"/core/model "$ROOT"/core/time "$ROOT"/core/queue "$ROOT"/core/fx "$ROOT"/core/store \
         -name '*.kt' -path '*commonMain*')"
 "$JAVA_HOME/bin/java" -cp "${T}/psi-shim.jar:$COMPILER_CP" \
   org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \

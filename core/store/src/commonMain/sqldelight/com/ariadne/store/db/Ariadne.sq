@@ -31,6 +31,10 @@ CREATE TABLE capture (
     extractionConfidence    REAL,
     confirmedAt             INTEGER,
     markedNoAmount          INTEGER NOT NULL DEFAULT 0,
+    -- Optional by design: a capture is valid without either. Category is what a
+    -- person says it was; note is anything they want to remember about it.
+    category                TEXT,
+    note                    TEXT,
     -- Retry bookkeeping lives with the row, not in memory, so a process death
     -- in a dead zone resumes exactly where it stopped.
     failedAttempts          INTEGER NOT NULL DEFAULT 0,
@@ -112,11 +116,21 @@ ORDER BY localDate ASC, createdAt ASC;
 insertCapture:
 INSERT INTO capture(
     id, tripId, localDate, photoPath, createdAt, state, amountMinor, currency,
-    merchant, extractionConfidence, confirmedAt, markedNoAmount, failedAttempts, retryNotBefore
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL);
+    merchant, extractionConfidence, confirmedAt, markedNoAmount, category, note,
+    failedAttempts, retryNotBefore
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL);
 
 updateCaptureState:
 UPDATE capture SET state = ? WHERE id = ?;
+
+updateCaptureDetail:
+UPDATE capture SET amountMinor = ?, currency = ?, merchant = ?, category = ?, note = ? WHERE id = ?;
+
+updateCaptureCategory:
+UPDATE capture SET category = ? WHERE id = ?;
+
+updateCaptureNote:
+UPDATE capture SET note = ? WHERE id = ?;
 
 updateCaptureDetails:
 UPDATE capture
@@ -131,6 +145,35 @@ DELETE FROM capture WHERE id = ?;
 
 countCapturesForTrip:
 SELECT COUNT(*) FROM capture WHERE tripId = ?;
+
+-- Grouped per category *and* currency: summing rupees with dollars in one column
+-- would be the single worst bug this app could ship.
+selectCategoryTotals:
+-- Grouped per category AND currency, in minor units. No SUM across currencies
+-- happens here: two different minor units cannot be added, and the store does
+-- the conversion above this line where a rate table exists.
+SELECT
+    category AS category,
+    currency AS currency,
+    COUNT(*) AS captures,
+    SUM(amountMinor) AS minor
+FROM capture
+WHERE tripId = ? AND amountMinor IS NOT NULL AND category IS NOT NULL
+  -- Only finished photographs. A figure the traveller has not confirmed yet is
+  -- still a guess, and the total above this line does not count it either.
+  AND state IN ('CONFIRMED', 'ARCHIVED')
+GROUP BY category, currency
+ORDER BY minor DESC;
+
+selectUncategorisedTotal:
+SELECT
+    currency AS currency,
+    COUNT(*) AS captures,
+    SUM(amountMinor) AS minor
+FROM capture
+WHERE tripId = ? AND amountMinor IS NOT NULL AND category IS NULL
+  AND state IN ('CONFIRMED', 'ARCHIVED')
+GROUP BY currency;
 
 selectDayCards:
 SELECT * FROM dayCard WHERE tripId = ? ORDER BY localDate ASC;

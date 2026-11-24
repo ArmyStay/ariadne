@@ -8,10 +8,10 @@ Last updated: 2026-11-23.
 | --- | --- | --- |
 | Shared UI compiles | `tools/verify-ui.sh …` | **0 errors** |
 | Domain logic | `tools/test-domain.sh` | **OK (70 tests)** |
-| Real UI renders | `tools/run-preview.sh --shots docs/shots` | **14 frames, PNG** |
+| Real UI renders | `tools/run-preview.sh --shots docs/shots` | **17 frames, PNG** |
 | Real UI window | `tools/run-preview.sh` | launches under Xvfb |
 | SQLDelight codegen | `tools/store-check.sh` | generates from `Ariadne.sq` |
-| `AriadneStore` vs real SQLite | `tools/store-check.sh` | **14 checks pass** |
+| `AriadneStore` vs real SQLite | `tools/store-check.sh` | **25 checks pass** |
 | Four entry points compile | `tools/entry-check.sh` | **all four** |
 | Desktop app launches + persists | manual, under Xvfb | window opens, DB written |
 

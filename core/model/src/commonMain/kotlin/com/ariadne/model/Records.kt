@@ -30,7 +30,44 @@ public enum class CaptureState {
 
     /** States a capture can be discarded from without leaving a hole. */
     public val isDiscardable: Boolean get() = this != ARCHIVED
+
+    /**
+     * Finished: the human has settled it. The single rule the ledger uses — only
+     * a finished photograph has a figure that counts.
+     */
+    public val isFinished: Boolean
+        get() = this == CONFIRMED || this == ARCHIVED
 }
+
+/**
+ * An optional label on a capture.
+ *
+ * Deliberately small and closed. The product's wager is that "the photograph is
+ * the record", so a category is something you may add in five seconds, not
+ * something the app demands before it will keep your receipt. [Other] exists so
+ * that a record never has to be forced into a bucket that does not fit.
+ */
+public enum class Category(public val label: String) {
+    Food("Food"),
+    Transport("Transport"),
+    Lodging("Lodging"),
+    Shopping("Shopping"),
+    Entertainment("Entertainment"),
+    Other("Other"),
+    ;
+
+    public companion object {
+        public fun ofOrNull(name: String?): Category? =
+            entries.firstOrNull { it.name.equals(name, ignoreCase = true) }
+    }
+}
+
+/** One row of the spending breakdown: how much a category took, in base currency. */
+public data class CategoryTotal(
+    public val category: Category?,
+    public val captures: Int,
+    public val baseMinor: Long,
+)
 
 /** A trip is the container the whole record is scoped to. */
 public data class Trip(
@@ -65,6 +102,13 @@ public data class Capture(
     public val confirmedAt: Long? = null,
     /** Set when the human chose "no amount" — a souvenir, a gift, an ATM withdrawal. */
     public val markedNoAmount: Boolean = false,
+    /**
+     * What it was, when the human said. Never required, never guessed by the OCR:
+     * a category is a claim, not an observation.
+     */
+    public val category: Category? = null,
+    /** Anything the person wanted to remember about the photograph. */
+    public val note: String? = null,
 ) {
     public val hasAmount: Boolean get() = amountMinor != null && currency != null
 

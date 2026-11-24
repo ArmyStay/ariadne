@@ -86,9 +86,13 @@ search ranking, and the queue state machine. Pure Kotlin, no Gradle, no device.
 ```
 
 Generates the SQLDelight interface from `Ariadne.sq`, compiles `AriadneStore`
-against it, and drives it over an actual SQLite file — 14 checks: money stays in
+against it, and drives it over an actual SQLite file — 25 checks: money stays in
 minor units beside its currency code, the retry backoff hides and reveals
-captures, the day closes, the file is written.
+captures, the day closes, the file is written. The last group covers the detail
+page and the breakdown: a category is written and read back, a capture with no
+category is legal, totals are converted to base currency through the same FX table
+the ledger uses, an unfinished capture is *not* yet a figure, and a currency with
+no stored rate reports its raw amount rather than a zero.
 
 ```bash
 ./tools/entry-check.sh

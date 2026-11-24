@@ -248,12 +248,21 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
         Spacer(Modifier.height(14.dp))
 
         days.forEach { card ->
-            DayRow(
+            // Every day, loaded in one pass — never "no photographs" for a day the
+            // app simply has not looked at.
+            val captures = state.dayCapturesAll[card.localDate.iso].orEmpty()
+            val minor = state.dayFigures[card.localDate.iso] ?: 0L
+            val figure = if (captures.isEmpty()) "—" else {
+                Money.ofMinor(minor).formatWithSymbol(CurrencyCode.of(state.dayCurrency))
+            }
+            DayPlate(
                 day = card.localDate,
                 closed = card.isClosed,
                 selected = card.localDate == state.today,
+                captures = captures,
+                figure = figure,
                 paper = paper,
-            ) { model.go(Route.Record(card.localDate)) }
+            ) { model.openRecord(card.localDate) }
         }
 
         Spacer(Modifier.height(96.dp))
@@ -315,21 +324,26 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
 
         Spacer(Modifier.height(26.dp))
 
+        // The trip's figure, not the open day's: this page is about the whole thing,
+        // and a headline that disagreed with the breakdown below it would be a bug
+        // wearing a design.
+        val tripTotal = state.categoryTotals.sumOf { it.baseMinor }
+        val base = state.trip?.baseCurrency ?: CurrencyCode.of(state.dayCurrency)
+
         Panel(paper) {
             Column {
-                Label("Tallied", paper, color = paper.inkSoft)
+                Label("The trip so far", paper, color = paper.inkSoft)
                 Spacer(Modifier.height(8.dp))
                 Numeral(
-                    Money.ofMinor(state.dayTotalMinor)
-                        .formatWithSymbol(CurrencyCode.of(state.dayCurrency)),
+                    Money.ofMinor(tripTotal).formatWithSymbol(base),
                     paper,
                     size = 44.sp,
                     weight = androidx.compose.ui.text.font.FontWeight.Medium,
                 )
                 Spacer(Modifier.height(6.dp))
                 Body(
-                    "Only the cards you finished at nightfall. Open photographs are not in this " +
-                        "figure, and are not counted as zero.",
+                    "Only photographs that were finished. Anything still waiting tonight is not in " +
+                        "this figure, and is not counted as zero.",
                     paper,
                     color = paper.inkFaint,
                     size = 12.sp,
@@ -340,8 +354,32 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
 
         Spacer(Modifier.height(22.dp))
 
+        if (state.categoryTotals.isNotEmpty()) {
+            Label("What it was", paper, color = paper.inkSoft)
+            Spacer(Modifier.height(10.dp))
+            Breakdown(
+                totals = state.categoryTotals,
+                baseCurrency = base,
+                totalBaseMinor = state.categoryTotals.sumOf { it.baseMinor },
+                paper = paper,
+            )
+            PatternLine(state.categoryTotals, base, paper)
+            Spacer(Modifier.height(10.dp))
+            Body(
+                "Nothing here is sorted for you. A category is a claim you make on the photograph, " +
+                    "and most photographs never need one.",
+                paper,
+                color = paper.inkFaint,
+                size = 12.sp,
+                lineHeight = 18.sp,
+            )
+            Spacer(Modifier.height(26.dp))
+        }
+
         if (state.perCurrency.isNotEmpty()) {
-            Label("By what was on the receipt", paper, color = paper.inkSoft)
+            // The same finished photographs, seen from the other side. The two
+            // columns must always add to the same figure.
+            Label("By currency, before conversion", paper, color = paper.inkSoft)
             Spacer(Modifier.height(8.dp))
             state.perCurrency.forEach { (code, minor) ->
                 Row(
@@ -358,9 +396,17 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
                 }
                 Rule(paper)
             }
-        } else {
+            Label(
+                "these are the amounts as they were paid, not converted",
+                paper,
+                color = paper.inkFaint,
+                tracking = 1.2.sp,
+                size = 9.sp,
+            )
+        } else if (state.categoryTotals.isEmpty()) {
             Body(
-                "Nothing has been tallied yet. The figures appear here the first time you close a day.",
+                "Nothing has been tallied yet. The figures appear here the first time you finish a " +
+                    "photograph at nightfall.",
                 paper,
                 color = paper.inkSoft,
                 size = 15.sp,

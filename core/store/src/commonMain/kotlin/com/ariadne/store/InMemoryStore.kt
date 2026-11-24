@@ -1,6 +1,8 @@
 package com.ariadne.store
 
 import com.ariadne.model.Capture
+import com.ariadne.model.Category
+import com.ariadne.model.CategoryTotal
 import com.ariadne.model.CaptureState
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.DayCard
@@ -106,6 +108,45 @@ public class InMemoryStore : Store {
         captures.remove(id)
         bump()
     }
+
+    override suspend fun updateDetail(
+        id: String,
+        amountMinor: Long?,
+        currencyCode: String?,
+        merchant: String?,
+        category: String?,
+        note: String?,
+    ) {
+        captures[id]?.let {
+            captures[id] = it.copy(
+                amountMinor = amountMinor,
+                currency = CurrencyCode.parseOrNull(currencyCode),
+                merchant = merchant,
+                category = Category.ofOrNull(category),
+                note = note,
+            )
+        }
+        bump()
+    }
+
+    /**
+     * No FX table here, so a total is only ever summed inside one currency and
+     * the value reported is in that currency's minor units. The SQL store is the
+     * one that converts to base; this reference implementation is deliberately
+     * dumber rather than silently wrong.
+     */
+    override suspend fun categoryTotals(tripId: String): List<CategoryTotal> =
+        captures.values
+            .filter { it.tripId == tripId && it.amountMinor != null && it.state.isFinished }
+            .groupBy { it.category }
+            .map { (category, list) ->
+                CategoryTotal(
+                    category = category,
+                    captures = list.size,
+                    baseMinor = list.sumOf { it.amountMinor ?: 0L },
+                )
+            }
+            .sortedByDescending { it.baseMinor }
 
     // -- extras the model layer uses -----------------------------------------
 
