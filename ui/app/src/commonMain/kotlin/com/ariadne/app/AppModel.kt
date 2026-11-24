@@ -68,6 +68,23 @@ public class AppModel(
     private var fx = FxTable(emptyList())
     private var settings = Settings()
 
+    /** Re-reads the day/stack/timeline figures after background extraction changes state. */
+    public fun refreshAfterExtraction() {
+        val trip = _state.value.trip ?: return
+        scope.launch {
+            val route = _state.value.route
+            val day = when (route) {
+                is Route.Nightfall -> route.day
+                is Route.Record -> route.day ?: _state.value.today
+                is Route.Detail -> _state.value.detail?.localDate ?: _state.value.today
+                is Route.Frame -> _state.value.detail?.localDate ?: _state.value.today
+                else -> _state.value.today
+            }
+            if (day != null) runCatching { refreshDay(day) }
+            runCatching { loadTripDays(trip) }
+        }
+    }
+
     // -- lifecycle ---------------------------------------------------------
 
     public fun start() {
@@ -637,6 +654,47 @@ public class AppModel(
                 _state.value = _state.value.copy(route = Route.Record(day), amountInput = "")
             } else {
                 selectStackIndex(0)
+            }
+        }
+    }
+
+    /** True when a card in the Nightfall stack can be confirmed without typing an amount. */
+    public fun isReadyToConfirm(capture: Capture): Boolean =
+        !capture.markedNoAmount && capture.amountMinor != null && capture.state != CaptureState.QUEUED && capture.state != CaptureState.EXTRACTING
+
+    /** Confirms every ready card in the current stack in one action. */
+    public fun confirmReadyInStack() {
+        val trip = _state.value.trip ?: return
+        val stack = _state.value.stack
+        val ready = stack.filter(::isReadyToConfirm)
+        if (ready.isEmpty()) return
+        scope.launch {
+            ready.forEach { capture ->
+                val currency = capture.currency ?: trip.baseCurrency
+                store.updateDetails(
+                    id = capture.id,
+                    amountMinor = capture.amountMinor,
+                    currencyCode = currency.code,
+                    merchant = capture.merchant,
+                    markedNoAmount = false,
+                    confirmedAt = clock.nowMillis(),
+                )
+                when (capture.state) {
+                    CaptureState.NEEDS_CONFIRMATION -> Unit
+                    CaptureState.NEEDS_AMOUNT, CaptureState.FAILED -> outbox.apply(capture.id, QueueEvent.AmountEntered)
+                    CaptureState.QUEUED, CaptureState.EXTRACTING -> return@forEach
+                    CaptureState.CONFIRMED, CaptureState.ARCHIVED -> Unit
+                }
+                outbox.apply(capture.id, QueueEvent.Confirmed)
+            }
+            val day = (state.value.route as? Route.Nightfall)?.day ?: state.value.today ?: ready.first().localDate
+            refreshDay(day)
+            loadTripDays(trip)
+            val remaining = _state.value.stack
+            if (remaining.isEmpty()) {
+                _state.value = _state.value.copy(route = Route.Record(day), amountInput = "")
+            } else {
+                selectStackIndex(_state.value.stackIndex.coerceIn(0, remaining.lastIndex))
             }
         }
     }

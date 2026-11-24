@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.androidx.lifecycle.compose)
+    implementation(libs.mlkit.text.recognition)
     implementation(compose.runtime)
     implementation(compose.ui)
 }

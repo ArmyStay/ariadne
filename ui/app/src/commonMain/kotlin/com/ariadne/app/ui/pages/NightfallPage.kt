@@ -262,9 +262,26 @@ private fun Decisions(
     wide: Boolean,
     typed: String = "",
 ) {
+    val readyCount = state.stack.count { model.isReadyToConfirm(it) }
     Column(Modifier.fillMaxWidth()) {
         if (wide) {
             Action("Confirm", paper, { model.confirmCurrent() }, accent = true)
+            if (readyCount > 1) {
+                Spacer(Modifier.height(8.dp))
+                OutlineAction(
+                    "Confirm $readyCount ready",
+                    paper,
+                    { model.confirmReadyInStack() },
+                )
+                Spacer(Modifier.height(4.dp))
+                Body(
+                    "Keeps every photograph that already has an amount; the rest stay in the stack.",
+                    paper,
+                    color = paper.inkFaint,
+                    size = 11.sp,
+                    lineHeight = 16.sp,
+                )
+            }
             Spacer(Modifier.height(6.dp))
             QuietAction(
                 if (state.current?.amountMinor == null && typed.isEmpty()) {
@@ -295,6 +312,14 @@ private fun Decisions(
                 lineHeight = 16.sp,
             )
         } else {
+            if (readyCount > 1) {
+                OutlineAction(
+                    "Confirm $readyCount ready",
+                    paper,
+                    { model.confirmReadyInStack() },
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),

@@ -58,28 +58,36 @@ public class AppGraph(
 
     public val index: SearchIndex = SearchIndex()
 
-    public val extraction: ExtractionService = ExtractionService(
-        recognizer = platform.recognizer(),
-        repository = store,
-        outbox = outbox,
-        parserFor = { base -> ReceiptParser(base) },
-        baseCurrency = { baseCurrency },
-        extractionDispatcher = Dispatchers.Default,
-    )
+    public lateinit var extraction: ExtractionService
+        private set
 
-    public val model: AppModel = AppModel(
-        store = store,
-        outbox = outbox,
-        extraction = extraction,
-        index = index,
-        files = files(),
-        clipboard = platform.clipboard(),
-        clock = clock,
-        scope = scope,
-        // Time-ordered ids sort the way the photographs were taken, so the record
-        // and the queue agree without a sequence table.
-        newId = { "c-${clock.nowMillis()}-${idCounter++}" },
-    ).also { m -> m.onFailure = { lastFailure = it } }
+    public val model: AppModel
+
+    init {
+        extraction = ExtractionService(
+            recognizer = platform.recognizer(),
+            repository = store,
+            outbox = outbox,
+            parserFor = { base -> ReceiptParser(base) },
+            baseCurrency = { baseCurrency },
+            extractionDispatcher = Dispatchers.Default,
+            onSettled = { model.refreshAfterExtraction() },
+        )
+        model = AppModel(
+            store = store,
+            outbox = outbox,
+            extraction = extraction,
+            index = index,
+            files = files(),
+            clipboard = platform.clipboard(),
+            clock = clock,
+            scope = scope,
+            // Time-ordered ids sort the way the photographs were taken, so the record
+            // and the queue agree without a sequence table.
+            newId = { "c-${clock.nowMillis()}-${idCounter++}" },
+        ).also { m -> m.onFailure = { lastFailure = it } }
+    }
+
 
     public fun setBaseCurrency(currency: CurrencyCode) {
         baseCurrency = currency

@@ -1,8 +1,10 @@
 # Build status
 
-Last updated: 2026-11-23.
+Last updated: 2026-05-22 (workspace edits: Android ML Kit OCR wiring in source, extraction refresh, Nightfall batch confirm, README/essay/CI updates; Gradle/device verification pending).
 
-## Verified — actually run, in this session
+> Note: Checks listed below were recorded in prior sessions and were not re-run in this session after the latest source edits.
+
+## Verified in prior sessions / by existing repo checks (not re-run in this session)
 
 | Check | Command | Result |
 | --- | --- | --- |
@@ -28,13 +30,14 @@ The screenshots in `docs/shots/` are produced by `ImageComposeScene` rendering
 that same `AriadneApp`, so the layout, type scale and spacing on screen are the
 ones the four app targets compile.
 
-## Written, not executed
+## Not yet verified in this environment
 
-| Area | Why not | Risk |
+| Area | Why not | Risk / next action |
 | --- | --- | --- |
-| Gradle four-target build | sandbox is 2 GB, no swap; AGP 9 configuration is OOM-killed | medium — one `./gradlew build` settles it |
-| Android/iOS on-device run | no SDK, no Xcode here | low — the Ariadne code in both now compiles against the real schema |
-| iOS linking | no Kotlin/Native here | unknown — nothing below the entry point is iOS-specific |
+| Full Gradle build/tests on your machine or CI | not executed in this session | Run ./gradlew jvmTest :app:android:assembleDebug :app:desktop:compileKotlinJvm :app:ios:compileKotlinIosSimulatorArm64 :app:wasm:wasmJsBrowserDistribution (or rely on CI) and record actual outcomes |
+| Android camera + ML Kit on device/emulator | no device/emulator here | Install debug build, verify shutter ? OCR/fallback ? Nightfall ? card flow, and record ~30s footage |
+| Live GitHub Pages URL | Pages enablement/URL not controlled here | Enable Pages for main, confirm deployment, and add the final URL at the top of README.md |
+| Wasm persistence across reloads | browser app currently uses in-memory store | Demo is acceptable if stated honestly; persistent web storage remains follow-up work |
 
 ## Hierarchy pass — one blue thing per page
 

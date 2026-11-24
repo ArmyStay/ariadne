@@ -1,29 +1,24 @@
-You spent forty rupees on chai and twelve hundred on shoes, and by tonight you won't remember either. **Ariadne** takes the photo now and lets you tally at nightfall.
+**Browser demo:** [GitHub Pages deploy workflow](.github/workflows/ci.yml) builds the Wasm app on `main` (`app/wasm/build/dist/wasmJs/productionExecutable`). Add the live Pages URL here once Pages is enabled for this repository.
 
-<p align="center"><em>Ariadne — the thread you follow back through the day.</em></p>
+<p align="center">
+  <img src="docs/shots/05-nightfall.png" width="320" alt="Nightfall: photo first, amount typed, confirm when ready" />
+</p>
+
+<p align="center"><strong>Ariadne</strong> takes the photo now and lets you tally at nightfall.</p>
+<p align="center"><em>Not an expense tracker, not a travel app: a trip-scoped spend memory you can keep on the device.</em></p>
 
 ---
 
 ## What it is
 
-A trip-scoped spend memory. Not an expense tracker, not a travel app: a net for the
-record you would otherwise lose between a market stall and a hotel room.
+You spent forty rupees on chai and twelve hundred on shoes, and by tonight you won't remember either. Ariadne is the net for the record you would otherwise lose between a market stall and a hotel room.
 
-- **Capture is a photo.** No amount, no category, no note. One thumb, under two
-  seconds, workable with the radio off. The camera opens inside the app - a
-  CameraX viewfinder on Android - so the shutter is one tap from Nightfall
-  rather than one app switch away.
-- **The numbers wait for nightfall.** A card stack of the day, photo dominant,
-  two taps each, keyboard first on desktop.
-- **Being half-filled is allowed.** Extraction is best effort. When it fails the
-  field is blank, not an error — and the capture is still a record.
-- **Two currencies from the first minute.** Original amount always visible under
-  the converted figure, rounding applied once, at the conversion boundary.
-- **It ends.** The trip closes into a card you keep. No account, no server, no
-  sync, nothing leaving the device.
-- **It survives upgrades.** An install made by an older build opens its own
-  database, migrates it, and keeps the trip. The schema version moves whenever
-  the tables do, and the upgrade path is exercised against a real v1 file.
+- **Capture is a photo.** No amount, no category, no note. One thumb, under two seconds, workable with the radio off. The camera opens inside the app - a CameraX viewfinder on Android - so the shutter is one tap from Nightfall rather than one app switch away.
+- **The numbers wait for nightfall.** A card stack of the day, photo dominant, two taps each, keyboard first on desktop. On-device text recognition can prefill amounts (Android), and ready cards can be confirmed in one action.
+- **Being half-filled is allowed.** Extraction is best effort. When OCR cannot read a figure, the field stays blank and editable - the capture is still a record.
+- **Two currencies from the first minute.** Original amount always visible under the converted figure, rounding applied once, at the conversion boundary.
+- **It ends.** The trip closes into a card you keep, and the card can be copied as text to share or save elsewhere. No account, no server, no sync, nothing leaving the device by default.
+- **It survives upgrades.** An install made by an older build opens its own database, migrates it, and keeps the trip. The opener decides from the columns present, not from a trusted version number alone.
 
 ## The promise this repo keeps in code, not in slides
 
@@ -31,31 +26,27 @@ record you would otherwise lose between a market stall and a hotel room.
 |---|---|
 | Money is never a float | `Money` value class over `Long` minor units — `core/model` |
 | A capture cannot be lost | photo → row → shutter returns — `CaptureCommitter`, `Outbox` |
-| Extraction failure is silent | `sealed ExtractionOutcome.Failed` renders as a blank field |
+| Extraction failure is editable, not fatal | `ExtractionOutcome.Failed`/blank results leave the capture queued for Nightfall |
 | Every state transition is legal or refused | `QueueState.next`, a total function |
 | No red, ever | `AriadneColors` has no red; Material's `error` is mapped to indigo |
 | Search by what you remember | `SearchIndex`: merchant, price, day, currency — one index |
-| Retries survive a dead zone | backoff persisted on the row, resumed on start |
+| Retries survive a dead zone | retry/backoff handled by outbox + extraction service, resumed on start |
 | A button never silently does nothing | `commitDraft` reports a failed write on the page; `failureNote` in Prefs |
-| An old install keeps its data | `openOrMigrate`: decides from the columns present, not from `PRAGMA user_version` |
+| An old install keeps its data | `openOrMigrate`: decides from the columns present, not from `PRAGMA user_version` alone |
 | Startup cannot be blocked by background work | every step in `AppModel.start()` is guarded on its own |
 
 ## The screens
 
-Real frames, rendered from the shared Compose UI by `tools/run-preview.sh --shots`
-— not mockups. Palette and components from a sign-in reference, structure and type
-from a trips reference; see `docs/DESIGN.md`.
+Real frames, rendered from the shared Compose UI by `tools/run-preview.sh --shots` — not mockups. Palette and components from a sign-in reference, structure and type from a trips reference; see `docs/DESIGN.md`.
 
 <p align="center">
-  <img src="docs/shots/02-home.png" width="200" alt="Home" />
+  <img src="docs/shots/01b-shutter.png" width="200" alt="Shutter" />
   <img src="docs/shots/05-nightfall.png" width="200" alt="Nightfall" />
-  <img src="docs/shots/02b-timeline.png" width="200" alt="Timeline" />
+  <img src="docs/shots/02-home.png" width="200" alt="Home" />
   <img src="docs/shots/07-trip-card.png" width="200" alt="The trip card" />
 </p>
 
-Home · Nightfall · Timeline · the card. The rest — onboarding, Stats, Prefs, the
-shutter, the record, search, the desktop spread and the night paper — are in
-[`docs/shots/`](docs/shots/).
+Shutter · Nightfall · Home · the card. Timeline, the record, detail, search, onboarding, Stats, Prefs and more are in [`docs/shots/`](docs/shots/).
 
 ## The design is a component library, not per-page layout
 
@@ -193,25 +184,15 @@ See **[RUN.md](RUN.md)** for the full walkthrough, or `TESTING.md` for the short
 
 ## Status, honestly
 
-Nov 23 2026, day one of a fourteen-day build. Verified in this checkout: the
-model, the queue machine and its tests, the receipt parser with thirty fixtures,
-FX, search, the schema **and its migration path**, the design system and its
-motion vocabulary, the four tab destinations and the six stacked pages, and the
-capture flow from shutter to card.
+Implemented in this checkout: the shared model/queue/parser/FX/search/store, schema migration path, design system and motion vocabulary, tabbed navigation and stacked pages, CameraX capture wiring on Android, on-device ML Kit text recognition on Android (`core/extract` contract end-to-end with graceful fallback states), extraction-result refresh into the UI, and a Nightfall batch-confirm path for captures that already have amounts.
 
-Three things are honestly not verified here, and the first one matters most:
+Still not fully verified from this environment and left for human/device confirmation:
 
-- **No device and no emulator.** The Android camera compiles against
-  signature-checked CameraX stubs, and the sensor has never been opened in this
-  sandbox. The code is real; the hardware path stays unproven until it runs on a
-  phone.
-- **The four-target Gradle build** has not been run end to end - `BUILD-STATUS.md`
-  records exactly what was and was not executed.
-- **OCR is not bound on any target.** `TextRecognizer` returns a failure value
-  that the UI handles correctly, which is why the demo roll ships with the app.
+- **Real device run and footage.** Camera and ML Kit behavior must be confirmed on an Android phone/emulator outside this sandbox.
+- **Full four-target Gradle build and CI green on your runners.** `BUILD-STATUS.md`/`TESTING.md` should be updated with the exact commands and outcomes you run.
+- **Live GitHub Pages URL.** The workflow builds and can deploy the Wasm distribution on `main`; enable Pages and add the final URL at the top of this README.
+- **Non-Android OCR bindings.** Desktop/iOS/Wasm still use fallback recognizers by design/limitation; extraction failures remain editable blank fields.
 
-Performance was reported from real hardware and fixed at the sources found here:
-a drain loop that raced itself, and recomposition scoped far wider than the
-change. It has not been re-measured on a device from inside this sandbox.
+Performance fixes described in history should be re-measured on device; do not treat sandbox-only checks as hardware proof.
 
 Apache-2.0. Kotlin Multiplatform Contest 2027 entry.

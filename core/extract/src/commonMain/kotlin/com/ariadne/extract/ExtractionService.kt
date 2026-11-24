@@ -29,6 +29,7 @@ public class ExtractionService(
     private val baseCurrency: () -> CurrencyCode,
     private val extractionDispatcher: CoroutineDispatcher,
     private val retryDelayMillis: (attempt: Int) -> Long = { com.ariadne.queue.Backoff.delayMillis(it) },
+    private val onSettled: suspend () -> Unit = {},
 ) {
     private val scope = CoroutineScope(SupervisorJob() + extractionDispatcher)
     private val _lastOutcome = MutableStateFlow<ExtractionOutcome?>(null)
@@ -69,54 +70,58 @@ public class ExtractionService(
     /** Extracts a single capture by id. Never throws. */
     public suspend fun extractOne(id: String, photoPath: String) {
         outbox.apply(id, QueueEvent.ExtractionStarted)
-        val outcome = runCatching { extract(photoPath) }
-            .getOrElse { ExtractionOutcome.Failed(it.message ?: "recognizer threw") }
-        _lastOutcome.value = outcome
+        try {
+            val outcome = runCatching { extract(photoPath) }
+                .getOrElse { ExtractionOutcome.Failed(it.message ?: "recognizer threw") }
+            _lastOutcome.value = outcome
 
-        when (outcome) {
-            is ExtractionOutcome.Failed -> {
-                outbox.apply(id, QueueEvent.ExtractionFailed(outcome.reason))
-                val failures = outbox.failuresFor(id)
-                if (!outbox.exhaustedRetries(id)) {
-                    delay(retryDelayMillis(failures))
-                    outbox.apply(id, QueueEvent.Retried)
+            when (outcome) {
+                is ExtractionOutcome.Failed -> {
+                    outbox.apply(id, QueueEvent.ExtractionFailed(outcome.reason))
+                    val failures = outbox.failuresFor(id)
+                    if (!outbox.exhaustedRetries(id)) {
+                        delay(retryDelayMillis(failures))
+                        outbox.apply(id, QueueEvent.Retried)
+                    }
+                }
+
+                is ExtractionOutcome.Nothing -> {
+                    // Text read fine, nothing usable: this is a human problem, not a
+                    // retry problem. Go straight to the stack with a blank field.
+                    outbox.apply(id, QueueEvent.ExtractionFoundAmount(confident = false))
+                }
+
+                is ExtractionOutcome.AmountOnly -> {
+                    repository.updateDetails(
+                        id = id,
+                        amountMinor = outcome.amountMinor,
+                        currencyCode = outcome.currency.code,
+                        merchant = null,
+                        markedNoAmount = false,
+                        confirmedAt = null,
+                    )
+                    outbox.apply(
+                        id,
+                        QueueEvent.ExtractionFoundAmount(
+                            confident = outcome.confidence >= ReceiptParser.MERCHANT_MIN_CONFIDENCE,
+                        ),
+                    )
+                }
+
+                is ExtractionOutcome.AmountAndMerchant -> {
+                    repository.updateDetails(
+                        id = id,
+                        amountMinor = outcome.amountMinor,
+                        currencyCode = outcome.currency.code,
+                        merchant = outcome.merchant,
+                        markedNoAmount = false,
+                        confirmedAt = null,
+                    )
+                    outbox.apply(id, QueueEvent.ExtractionFoundAmount(confident = true))
                 }
             }
-
-            is ExtractionOutcome.Nothing -> {
-                // Text read fine, nothing usable: this is a human problem, not a
-                // retry problem. Go straight to the stack with a blank field.
-                outbox.apply(id, QueueEvent.ExtractionFoundAmount(confident = false))
-            }
-
-            is ExtractionOutcome.AmountOnly -> {
-                repository.updateDetails(
-                    id = id,
-                    amountMinor = outcome.amountMinor,
-                    currencyCode = outcome.currency.code,
-                    merchant = null,
-                    markedNoAmount = false,
-                    confirmedAt = null,
-                )
-                outbox.apply(
-                    id,
-                    QueueEvent.ExtractionFoundAmount(
-                        confident = outcome.confidence >= ReceiptParser.MERCHANT_MIN_CONFIDENCE,
-                    ),
-                )
-            }
-
-            is ExtractionOutcome.AmountAndMerchant -> {
-                repository.updateDetails(
-                    id = id,
-                    amountMinor = outcome.amountMinor,
-                    currencyCode = outcome.currency.code,
-                    merchant = outcome.merchant,
-                    markedNoAmount = false,
-                    confirmedAt = null,
-                )
-                outbox.apply(id, QueueEvent.ExtractionFoundAmount(confident = true))
-            }
+        } finally {
+            runCatching { onSettled() }
         }
     }
 

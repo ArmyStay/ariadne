@@ -3,6 +3,8 @@
 Three ways, ordered by how little you have to install. None of them need an
 Apple developer account, an emulator, or a network connection.
 
+> **Workspace note:** Android OCR is now bound to on-device ML Kit in source, extraction refreshes UI state after settling, and Nightfall can batch-confirm ready captures. These changes were not device/Gradle-verified in this session; run real-target checks on your machine and record outcomes.
+
 ---
 
 ## 1. Look at it (10 seconds)
@@ -31,9 +33,7 @@ only honest way to check a layout is to see the frame.
 This compiles the shared `ui/` module with `kotlinc` and launches it in a real
 window — no Gradle, no Android Studio, no emulator. What opens is the same
 `AriadneApp` composable that Android, iOS, desktop and Wasm all call, wired to an
-in-memory store and a recognizer that returns `OcrResult.Failure` (which is a
-designed path, not a stub: the capture stays queued and the amount field stays
-blank).
+in-memory store and a preview recognizer that returns OcrResult.Failure (a designed fallback path: the capture stays queued and the amount field stays editable). Android app builds are wired to on-device ML Kit OCR in source.
 
 **What to try, in order** — this is the whole product in about ninety seconds:
 
@@ -104,29 +104,31 @@ the Android SDK, but it does prove the Ariadne code in each entry point type-che
 
 ## 5. The real targets
 
-The preview proves the UI and the tests prove the domain. What it cannot prove is
-that Gradle resolves and that the platform bindings link — the sandbox this was
-built in has 2 GB of RAM and no swap, and a full KMP/AGP configuration pass is
-OOM-killed there. So these are the honest commands to run on your machine:
+The preview proves the UI and the Gradle-free scripts prove domain/store/flow behavior in this checkout's harnesses. Full platform builds, device behavior, and Pages deployment still need to be run and recorded on your machine/CI.
 
 ```bash
-# Desktop — the fastest real target, ~90 seconds cold
+# Shared tests
+./gradlew jvmTest
+
+# Android debug APK (includes CameraX + ML Kit recognizer wiring)
+./gradlew :app:android:assembleDebug
+
+# Desktop compile/run
+./gradlew :app:desktop:compileKotlinJvm
 ./gradlew :app:desktop:run
 
-# Android — needs SDK 36 installed
-./gradlew :app:android:installDebug
-
-# Wasm — the judge's path: a browser, nothing installed
+# Wasm dev server and production distribution (for Pages artifact)
 ./gradlew :app:wasm:wasmJsBrowserDevelopmentRun
+./gradlew :app:wasm:wasmJsBrowserDistribution
 
-# iOS — needs macOS + Xcode
-./gradlew :app:ios:linkDebugFrameworkIosSimulatorArm64
+# iOS frameworks (on macOS with Xcode)
+./gradlew :app:ios:compileKotlinIosSimulatorArm64 :app:ios:compileKotlinIosArm64 :app:ios:compileKotlinIosX64
 ```
 
-`BUILD-STATUS.md` lists exactly which of these has been run and which has not.
-Nothing in it is aspirational.
-
----
+Human/device verification still required:
+- Install and run Android on a real device/emulator; verify shutter ? capture ? OCR extraction/fallback ? Nightfall ? card flow and record ~30s footage.
+- Confirm GitHub Pages is enabled and the deployed Wasm URL works, then add it to the top of `README.md`.
+- If you run Gradle/CI successfully, update `BUILD-STATUS.md` and this file with the exact commands, dates, and outcomes.
 
 ## What is deliberately unfinished
 
