@@ -12,7 +12,6 @@ import com.ariadne.app.AppGraph
 import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
 import com.ariadne.core.time.SystemClock
-import com.ariadne.extract.OcrResult
 import com.ariadne.extract.TextRecognizer
 import java.io.File
 
@@ -99,7 +98,7 @@ private class DesktopServices : PlatformServices {
         false
     }
 
-    override fun recognizer(): TextRecognizer = Tess4JTextRecognizer()
+    override fun recognizer(): TextRecognizer = TesseractTextRecognizer()
 
     override fun close() = Unit
 }

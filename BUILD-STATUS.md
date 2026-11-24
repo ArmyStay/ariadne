@@ -1,6 +1,6 @@
 # Build status
 
-Last updated: 2026-05-22 (workspace edits: Android ML Kit OCR wiring in source, extraction refresh, Nightfall batch confirm, README/essay/CI updates; Gradle/device verification pending).
+Last updated: 2026-11-24 (workspace edits: desktop OCR bound via the Tesseract CLI in `app/desktop`, tab bar now Home/Timeline/Trip/Stats replacing Prefs, contrast pass in `Bone.kt`, six curated hero shots in the README, docs/DESIGN.md + docs/ESSAY.md fixes; Gradle/device verification pending).
 
 > Note: Checks listed below were recorded in prior sessions and were not re-run in this session after the latest source edits.
 
@@ -34,7 +34,9 @@ ones the four app targets compile.
 
 | Area | Why not | Risk / next action |
 | --- | --- | --- |
-| Full Gradle build/tests on your machine or CI | not executed in this session | Run ./gradlew jvmTest :app:android:assembleDebug :app:desktop:compileKotlinJvm :app:ios:compileKotlinIosSimulatorArm64 :app:wasm:wasmJsBrowserDistribution (or rely on CI) and record actual outcomes |
+| Full Gradle build/tests on your machine or CI | not executed in this sandbox (no JVM, and egress is limited to github.com / registry.npmjs.org / pypi.org) | Run ./gradlew jvmTest :app:android:assembleDebug :app:desktop:compileKotlinJvm :app:ios:compileKotlinIosSimulatorArm64 :app:wasm:wasmJsBrowserDistribution (or rely on CI) and record actual outcomes; already green in CI on main |
+| Desktop OCR on a real machine | no Tesseract installed here, and the CLI is the binding | `tesseract --version`; the recognizer returns a clean "tesseract not installed" failure when absent — the capture still reaches Nightfall |
+| Phone video of the shutter path | Xvfb + ImageMagick not asserted here | `tools/record-phone-video.sh` (see step 3 of the user's order); the preview script needs a JVM |
 | Android camera + ML Kit on device/emulator | no device/emulator here | Install debug build, verify shutter ? OCR/fallback ? Nightfall ? card flow, and record ~30s footage |
 | Live GitHub Pages URL | Pages enablement/URL not controlled here | Enable Pages for main, confirm deployment, and add the final URL at the top of README.md |
 | Wasm persistence across reloads | browser app currently uses in-memory store | Demo is acceptable if stated honestly; persistent web storage remains follow-up work |
@@ -204,8 +206,8 @@ real defects, all now fixed:
    `tools/entry-check.sh` have already removed the highest-risk unknowns.
 2. Point `AppGraph` at `AriadneStore(driver)` per target and delete `InMemoryStore`
    from the shipping paths (keep it for previews and tests).
-3. Bind OCR per target behind `TextRecognizer`: ML Kit (Android), Vision (iOS),
-   Tesseract (desktop), none (Wasm — by design).
+3. Bind OCR per target behind `TextRecognizer`: ML Kit (Android), Tesseract CLI
+   (desktop), none (Wasm — by design; iOS is an open follow-up).
 4. Wasm: replace `InMemoryStore` with the IndexedDB driver before the Pages deploy.
 5. A real camera/photo picker behind `PlatformPhotos`.
 

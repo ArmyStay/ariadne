@@ -86,7 +86,7 @@ eyebrow, then the headline at 44px (56px wide), then optionally a serif lede,
 then a rule. The number is what makes the app a sequence of plates rather than a
 set of screens. Sections inside a page are numbered in roman (`SectionHead`).
 
-## 4. Legacy layout notes: the grid, not the column
+## 3. Legacy layout notes: the grid, not the column
 
 | Role | Family | Size | Notes |
 | --- | --- | --- | --- |
@@ -103,23 +103,6 @@ The rule that matters: **a number is never a float and never shifts.** Every
 amount is `Long` minor units rendered through `Numeral`, and `tnum` keeps 1,200.00
 and 25.00 in the same column.
 
-### The grid
-
-Every page used to be one centred 620dp column at 24dp margins with everything
-stacked in it — a single axis, uniform rhythm, no left edge to hang anything
-from. That shape reads as a form whatever type you put in it.
-
-`Page` in `:core:design` gives a two-axis grid instead: a **132dp hanging rail**
-carrying dates, figures and marks; a **28dp gutter**; then the measure-bounded
-text column; the whole spread hung from the **left** of the page, capped at
-980dp, as a printed book does. On a phone the rail folds to zero and the same
-content is one column again.
-
-Every page opens with a `Masthead`: a **plate number** (01…09), a hairline, an
-eyebrow, then the headline at 44px (56px wide), then optionally a serif lede,
-then a rule. The number is what makes the app a sequence of plates rather than a
-set of screens. Sections inside a page are numbered in roman (`SectionHead`).
-
 ## 4. Legacy layout notes
 
 - Page margin **24dp** (56dp on wide), vertical **24dp**.
@@ -128,9 +111,9 @@ set of screens. Sections inside a page are numbered in roman (`SectionHead`).
 - Rules are 1px hairlines. Ticks are 2px × 28dp.
 - Depth comes from a hairline and a white panel, not from a shadow.
 
-## 4. The shell
+## 5. The shell
 
-Four destinations — **Home · Timeline · Stats · Prefs** — plus the shutter.
+Four destinations — **Home · Timeline · Trip · Stats** — plus the shutter.
 
 The tab bar is part of the shell, not of any page, so it cannot drift between
 screens. The shutter sits in a **notch cut out of the bar**: a filled path with a
@@ -142,25 +125,27 @@ The bar is **hidden** on the four surfaces that are moments rather than places:
 first run, the shutter, the ritual, and the card. A bar under the ritual would
 make it feel like an errand.
 
-## 5. Pages
+## 6. Pages
 
 | # | Route | Tab | What it is |
 | --- | --- | --- | --- |
 | 1 | `Onboarding` | — | One page, four sentences, two actions. States the inversion. |
-| 2 | `Home` | Home | Today's figure, the one blue action, and the way into everything else. |
-| 3 | `Timeline` | Timeline | The trip as a run of days, each with its 24-hour band. |
-| 4 | `Stats` | Stats | What it came to: by what it was, then by currency. Finished photographs only. |
-| 5 | `Prefs` | Prefs | Currency, paper, and plainly what leaves the device. |
-| 6 | `Trip` | — | Dates, progress, the card. |
+| 2 | `Trips` | Home | The register. Every trip this device holds, newest first; the one active is marked by blue rather than by a badge. |
+| 3 | `Home` | Home | Today's figure, the one blue action, and the way into everything else. |
+| 4 | `Timeline` | Timeline | The trip as a run of days, each with its 24-hour band. |
+| 5 | `Stats` | Stats | What it came to: by what it was, then by currency. Finished photographs only. |
+| 6 | `Trip` | Trip | Dates, progress, the card. The tab the register used to leave unreachable. |
 | 7 | `Capture` | — | The shutter. Full bleed, no chrome, no fields. |
 | 8 | `Nightfall` | — | The ritual. Plate, merchant, amount, two taps. |
 | 9 | `Record` | Timeline | A day, as it happened. No table, ever. |
 | 10 | `TripCard` | — | The thing you keep. |
 | 11 | `Detail` | Timeline | One photograph in the hand: amount, currency, category, a line to keep it by. |
 | 12 | `Search` | — | Remember a thing by shop, price, currency or day. |
+| 13 | `Settings` | — | Currency, paper, and plainly what leaves the device. Reachable from Home; it is a corner, not a destination. |
 
-`Trips` and `Settings` survive in the sealed route type so an older persisted
-route still resolves, but they render the destination that replaced them.
+`Settings` survives in the sealed route type so an older persisted route still
+resolves, but it renders the register behind it. `Trips` is the register the
+register is listed as above.
 
 ### Two pieces that read the data rather than collect it
 
@@ -199,7 +184,7 @@ basic flow.
 | "Re-extract from photo" as a primary button | **left out** | Extraction is best-effort and already automatic; a button would imply a promise the app cannot keep. |
 | Trip day counters ("Day 66 of 14") | **left out** | Contradictory arithmetic in the reference; dates are already on every surface. |
 
-## 6. The ritual (Nightfall)
+## 7. The ritual (Nightfall)
 
 The most important layout in the app, and the one with the tightest constraint:
 **two taps finish a card.** So on a phone the plate, merchant and amount are
@@ -211,7 +196,7 @@ The plate is the largest element on the surface, always. Where a real photograph
 is not bound it shows a single engraved line study of the subject — one weight of
 line, one subject, generous margin. It never pretends to be a photo.
 
-## 7. Motion
+## 8. Motion
 
 One duration, one curve, one property: **180ms**, ease-out, cross-fade between
 routes only. No bounce, no slide, no scale. Reduced motion sets the duration to 0
@@ -221,7 +206,7 @@ and is honoured from Android's animator scale and the browser's
 `LocalMotionPreference` carries the platform's answer down; pages never sniff for
 it themselves.
 
-## 8. Rules worth enforcing
+## 9. Rules worth enforcing
 
 1. No red, anywhere, for any reason.
 2. Money is `Long` minor units + a currency code. `HALF_UP` only at the FX boundary.

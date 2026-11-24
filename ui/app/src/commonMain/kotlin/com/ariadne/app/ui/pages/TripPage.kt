@@ -52,7 +52,7 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
     val trip = state.trip ?: return
     val closed = state.dayCards.count { it.isClosed }
 
-    ScrollingMargin(paper, wide, vertical = 26.dp) { _ ->
+    ScrollingMargin(paper, wide, vertical = 26.dp, ground = paper.tripGround) { _ ->
         Masthead(
             number = "09",
             eyebrow = "Trip",

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -472,10 +473,11 @@ public fun ScrollingMargin(
     wide: Boolean,
     margin: Dp = if (wide) Bone.MarginWide else Bone.Margin,
     vertical: Dp = 22.dp,
+    ground: Color? = null,
     content: @Composable ColumnScope.(ScrollState) -> Unit,
 ) {
     val scroll = rememberScrollState()
-    Row(Modifier.fillMaxSize().background(paper.bg)) {
+    Row(Modifier.fillMaxSize().background(ground ?: paper.bg)) {
         Column(
             Modifier
                 .weight(1f)
