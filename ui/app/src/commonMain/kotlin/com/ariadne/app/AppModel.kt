@@ -155,7 +155,22 @@ public class AppModel(
                     )
                 }
             }
+            onStartedAction?.invoke()
         }
+    }
+
+    // -- hooks ---------------------------------------------------------------
+
+    private var onStartedAction: (() -> Unit)? = null
+
+    /**
+     * A callback for platform entry points: invoked once, right after
+     * [start] has run the initial routing pass. The Wasm demo page uses it to
+     * open on the demo roll when the URL carries `?seed=demo`, so a judge who
+     * lands on the Pages deploy sees a populated app instead of an empty form.
+     */
+    public fun onStarted(action: () -> Unit) {
+        onStartedAction = action
     }
 
     public suspend fun bindTrip(trip: Trip) {
