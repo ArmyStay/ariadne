@@ -22,7 +22,7 @@ private class IosServices : PlatformServices {
 
     override fun store(): com.ariadne.store.Store = com.ariadne.store.AriadneStore(
         driver = NativeSqliteDriver(
-            schema = com.ariadne.store.Schema,
+            schema = com.ariadne.store.db.AriadneDb.Schema,
             name = "ariadne.db",
         ),
     )

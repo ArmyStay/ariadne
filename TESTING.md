@@ -79,7 +79,26 @@ search ranking, and the queue state machine. Pure Kotlin, no Gradle, no device.
 
 ---
 
-## 4. The real targets
+## 4. Check the store against real SQLite (30 seconds)
+
+```bash
+./tools/store-check.sh
+```
+
+Generates the SQLDelight interface from `Ariadne.sq`, compiles `AriadneStore`
+against it, and drives it over an actual SQLite file — 14 checks: money stays in
+minor units beside its currency code, the retry backoff hides and reveals
+captures, the day closes, the file is written.
+
+```bash
+./tools/entry-check.sh
+```
+
+Compiles all four platform entry points (Android, iOS, desktop, Wasm) against the
+real schema and small stubs for the platform APIs. It cannot prove Gradle resolves
+the Android SDK, but it does prove the Ariadne code in each entry point type-checks.
+
+## 5. The real targets
 
 The preview proves the UI and the tests prove the domain. What it cannot prove is
 that Gradle resolves and that the platform bindings link — the sandbox this was
@@ -110,7 +129,7 @@ Nothing in it is aspirational.
 | Gap | Where | Consequence today |
 | --- | --- | --- |
 | No OCR binding on any target | `app/*/…Services.kt` | Every capture falls back to a typed amount. The whole flow still works. |
-| `AriadneStore` never compiled | `core/store` | SQLDelight codegen needs Gradle. The preview uses `InMemoryStore`. |
+| ~~`AriadneStore` never compiled~~ | — | **Done:** `tools/store-check.sh` generates and tests it. |
 | Wasm store is in-memory | `app/wasm` | A reload loses the trip. IndexedDB lands with the Pages deploy. |
 | No photo picker on desktop | `MediaPicker` | "From photos" jumps to the record. |
 | Home's "Start a trip" is unbound | `AppModel.startEmptyTrip` | Creates a trip with no demo roll, which is correct, but there is no date picker yet. |

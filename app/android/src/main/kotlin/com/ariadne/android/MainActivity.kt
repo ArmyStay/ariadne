@@ -49,7 +49,7 @@ private class AndroidServices(
 
     override fun store(): com.ariadne.store.Store = com.ariadne.store.AriadneStore(
         driver = AndroidSqliteDriver(
-            schema = com.ariadne.store.Schema,
+            schema = com.ariadne.store.db.AriadneDb.Schema,
             context = activity,
             name = "ariadne.db",
         ),

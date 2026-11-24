@@ -16,3 +16,8 @@ out/
 
 # Machine-local SDK path
 local.properties
+
+# store/entry check output
+/build/
+/tools/storecheck/build/
+/tools/storecheck/.gradle/

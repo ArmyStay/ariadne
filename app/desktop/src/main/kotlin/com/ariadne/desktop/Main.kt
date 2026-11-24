@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
+import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.ariadne.app.AppGraph
 import com.ariadne.app.PlatformServices
@@ -44,9 +45,30 @@ private class DesktopServices : PlatformServices {
     override fun store(): com.ariadne.store.Store = com.ariadne.store.AriadneStore(
         driver = run {
             dbFile.parentFile?.mkdirs()
-            JdbcSqliteDriver("jdbc:sqlite:${dbFile.absolutePath}").also { com.ariadne.store.Schema.create(it) }
+            val driver = JdbcSqliteDriver("jdbc:sqlite:${dbFile.absolutePath}")
+            // The schema must be created once, not on every launch: `CREATE TABLE`
+            // on an existing database throws "table already exists" and takes the
+            // app down before the window opens.
+            if (!databaseInitialised(driver)) {
+                com.ariadne.store.db.AriadneDb.Schema.create(driver)
+            }
+            driver
         },
     )
+
+    private fun databaseInitialised(driver: SqlDriver): Boolean = try {
+        driver.executeQuery(
+            identifier = null,
+            sql = "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'trip'",
+            mapper = { cursor ->
+                cursor.next()
+                app.cash.sqldelight.db.QueryResult.Value(cursor.getLong(0) ?: 0L)
+            },
+            parameters = 0,
+        ).value > 0L
+    } catch (e: Exception) {
+        false
+    }
 
     override fun recognizer(): TextRecognizer = object : TextRecognizer {
         override suspend fun recognize(imagePath: String): OcrResult =

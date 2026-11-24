@@ -38,15 +38,15 @@ public class AriadneStore(
 
     // -- trips -------------------------------------------------------------
 
-    public suspend fun trips(): List<Trip> = withContext(io) {
+    public suspend override fun trips(): List<Trip> = withContext(io) {
         q.selectTrips().executeAsList().map(::toTrip)
     }
 
-    public suspend fun trip(id: String): Trip? = withContext(io) {
+    public suspend override fun trip(id: String): Trip? = withContext(io) {
         q.selectTripById(id).executeAsOneOrNull()?.let(::toTrip)
     }
 
-    public suspend fun activeTrip(): Trip? = withContext(io) {
+    public suspend override fun activeTrip(): Trip? = withContext(io) {
         q.selectTrips().executeAsList().map(::toTrip).firstOrNull { !it.isClosed }
     }
 
@@ -54,7 +54,7 @@ public class AriadneStore(
      * Creates a trip and its empty day cards in one transaction. A trip with a
      * missing day would be a hole in the record before the first capture.
      */
-    public suspend fun createTrip(trip: Trip): Unit = withContext(io) {
+    public suspend override fun createTrip(trip: Trip): Unit = withContext(io) {
         q.transaction {
             q.insertTrip(
                 id = trip.id,
@@ -72,12 +72,12 @@ public class AriadneStore(
         bump()
     }
 
-    public suspend fun closeTrip(id: String, at: Long): Unit = withContext(io) {
+    public suspend override fun closeTrip(id: String, at: Long): Unit = withContext(io) {
         q.closeTrip(at, id)
         bump()
     }
 
-    public suspend fun deleteTrip(id: String): Unit = withContext(io) {
+    public suspend override fun deleteTrip(id: String): Unit = withContext(io) {
         q.transaction {
             q.deleteTrip(id)
             q.selectDayCards(id).executeAsList()
@@ -148,26 +148,26 @@ public class AriadneStore(
 
     // -- capture: extras used by the extraction worker ---------------------
 
-    public suspend fun capturesReadyForExtraction(nowMillis: Long): List<Capture> = withContext(io) {
+    public suspend override fun capturesReadyForExtraction(nowMillis: Long): List<Capture> = withContext(io) {
         q.selectOpenCapturesReady(nowMillis).executeAsList().map(::toCapture)
     }
 
-    public suspend fun recordRetry(id: String, failedAttempts: Int, notBefore: Long?): Unit = withContext(io) {
+    public suspend override fun recordRetry(id: String, failedAttempts: Int, notBefore: Long?): Unit = withContext(io) {
         q.updateCaptureRetry(failedAttempts.toLong(), notBefore, id)
         bump()
     }
 
-    public suspend fun staleExtractions(): List<Capture> = withContext(io) {
+    public suspend override fun staleExtractions(): List<Capture> = withContext(io) {
         q.selectExtracting().executeAsList().map(::toCapture)
     }
 
-    public suspend fun confirmedForTrip(tripId: String): List<Capture> = withContext(io) {
+    public suspend override fun confirmedForTrip(tripId: String): List<Capture> = withContext(io) {
         q.selectConfirmedForTrip(tripId).executeAsList().map(::toCapture)
     }
 
     // -- days --------------------------------------------------------------
 
-    public suspend fun dayCards(tripId: String): List<DayCard> = withContext(io) {
+    public suspend override fun dayCards(tripId: String): List<DayCard> = withContext(io) {
         q.selectDayCards(tripId).executeAsList().map { row ->
             DayCard(
                 id = row.id,
@@ -178,24 +178,24 @@ public class AriadneStore(
         }
     }
 
-    public suspend fun closeDay(tripId: String, day: LocalDay, at: Long): Unit = withContext(io) {
+    public suspend override fun closeDay(tripId: String, day: LocalDay, at: Long): Unit = withContext(io) {
         q.transaction {
             q.closeDay(at, tripId, day.iso)
         }
         bump()
     }
 
-    public suspend fun reopenDay(tripId: String, day: LocalDay): Unit = withContext(io) {
+    public suspend override fun reopenDay(tripId: String, day: LocalDay): Unit = withContext(io) {
         q.reopenDay(tripId, day.iso)
         bump()
     }
 
     // -- rates -------------------------------------------------------------
 
-    public suspend fun allRates(): List<Rate> = withContext(io) {
+    public suspend override fun allRates(): List<Rate> = withContext(io) {
         q.selectAllRates().executeAsList().map { row ->
             Rate(
-                base = CurrencyCode.of(row.base_),
+                base = CurrencyCode.of(row.base),
                 quote = CurrencyCode.of(row.quote),
                 date = LocalDay.parseOrNull(row.rateDate) ?: LocalDay.of(1970, 1, 1),
                 rateScaled = row.rateScaled,
@@ -203,14 +203,14 @@ public class AriadneStore(
         }
     }
 
-    public suspend fun upsertRate(rate: Rate): Unit = withContext(io) {
+    public suspend override fun upsertRate(rate: Rate): Unit = withContext(io) {
         q.upsertRate(rate.base.code, rate.quote.code, rate.date.iso, rate.rateScaled)
         bump()
     }
 
     // -- settings ----------------------------------------------------------
 
-    public suspend fun settings(): Settings = withContext(io) {
+    public suspend override fun settings(): Settings = withContext(io) {
         q.selectSettings().executeAsOneOrNull()?.let { row ->
             Settings(
                 baseCurrency = CurrencyCode.of(row.baseCurrency),
@@ -222,7 +222,7 @@ public class AriadneStore(
         } ?: Settings()
     }
 
-    public suspend fun saveSettings(settings: Settings): Unit = withContext(io) {
+    public suspend override fun saveSettings(settings: Settings): Unit = withContext(io) {
         q.upsertSettings(
             baseCurrency = settings.baseCurrency.code,
             homeCurrency = settings.homeCurrency.code,
@@ -233,7 +233,7 @@ public class AriadneStore(
     }
 
     /** Bumped after every write so screens can re-read without polling. */
-    public val changes: Flow<Long> = revision
+    public override val changes: Flow<Long> = revision
 
     public fun changeFlow(): Flow<Long> = revision.map { it }.flowOn(io)
 

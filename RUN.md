@@ -101,7 +101,24 @@ open docs/shots/contact-sheet.png           # macOS  (xdg-open on Linux, start o
 
 ```bash
 ./tools/test-domain.sh              # -> OK (70 tests)
+./tools/store-check.sh              # -> ALL STORE CHECKS PASSED
+./tools/entry-check.sh              # -> all four entry points compile
 ```
+
+The last two need six extra jars in `~/.cache/tools/sdl`:
+
+```bash
+mkdir -p ~/.cache/tools/sdl && cd ~/.cache/tools/sdl
+M=https://repo1.maven.org/maven2/app/cash/sqldelight
+for a in runtime-jvm sqlite-driver jdbc-driver; do
+  curl -sSLO "$M/$a/2.4.1/$a-2.4.1.jar"; done
+curl -sSLO "$M/coroutines-extensions-jvm/2.4.1/coroutines-ext.jar" 
+mv coroutines-ext.jar coroutines-ext.jar 2>/dev/null
+curl -sSL -o sqlite-jdbc.jar "https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.50.1.0/sqlite-jdbc-3.50.1.0.jar"
+```
+
+`store-check.sh` runs SQLDelight's code generator in `tools/storecheck` — a tiny
+JVM-only Gradle project, so it needs no Android SDK and only about 700 MB.
 
 ---
 
