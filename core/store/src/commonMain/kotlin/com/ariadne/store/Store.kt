@@ -21,6 +21,9 @@ public interface Store : CaptureRepository {
     public suspend fun trip(id: String): Trip?
     public suspend fun activeTrip(): Trip?
     public suspend fun createTrip(trip: Trip)
+
+    /** Edits an existing trip in place: a budget revised mid-trip is the usual case. */
+    public suspend fun updateTrip(trip: Trip)
     public suspend fun closeTrip(id: String, at: Long)
     public suspend fun deleteTrip(id: String)
 

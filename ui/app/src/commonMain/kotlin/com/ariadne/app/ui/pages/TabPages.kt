@@ -386,6 +386,42 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         Spacer(Modifier.height(12.dp))
         Rule(paper, color = paper.ink)
         Spacer(Modifier.height(10.dp))
+
+        // The fence, if one was set. Over budget is stated plainly and in the same
+        // voice as under it: this is a record, not a scold.
+        val budget = state.trip?.budgetMinor
+        if (budget != null) {
+            val remaining = budget - tripTotal
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Label("against a budget of", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
+                Spacer(Modifier.width(8.dp))
+                Label(
+                    Money.ofMinor(budget).formatWithSymbol(base),
+                    paper,
+                    color = paper.inkSoft,
+                    size = 10.sp,
+                    tracking = 1.2.sp,
+                )
+                Spacer(Modifier.weight(1f))
+                Label(
+                    if (remaining >= 0) "left" else "over",
+                    paper,
+                    color = paper.inkFaint,
+                    size = 9.sp,
+                    tracking = 1.4.sp,
+                )
+                Spacer(Modifier.width(8.dp))
+                Numeral(
+                    Money.ofMinor(if (remaining >= 0) remaining else -remaining).format(base),
+                    paper,
+                    size = 15.sp,
+                    weight = FontWeight.Medium,
+                    color = if (remaining >= 0) paper.ink else paper.blue,
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+
         Body(
             "Only photographs that were finished. Anything still waiting tonight is not in " +
                 "this figure, and is not counted as zero.",

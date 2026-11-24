@@ -25,6 +25,8 @@ import com.ariadne.app.AppModel
 import com.ariadne.app.Route
 import com.ariadne.app.ui.pages.CapturePage
 import com.ariadne.app.ui.pages.DetailPage
+import com.ariadne.app.ui.pages.FramePage
+import com.ariadne.app.ui.pages.NewTripPage
 import com.ariadne.app.ui.pages.HomePage
 import com.ariadne.app.ui.pages.NightfallPage
 import com.ariadne.app.ui.pages.OnboardingPage
@@ -115,6 +117,10 @@ private fun Destination(
     when (route) {
         Route.Onboarding -> OnboardingPage(model, paper, wide)
 
+        Route.NewTrip -> NewTripPage(state, model, paper, wide)
+
+        is Route.Frame -> FramePage(state, model, paper, wide, route.captureId)
+
         // The four tabs.
         Route.Home -> HomePage(state, model, paper, wide)
         Route.Timeline -> TimelinePage(state, model, paper, wide)
@@ -130,6 +136,9 @@ private fun Destination(
             wide = wide,
             onShutter = onShutter,
             onImport = { model.go(Route.Record(state.today)) },
+            // Bytes from the platform camera go straight into the record; the
+            // page then holds the frame up and asks what to do with it.
+            onFrame = { bytes -> if (bytes.isNotEmpty()) model.capturePhoto(bytes) },
         )
 
         is Route.Nightfall -> NightfallPage(state, model, paper, wide)
@@ -144,7 +153,7 @@ private fun Destination(
         // Retired surfaces: kept in the sealed type so persisted routes from an
         // older build still resolve, but they show the destination that replaced
         // them rather than a second copy of it.
-        Route.Trips -> HomePage(state, model, paper, wide)
+        Route.Trips -> if (state.trip == null) NewTripPage(state, model, paper, wide) else HomePage(state, model, paper, wide)
 
         Route.Settings -> PrefsPage(state, model, paper, wide)
     }
@@ -170,7 +179,8 @@ private fun Tab.route(): Route = when (this) {
  * shutter, the ritual, and the card you keep.
  */
 private fun Route.showsTabBar(): Boolean = when (this) {
-    Route.Onboarding, Route.Capture, is Route.Nightfall, is Route.TripCard, is Route.Detail -> false
+    Route.Onboarding, Route.NewTrip, Route.Capture,
+    is Route.Nightfall, is Route.TripCard, is Route.Detail, is Route.Frame -> false
     else -> true
 }
 

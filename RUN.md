@@ -101,11 +101,12 @@ open docs/shots/contact-sheet.png           # macOS  (xdg-open on Linux, start o
 
 ```bash
 ./tools/test-domain.sh              # -> OK (70 tests)
-./tools/store-check.sh              # -> ALL STORE CHECKS PASSED
+./tools/store-check.sh              # -> ALL STORE CHECKS PASSED (30)
+./tools/flow-check.sh               # -> ALL FLOW CHECKS PASSED (32)
 ./tools/entry-check.sh              # -> all four entry points compile
 ```
 
-The last two need six extra jars in `~/.cache/tools/sdl`:
+The middle two need six extra jars in `~/.cache/tools/sdl`:
 
 ```bash
 mkdir -p ~/.cache/tools/sdl && cd ~/.cache/tools/sdl

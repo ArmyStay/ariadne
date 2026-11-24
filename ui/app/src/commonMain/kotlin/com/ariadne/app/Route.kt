@@ -19,11 +19,27 @@ public sealed interface Route {
     /** 2. First run: what this is, in one page. */
     public data object Onboarding : Route
 
+    /**
+     * 01b. A new trip, typed in.
+     *
+     * This is the front door: on a first run there is no trip, so there is
+     * nothing to show until one exists. Name, place, dates, currency, budget.
+     */
+    public data object NewTrip : Route
+
     /** 3. One trip as an object: dates, progress, currencies. */
     public data object Trip : Route
 
     /** 4. The shutter. */
     public data object Capture : Route
+
+    /**
+     * 4b. The frame just taken, held up.
+     *
+     * Two ways out and no way to lose it: keep it as it is and finish it later at
+     * Nightfall, or fill it in now — amount, category, what it was for.
+     */
+    public data class Frame(val captureId: String) : Route
 
     /** 5. Nightfall: the card stack that finishes the day. */
     public data class Nightfall(val day: LocalDay) : Route
@@ -69,6 +85,27 @@ public sealed interface Route {
 }
 
 /** Everything a screen can see. One immutable snapshot, replaced wholesale. */
+/**
+ * A trip being typed, before it exists.
+ *
+ * Dates are held as text because that is what a keyboard produces and what a
+ * human reads back; they are parsed on the way into the model, and the page shows
+ * the parse result so a typo is visible before the trip is created, not after.
+ * The budget is held as text for the same reason, and converted to minor units in
+ * exactly one place.
+ */
+public data class TripDraft(
+    public val name: String = "",
+    public val place: String = "",
+    public val startIso: String = "",
+    public val endIso: String = "",
+    public val currency: String = "INR",
+    public val budget: String = "",
+    public val error: String? = null,
+) {
+    public val isEmpty: Boolean get() = name.isBlank() && startIso.isBlank() && endIso.isBlank()
+}
+
 public data class AppUiState(
     public val route: Route = Route.Onboarding,
     public val trip: Trip? = null,
@@ -99,6 +136,8 @@ public data class AppUiState(
     public val searchQuery: String = "",
     public val searchResults: List<Capture> = emptyList(),
     public val busy: Boolean = false,
+    /** The trip being composed on the new-trip page. Empty until they start one. */
+    public val draft: TripDraft = TripDraft(),
 ) {
     public val current: Capture? get() = stack.getOrNull(stackIndex)
     public val remaining: Int get() = (stack.size - stackIndex).coerceAtLeast(0)

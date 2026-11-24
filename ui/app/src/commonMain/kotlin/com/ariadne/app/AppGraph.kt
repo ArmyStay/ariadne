@@ -49,6 +49,7 @@ public class AppGraph(
         outbox = outbox,
         extraction = extraction,
         index = index,
+        files = files(),
         clock = clock,
         scope = scope,
         // Time-ordered ids sort the way the photographs were taken, so the record
@@ -61,6 +62,13 @@ public class AppGraph(
     }
 
     /** The photo pipeline. Null on previews and tests that never capture. */
+    /**
+     * The photo pipeline. Null when the platform has not supplied one, in which
+     * case a capture is still recorded but its bytes are not written — the record
+     * survives, which is the half that matters.
+     */
+    public fun files(): PhotoFiles? = platform.files()
+
     public fun photos(): PlatformPhotos? = platform as? PlatformPhotos
 
     public fun close() {
@@ -80,6 +88,10 @@ public class AppGraph(
 public interface PlatformServices {
     public fun store(): Store
     public fun recognizer(): com.ariadne.extract.TextRecognizer
+
+    /** Where photographs are written. Null for a target that has no file system. */
+    public fun files(): PhotoFiles? = null
+
     public fun close()
 }
 

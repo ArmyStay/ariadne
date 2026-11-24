@@ -67,6 +67,8 @@ public class AriadneStore(
                 endDate = trip.endDate.iso,
                 baseCurrency = trip.baseCurrency.code,
                 homeCurrency = trip.homeCurrency.code,
+                place = trip.place,
+                budgetMinor = trip.budgetMinor,
                 closedAt = trip.closedAt,
             )
             dayRange(trip.startDate, trip.endDate).forEach { day ->
@@ -74,6 +76,19 @@ public class AriadneStore(
             }
         }
         bump()
+    }
+
+    public suspend override fun updateTrip(trip: Trip): Unit = withContext(io) {
+        q.updateTrip(
+            name = trip.name,
+            place = trip.place,
+            startDate = trip.startDate.iso,
+            endDate = trip.endDate.iso,
+            baseCurrency = trip.baseCurrency.code,
+            homeCurrency = trip.homeCurrency.code,
+            budgetMinor = trip.budgetMinor,
+            id = trip.id,
+        )
     }
 
     public suspend override fun closeTrip(id: String, at: Long): Unit = withContext(io) {
@@ -257,6 +272,8 @@ public class AriadneStore(
         baseCurrency = CurrencyCode.of(row.baseCurrency),
         homeCurrency = CurrencyCode.of(row.homeCurrency),
         closedAt = row.closedAt,
+        place = row.place,
+        budgetMinor = row.budgetMinor,
     )
 
     private fun toCapture(row: com.ariadne.store.db.Capture) = Capture(

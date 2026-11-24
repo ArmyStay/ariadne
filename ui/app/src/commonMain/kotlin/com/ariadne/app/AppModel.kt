@@ -35,6 +35,7 @@ public class AppModel(
     private val outbox: Outbox,
     private val extraction: ExtractionService,
     private val index: SearchIndex,
+    private val files: PhotoFiles? = null,
     private val clock: Clock,
     private val scope: CoroutineScope,
     private val newId: () -> String,
@@ -56,7 +57,18 @@ public class AppModel(
             val trips = store.trips()
             val active = trips.firstOrNull { !it.isClosed }
             if (active == null) {
-                _state.value = _state.value.copy(route = Route.Onboarding, today = clock.today())
+                // No trip, no record. The front door is the form, not a manifesto:
+                // a first-run visitor should be able to create a trip in one screen.
+                val today = clock.today()
+                _state.value = _state.value.copy(
+                    route = Route.NewTrip,
+                    today = today,
+                    draft = TripDraft(
+                        startIso = today.iso,
+                        endIso = today.plusDays(6).iso,
+                        currency = settings.baseCurrency.code,
+                    ),
+                )
             } else {
                 bindTrip(active)
             }
@@ -72,7 +84,7 @@ public class AppModel(
             trip = trip,
             today = day,
             dayCards = cards,
-            route = Route.Capture,
+            route = Route.Home,
         )
         refreshDay(day)
         loadTripDays(trip)
@@ -138,13 +150,26 @@ public class AppModel(
 
     // -- capture -----------------------------------------------------------
 
-    /** A real capture: photo bytes arrive already downscaled by the platform. */
+    /**
+     * A real capture: photo bytes arrive already downscaled by the platform.
+     *
+     * The caller is told the id because the shutter now hands the frame straight
+     * back to the person holding it: keep it for nightfall, or fill it in now.
+     */
     public fun capturePhoto(bytes: ByteArray, downscaleAdjusted: Boolean = true) {
         val trip = _state.value.trip ?: return
         val day = clock.today().coerceInto(trip)
         scope.launch {
             val id = newId()
-            val path = com.ariadne.store.PhotoPaths.capturePath(trip.id, day, id)
+            // Photo first, then the row: a row pointing at a file that was never
+            // written is a hole in the record, and this is the one ordering that
+            // cannot produce it.
+            val path = if (bytes.isNotEmpty() && files != null) {
+                runCatching { files.write(trip.id, day, id, bytes) }.getOrNull()
+                    ?: com.ariadne.store.PhotoPaths.capturePath(trip.id, day, id)
+            } else {
+                com.ariadne.store.PhotoPaths.capturePath(trip.id, day, id)
+            }
             store.insert(
                 Capture(
                     id = id,
@@ -158,13 +183,14 @@ public class AppModel(
             // Extraction picks it up on the next drain; the shutter is already back.
             extraction.drain()
             refreshDay(day)
+            _state.value = _state.value.copy(route = Route.Frame(id))
         }
     }
 
-    /** Onboarding path: a trip that already has the demo roll in it. */
+    /** The demo path, still one call so the judged route stays short. */
     public fun startTripDemo() {
-        startSeedTrip()
-        go(Route.Trips)
+        fillDraftFromDemo()
+        commitDraft(withDemoRoll = true)
     }
 
     /** Capture a placeholder frame (the platform camera supplies bytes in the real build). */
@@ -172,16 +198,150 @@ public class AppModel(
         capturePhoto(ByteArray(0))
     }
 
-    /** Start a trip from the trips page, seeded with the demo roll. */
-    public fun startSeedTrip() {
-        val today = clock.today()
-        startTrip("Bangkok & Home", today, today.plusDays(6), settings.baseCurrency, settings.homeCurrency, true)
+    /** Kept for the older call sites: they now open the form rather than a trip. */
+    public fun startEmptyTrip() {
+        startNewTrip()
     }
 
-    /** Start a trip with nothing in it. */
-    public fun startEmptyTrip() {
+    public fun startSeedTrip() {
+        startTripDemo()
+    }
+
+    // -- the new-trip page ------------------------------------------------
+
+    public fun startNewTrip() {
         val today = clock.today()
-        startTrip("New trip", today, today.plusDays(6), settings.baseCurrency, settings.homeCurrency, false)
+        _state.value = _state.value.copy(
+            route = Route.NewTrip,
+            draft = TripDraft(
+                startIso = today.iso,
+                endIso = today.plusDays(6).iso,
+                currency = settings.baseCurrency.code,
+            ),
+        )
+    }
+
+    public fun editDraft(
+        name: String? = null,
+        place: String? = null,
+        startIso: String? = null,
+        endIso: String? = null,
+        currency: String? = null,
+        budget: String? = null,
+    ) {
+        val d = _state.value.draft
+        _state.value = _state.value.copy(
+            draft = d.copy(
+                name = name ?: d.name,
+                place = place ?: d.place,
+                startIso = startIso ?: d.startIso,
+                endIso = endIso ?: d.endIso,
+                currency = currency ?: d.currency,
+                budget = budget ?: d.budget,
+                error = null,
+            ),
+        )
+    }
+
+    /** Prefill from the demo roll, so the judged path stays one tap. */
+    public fun fillDraftFromDemo() {
+        val today = clock.today()
+        _state.value = _state.value.copy(
+            draft = TripDraft(
+                name = "Bangkok & Home",
+                place = "Bangkok",
+                startIso = today.iso,
+                endIso = today.plusDays(6).iso,
+                currency = settings.baseCurrency.code,
+                budget = "25000",
+            ),
+        )
+    }
+
+    /**
+     * Create the trip the draft describes.
+     *
+     * Every rejection carries a sentence a person can act on. A silent no-op on a
+     * page with five fields is the worst possible answer, because the human cannot
+     * tell which field was wrong.
+     */
+    public fun commitDraft(withDemoRoll: Boolean = false) {
+        val d = _state.value.draft
+        val start = LocalDay.parseOrNull(d.startIso.trim())
+        val end = LocalDay.parseOrNull(d.endIso.trim())
+        val error = when {
+            d.name.isBlank() -> "A trip needs a name."
+            start == null -> "The start date should look like 2026-11-24."
+            end == null -> "The end date should look like 2026-11-30."
+            end < start -> "The trip cannot end before it starts."
+            else -> null
+        }
+        if (error != null) {
+            _state.value = _state.value.copy(draft = d.copy(error = error))
+            return
+        }
+        val currency = CurrencyCode.parseOrNull(d.currency.trim().uppercase()) ?: settings.baseCurrency
+        val budgetMinor = parseBudgetMinor(d.budget, currency)
+        val trip = Trip(
+            id = newId(),
+            name = d.name.trim(),
+            place = d.place.trim().ifBlank { null },
+            startDate = start!!,
+            endDate = end!!,
+            baseCurrency = currency,
+            homeCurrency = settings.homeCurrency,
+            budgetMinor = budgetMinor,
+        )
+        scope.launch {
+            _state.value = _state.value.copy(busy = true)
+            store.createTrip(trip)
+            store.saveSettings(settings.copy(baseCurrency = currency))
+            if (withDemoRoll) seedDemoRoll(trip)
+            bindTrip(trip)
+            _state.value = _state.value.copy(busy = false, draft = TripDraft(), route = Route.Home)
+        }
+    }
+
+    /**
+     * "2500", "2,500", "2500.50" -> minor units. Blank means no budget at all,
+     * which is a different thing from a budget of zero and is stored as null.
+     */
+    private fun parseBudgetMinor(text: String, currency: CurrencyCode): Long? {
+        val cleaned = text.trim().replace(",", "").replace(" ", "")
+        if (cleaned.isEmpty()) return null
+        val parts = cleaned.split('.')
+        if (parts.size > 2) return null
+        val whole = parts[0].toLongOrNull() ?: return null
+        val fraction = parts.getOrNull(1)?.padEnd(2, '0')?.take(2)?.toLongOrNull() ?: 0L
+        return whole * 100 + fraction
+    }
+
+    // -- the frame just taken ---------------------------------------------
+
+    /** Nothing to change: the photograph waits for nightfall as it is. */
+    /**
+     * Sets or clears the trip's fence, in base-currency minor units.
+     *
+     * A separate call from creation because a budget is a thing people revise on
+     * the third day, not only when they open the trip.
+     */
+    public fun editTripBudget(text: String) {
+        val trip = _state.value.trip ?: return
+        val minor = parseBudgetMinor(text, trip.baseCurrency)
+        val updated = trip.copy(budgetMinor = minor)
+        scope.launch {
+            store.updateTrip(updated)
+            _state.value = _state.value.copy(trip = updated)
+        }
+    }
+
+    public fun keepFrameForLater() {
+        go(Route.Home)
+    }
+
+    /** Fill it in now: the detail page is the form, and it is already built. */
+    public fun openFrame(captureId: String) {
+        openDetail(captureId)
     }
 
     // -- nightfall ---------------------------------------------------------

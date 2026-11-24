@@ -51,6 +51,7 @@ public fun CapturePage(
     wide: Boolean,
     onShutter: () -> Unit,
     onImport: () -> Unit,
+    onFrame: (ByteArray) -> Unit = {},
 ) {
     Column(
         Modifier
@@ -78,14 +79,19 @@ public fun CapturePage(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .border(Bone.Hairline, paper.edge)
                 .semantics { contentDescription = "Viewfinder. Tap to keep the photograph." }
                 .pointerInput(Unit) { detectTapGestures(onTap = { onShutter() }) },
         ) {
-            PlateField(paper)
+            // The live frame if the target has a camera, the ruled plate if not.
+            // Same frame either way, so the shutter never lies about what it saw.
+            CameraPlate(paper, Modifier.fillMaxSize(), live = true, onFrame = onFrame)
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Label("Tap anywhere to keep", paper, color = paper.inkFaint)
+                    Label(
+                        if (cameraAvailable()) "Tap anywhere to keep" else "No camera here — tap to keep a plate",
+                        paper,
+                        color = paper.inkFaint,
+                    )
                     Spacer(Modifier.height(18.dp))
                 }
             }

@@ -59,6 +59,18 @@ fun main() = runBlocking {
     expect("active trip", store.activeTrip()?.id, "trip-1")
     expect("day cards created", store.dayCards("trip-1").size, 7)
 
+    println("trip place and budget")
+    expect("no place by default", store.trip("trip-1")?.place, null)
+    expect("no budget by default", store.trip("trip-1")?.budgetMinor, null)
+    val withFence = store.trip("trip-1")!!.copy(place = "Bangkok", budgetMinor = 2_500_050L)
+    store.updateTrip(withFence)
+    expect("place survives the round trip", store.trip("trip-1")?.place, "Bangkok")
+    expect("budget survives the round trip", store.trip("trip-1")?.budgetMinor, 2_500_050L)
+    expect("remaining is arithmetic, not a column", store.trip("trip-1")?.remainingAgainstBudget(1_695_00L), 2_330_550L)
+    // Clearing the fence is null, which is not the same as a budget of zero.
+    store.updateTrip(withFence.copy(budgetMinor = null))
+    expect("clearing the budget stores null", store.trip("trip-1")?.budgetMinor, null)
+
     println("captures + money")
     val id = "c-1"
     store.insert(

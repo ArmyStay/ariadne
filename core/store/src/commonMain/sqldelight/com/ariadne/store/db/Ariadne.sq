@@ -13,7 +13,9 @@ CREATE TABLE trip (
     endDate         TEXT NOT NULL,
     baseCurrency    TEXT NOT NULL,
     homeCurrency    TEXT NOT NULL,
-    closedAt        INTEGER
+    closedAt        INTEGER,
+    place           TEXT,
+    budgetMinor     INTEGER
 );
 
 CREATE INDEX trip_start ON trip(startDate);
@@ -78,8 +80,12 @@ selectTripById:
 SELECT * FROM trip WHERE id = ?;
 
 insertTrip:
-INSERT INTO trip(id, name, startDate, endDate, baseCurrency, homeCurrency, closedAt)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO trip(id, name, startDate, endDate, baseCurrency, homeCurrency, closedAt, place, budgetMinor)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateTrip:
+UPDATE trip SET name = ?, place = ?, startDate = ?, endDate = ?, baseCurrency = ?, homeCurrency = ?, budgetMinor = ?
+WHERE id = ?;
 
 closeTrip:
 UPDATE trip SET closedAt = ? WHERE id = ?;
