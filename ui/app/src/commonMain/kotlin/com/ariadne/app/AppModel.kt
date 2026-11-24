@@ -36,6 +36,7 @@ public class AppModel(
     private val extraction: ExtractionService,
     private val index: SearchIndex,
     private val files: PhotoFiles? = null,
+    private val clipboard: Clipboard? = null,
     private val clock: Clock,
     private val scope: CoroutineScope,
     private val newId: () -> String,
@@ -207,6 +208,117 @@ public class AppModel(
         startTripDemo()
     }
 
+    // -- the trip as an object --------------------------------------------
+
+    /**
+     * Closes the trip and shows it as a card.
+     *
+     * Closing is not deletion: the record stays, the totals stay, and a closed
+     * trip simply stops being the one the shutter points at. The card is the
+     * thing you keep, so this is the one-way door that is not frightening.
+     */
+    public fun closeTripIntoCard() {
+        val trip = _state.value.trip ?: return
+        scope.launch {
+            store.closeTrip(trip.id, clock.nowMillis())
+            val closed = store.trip(trip.id) ?: trip
+            _state.value = _state.value.copy(
+                trip = closed,
+                route = Route.TripCard(trip.id),
+            )
+        }
+    }
+
+    /**
+     * Deletes the trip and everything hanging off it: captures, day cards, and
+     * the photographs in the app's private folder.
+     *
+     * Two taps, never one. The first arms it and says what will go; the second
+     * does it. There is no undo because there is no copy anywhere else — which is
+     * the whole design, and the reason this cannot be a single tap.
+     */
+    public fun armTripDeletion() {
+        _state.value = _state.value.copy(deleteArmed = !_state.value.deleteArmed)
+    }
+
+    public fun deleteTripNow() {
+        val trip = _state.value.trip ?: return
+        if (!_state.value.deleteArmed) return
+        scope.launch {
+            _state.value = _state.value.copy(busy = true)
+            if (files != null) {
+                runCatching {
+                    // Every capture, not only the finished ones: a photo whose
+                    // row goes with the trip would otherwise sit in the folder forever.
+                    store.capturesForTrip(trip.id).forEach { capture ->
+                        files.delete(capture.photoPath)
+                    }
+                }
+            }
+            store.deleteTrip(trip.id)
+            index.rebuild(emptyList())
+            _state.value = AppUiState(
+                route = Route.NewTrip,
+                today = clock.today(),
+                draft = TripDraft(
+                    startIso = clock.today().iso,
+                    endIso = clock.today().plusDays(6).iso,
+                    currency = settings.baseCurrency.code,
+                ),
+            )
+        }
+    }
+
+    /**
+     * The trip card as text, for the share sheet.
+     *
+     * Built here rather than in the page because it is content: the numbers in
+     * the shared card have to be the numbers in the record, and the way to
+     * guarantee that is for both to be read from the same state.
+     */
+    /**
+     * Puts the card text on the system clipboard.
+     *
+     * The clipboard is a platform thing, so it arrives through the same optional
+     * interface as the camera and the file system. With no implementation the
+     * label simply never flips, which is honest: nothing was copied.
+     */
+    public fun copyCardToClipboard() {
+        val text = tripCardText()
+        if (text.isEmpty()) return
+        val copied = clipboard?.copy(text) == true
+        _state.value = _state.value.copy(cardCopied = copied)
+    }
+
+    public fun tripCardText(): String {
+        val trip = _state.value.trip ?: return ""
+        val total = _state.value.categoryTotals.sumOf { it.baseMinor }
+        val closed = _state.value.dayCards.count { it.isClosed }
+        val totalText = Money.ofMinor(total).formatWithSymbol(trip.baseCurrency)
+        return buildString {
+            appendLine(trip.name)
+            trip.place?.let { appendLine(it) }
+            appendLine("${trip.startDate.iso} to ${trip.endDate.iso}")
+            appendLine()
+            appendLine("$closed of ${_state.value.dayCards.size} days closed")
+            appendLine("$totalText across ${_state.value.categoryTotals.sumOf { it.captures }} photographs")
+            trip.budgetMinor?.let { budget ->
+                val left = budget - total
+                appendLine(
+                    if (left >= 0) {
+                        "against a budget of ${Money.ofMinor(budget).formatWithSymbol(trip.baseCurrency)}, " +
+                            "${Money.ofMinor(left).formatWithSymbol(trip.baseCurrency)} left"
+                    } else {
+                        "${Money.ofMinor(-left).formatWithSymbol(trip.baseCurrency)} over a budget of " +
+                            Money.ofMinor(budget).formatWithSymbol(trip.baseCurrency)
+                    },
+                )
+            }
+            appendLine()
+            append("Ariadne — kept on the device it was written on.")
+        }
+    }
+
     // -- the new-trip page ------------------------------------------------
 
     public fun startNewTrip() {
@@ -331,6 +443,33 @@ public class AppModel(
         val updated = trip.copy(budgetMinor = minor)
         scope.launch {
             store.updateTrip(updated)
+            _state.value = _state.value.copy(trip = updated)
+        }
+    }
+
+    /** Base currency is what every total is stated in, so changing it re-states them. */
+    public fun editTripCurrency(code: String) {
+        val trip = _state.value.trip ?: return
+        val currency = CurrencyCode.parseOrNull(code) ?: return
+        val updated = trip.copy(baseCurrency = currency)
+        scope.launch {
+            store.updateTrip(updated)
+            settings = settings.copy(baseCurrency = currency)
+            store.saveSettings(settings)
+            _state.value = _state.value.copy(trip = updated)
+            _state.value.today?.let { refreshDay(it) }
+            loadTripDays(updated)
+        }
+    }
+
+    public fun editTripHomeCurrency(code: String) {
+        val trip = _state.value.trip ?: return
+        val currency = CurrencyCode.parseOrNull(code) ?: return
+        val updated = trip.copy(homeCurrency = currency)
+        scope.launch {
+            store.updateTrip(updated)
+            settings = settings.copy(homeCurrency = currency)
+            store.saveSettings(settings)
             _state.value = _state.value.copy(trip = updated)
         }
     }

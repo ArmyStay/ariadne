@@ -32,6 +32,9 @@ public interface Store : CaptureRepository {
     public suspend fun staleExtractions(): List<Capture>
     public suspend fun confirmedForTrip(tripId: String): List<Capture>
 
+    /** Every capture of a trip in any state: what deletion has to clean up. */
+    public suspend fun capturesForTrip(tripId: String): List<Capture>
+
     public suspend fun dayCards(tripId: String): List<DayCard>
     public suspend fun closeDay(tripId: String, day: LocalDay, at: Long)
     public suspend fun reopenDay(tripId: String, day: LocalDay)

@@ -26,6 +26,8 @@ import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.FigureRow
+import com.ariadne.design.Glyph
+import com.ariadne.design.Icon
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.Paper
@@ -57,9 +59,24 @@ public fun TripCardPage(state: AppUiState, model: AppModel, paper: Paper, wide: 
             .verticalScroll(rememberScrollState())
             .padding(horizontal = if (wide) 96.dp else 20.dp, vertical = 28.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             QuietAction("Back to the record", paper, { model.go(Route.Record(state.today)) })
-            QuietAction("Share", paper, { }, color = paper.inkFaint)
+            // Share copies the card as text, built from the same state the page is
+            // showing, so the shared numbers cannot disagree with the printed ones.
+            Row(
+                Modifier.androidTap { model.copyCardToClipboard() },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Glyph.Share, paper, size = 14.dp, color = paper.inkFaint)
+                Spacer(Modifier.width(7.dp))
+                Label(
+                    if (state.cardCopied) "Copied" else "Share",
+                    paper,
+                    color = if (state.cardCopied) paper.blue else paper.inkFaint,
+                    size = 10.sp,
+                    tracking = 1.5.sp,
+                )
+            }
         }
 
         Spacer(Modifier.height(20.dp))
@@ -141,7 +158,7 @@ public fun TripCardPage(state: AppUiState, model: AppModel, paper: Paper, wide: 
         }
 
         Spacer(Modifier.height(22.dp))
-        Action("Save as an image", paper, { })
+        Action("Copy as text", paper, { model.copyCardToClipboard() })
         Spacer(Modifier.height(8.dp))
         QuietAction("Back to the trip", paper, { model.go(Route.Trip) })
     }

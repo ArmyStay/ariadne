@@ -50,6 +50,7 @@ public class AppGraph(
         extraction = extraction,
         index = index,
         files = files(),
+        clipboard = platform.clipboard(),
         clock = clock,
         scope = scope,
         // Time-ordered ids sort the way the photographs were taken, so the record
@@ -91,6 +92,9 @@ public interface PlatformServices {
 
     /** Where photographs are written. Null for a target that has no file system. */
     public fun files(): PhotoFiles? = null
+
+    /** The system clipboard. Null where there is not one. */
+    public fun clipboard(): Clipboard? = null
 
     public fun close()
 }

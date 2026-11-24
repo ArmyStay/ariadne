@@ -12,7 +12,7 @@ Last updated: 2026-11-23.
 | Real UI window | `tools/run-preview.sh` | launches under Xvfb |
 | SQLDelight codegen | `tools/store-check.sh` | generates from `Ariadne.sq` |
 | `AriadneStore` vs real SQLite | `tools/store-check.sh` | **30 checks pass** |
-| The capture flow, walked | `tools/flow-check.sh` | **32 checks pass** |
+| The capture flow, walked | `tools/flow-check.sh` | **50 checks pass** |
 | Four entry points compile | `tools/entry-check.sh` | **all four** |
 | Desktop app launches + persists | manual, under Xvfb | window opens, DB written |
 
@@ -34,6 +34,42 @@ ones the four app targets compile.
 | Gradle four-target build | sandbox is 2 GB, no swap; AGP 9 configuration is OOM-killed | medium — one `./gradlew build` settles it |
 | Android/iOS on-device run | no SDK, no Xcode here | low — the Ariadne code in both now compiles against the real schema |
 | iOS linking | no Kotlin/Native here | unknown — nothing below the entry point is iOS-specific |
+
+## Stale-control pass — dead pages out, icons in
+
+A sweep of every control in the app found three classes of rot.
+
+**Two whole pages were never rendered.** `SettingsPage.kt` and `TripsPage.kt` were
+built, styled, and then superseded by `PrefsPage` and `HomePage` — and left in the
+tree. Their dead ends were visible from the surface: `Route.Settings` resolved to
+`PrefsPage`, so the old page's "Delete this trip" lambda was empty and unreachable
+at the same time. Both files are gone; git has them if they are ever wanted.
+
+**Two live controls did nothing.** "Delete this trip" and "Share" were
+`{ }`. Both are now real: deletion is two taps (arm, then confirm) because there
+is no copy anywhere else, and it removes the trip's photographs as well as its
+rows. Share copies the card as text, generated from the same state the page
+draws, so the shared numbers cannot disagree with the printed ones.
+
+**Two routes carried lies.** Prefs linked to `TripCard("0")`, a hardcoded id that
+resolved to whatever `state.trip` was; it now closes the trip properly. The
+preference rows ("Date format", "Paper", "Reading") looked like settings and were
+not — the two that can change (base and home currency) are now real pickers, and
+the two that cannot are set as read-outs that say so.
+
+**Icons.** There was one icon system in the app — the four tab glyphs, drawn as
+line art in `TabBar.kt` — and nothing else. A Material icon font would arrive with
+its own weight and joins and immediately look bolted on beside this type, so
+`Glyphs.kt` draws eighteen glyphs on the same 0..1 grid at the same 1.4dp stroke:
+trip, date, place, budget, camera, photograph, night, search, record, stats, gear,
+waiting, remove, share, back, done, ledger, edit, paper. They scale from 14dp
+beside a label to a page ornament, and they read as cut from the same plate as the
+rules and the letters.
+
+**One bug the flow check caught:** deletion iterated `confirmedForTrip`, so
+photographs of *unfinished* captures stayed in the folder forever. `capturesForTrip`
+now returns every state, and the check asserts that a deleted trip's folder is
+empty while a neighbouring trip's is untouched.
 
 ## Flow pass — the front door, the frame, the fence
 

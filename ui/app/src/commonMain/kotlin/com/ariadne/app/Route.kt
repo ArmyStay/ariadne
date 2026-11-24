@@ -138,6 +138,16 @@ public data class AppUiState(
     public val busy: Boolean = false,
     /** The trip being composed on the new-trip page. Empty until they start one. */
     public val draft: TripDraft = TripDraft(),
+    /**
+     * True once the person has tapped "delete" once.
+     *
+     * Deletion is two taps on purpose: there is no copy of this record anywhere
+     * else, so one tap is not enough consent and an undo would be a lie.
+     */
+    public val deleteArmed: Boolean = false,
+
+    /** True for a moment after the card was copied, so the label can say so. */
+    public val cardCopied: Boolean = false,
 ) {
     public val current: Capture? get() = stack.getOrNull(stackIndex)
     public val remaining: Int get() = (stack.size - stackIndex).coerceAtLeast(0)

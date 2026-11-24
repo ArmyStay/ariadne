@@ -132,6 +132,60 @@ fun main() {
     check("the demo roll fills the stack", model.state.value.stack.size >= 5)
     check("the demo trip carries a budget from the form", model.state.value.trip?.budgetMinor == 2_500_000L)
 
+    // ---- the controls that used to be decoration ------------------------
+    val live = model.state.value.trip!!
+    model.editTripCurrency("THB")
+    settleCheck()
+    check("changing the base currency reaches the store", graph.store.tripSnapshot(live.id)?.baseCurrency?.code == "THB")
+    model.editTripHomeCurrency("USD")
+    settleCheck()
+    check("changing the home currency reaches the store", graph.store.tripSnapshot(live.id)?.homeCurrency?.code == "USD")
+    model.editTripBudget("9000")
+    settleCheck()
+    check("editing the fence reaches the store", graph.store.tripSnapshot(live.id)?.budgetMinor == 900_000L)
+
+    // Closing into a card must not destroy anything.
+    val beforeClose = graph.store.tripSnapshot(live.id)?.closedAt
+    model.closeTripIntoCard()
+    settleCheck()
+    check("closing the trip opens its card", model.state.value.route is Route.TripCard)
+    check("closing marks the trip closed", graph.store.tripSnapshot(live.id)?.closedAt != null)
+    check("closing was not already done", beforeClose == null)
+    check("closing keeps the captures", graph.store.capturesSnapshot(live.id).size >= 5)
+
+    // The shared card must state the same numbers as the record.
+    val cardText = model.tripCardText()
+    check("the card text names the trip", cardText.contains("Bangkok & Home"))
+    check("the card text carries a total", cardText.contains("across"))
+    check("the card text mentions the fence", cardText.contains("budget"))
+
+    // Deletion is two taps, and the first one deletes nothing.
+    model.armTripDeletion()
+    settleCheck()
+    check("arming deletion deletes nothing", graph.store.tripSnapshot(live.id) != null)
+    check("arming is visible in state", model.state.value.deleteArmed)
+    model.armTripDeletion()
+    settleCheck()
+    check("disarming is possible", !model.state.value.deleteArmed)
+
+    model.armTripDeletion()
+    settleCheck()
+    model.deleteTripNow()
+    settleCheck()
+    check("confirming deletes the trip", graph.store.tripSnapshot(live.id) == null)
+    // Only the deleted trip's photographs go. The earlier trip in this walk keeps
+    // its own, which is the whole point of scoping a folder by trip id.
+    check(
+        "deletion removes that trip's photographs",
+        services.files.writtenPaths.none { it.startsWith(live.id) },
+    )
+    check(
+        "deletion leaves the other trip's photographs alone",
+        services.files.writtenPaths.isNotEmpty(),
+    )
+    check("deletion sends you back to the front door", model.state.value.route == Route.NewTrip)
+    check("deletion clears the trip from state", model.state.value.trip == null)
+
     println()
     if (failures == 0) {
         println("ALL FLOW CHECKS PASSED ($checks)")
@@ -144,6 +198,11 @@ fun main() {
 /** The model launches into a scope; give it a moment to land. */
 private fun settle() {
     Thread.sleep(120)
+}
+
+/** Longer, for a call that writes to the store and then re-reads it. */
+private fun settleCheck() {
+    Thread.sleep(200)
 }
 
 private class FlowServices : PlatformServices {
@@ -193,3 +252,9 @@ private fun com.ariadne.store.Store.tripsSnapshot(): List<com.ariadne.model.Trip
 
 private fun com.ariadne.store.Store.findCapture(id: String): com.ariadne.model.Capture? =
     kotlinx.coroutines.runBlocking { findById(id) }
+
+private fun com.ariadne.store.Store.tripSnapshot(id: String): com.ariadne.model.Trip? =
+    kotlinx.coroutines.runBlocking { trip(id) }
+
+private fun com.ariadne.store.Store.capturesSnapshot(id: String): List<com.ariadne.model.Capture> =
+    kotlinx.coroutines.runBlocking { capturesForTrip(id) }

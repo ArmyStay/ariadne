@@ -33,3 +33,14 @@ public object PhotoNaming {
     public fun relative(tripId: String, day: LocalDay, id: String): String =
         "$tripId/${day.iso}/$id.jpg"
 }
+
+/**
+ * The system clipboard, where there is one.
+ *
+ * Optional for the same reason as everything else at this edge: a desktop preview
+ * and a headless render have no clipboard, and the card page must still draw.
+ */
+public interface Clipboard {
+    /** Returns true only when the text actually reached the clipboard. */
+    public fun copy(text: String): Boolean
+}

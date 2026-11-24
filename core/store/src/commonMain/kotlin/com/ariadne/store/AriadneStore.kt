@@ -264,6 +264,10 @@ public class AriadneStore(
 
     // -- mapping -----------------------------------------------------------
 
+    override suspend fun capturesForTrip(tripId: String): List<Capture> = withContext(io) {
+        q.selectCapturesForTrip(tripId).executeAsList().map(::toCapture)
+    }
+
     private fun toTrip(row: com.ariadne.store.db.Trip) = Trip(
         id = row.id,
         name = row.name,

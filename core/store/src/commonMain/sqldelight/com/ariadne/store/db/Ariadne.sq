@@ -93,6 +93,9 @@ UPDATE trip SET closedAt = ? WHERE id = ?;
 deleteTrip:
 DELETE FROM trip WHERE id = ?;
 
+selectCapturesForTrip:
+SELECT * FROM capture WHERE tripId = ? ORDER BY createdAt ASC;
+
 selectCapturesForDay:
 SELECT * FROM capture
 WHERE tripId = ? AND localDate = ?
