@@ -1,0 +1,15 @@
+-- Migration 2 -> 3: trip gained place and a budget.
+--
+-- A trip can now hold where it is ([place]) and the fence the traveller set for
+-- it ([budgetMinor]). Both nullable: a trip without a place or a budget is a
+-- trip, not an incomplete one.
+--
+-- This is the change that made "Open the trip" do nothing. The table grew, the
+-- schema version did not move, no migration ran, and the INSERT named a column
+-- that was not there - throwing inside a launched coroutine, where nobody saw
+-- it. The version is now written to `PRAGMA user_version` on first create, which
+-- is what makes this file reachable at all.
+
+ALTER TABLE trip ADD COLUMN place TEXT;
+
+ALTER TABLE trip ADD COLUMN budgetMinor INTEGER;

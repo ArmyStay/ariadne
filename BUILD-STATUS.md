@@ -11,8 +11,8 @@ Last updated: 2026-11-23.
 | Real UI renders | `tools/run-preview.sh --shots docs/shots` | **21 frames, PNG** |
 | Real UI window | `tools/run-preview.sh` | launches under Xvfb |
 | SQLDelight codegen | `tools/store-check.sh` | generates from `Ariadne.sq`, `verifyMigrations` on |
-| v1 database migrates and keeps its trip | `tools/store-check.sh` | **ok**, real file, real `openOrMigrate` |
-| `AriadneStore` vs real SQLite | `tools/store-check.sh` | **41 checks pass** |
+| three real database shapes open correctly | `tools/store-check.sh` | **ok**: baseline, interim, fresh |
+| `AriadneStore` vs real SQLite | `tools/store-check.sh` | **59 checks pass** |
 | The capture flow, walked | `tools/flow-check.sh` | **54 checks pass** |
 | Four entry points compile | `tools/entry-check.sh` | **all four** |
 | Desktop app launches + persists | manual, under Xvfb | window opens, DB written |
@@ -231,3 +231,30 @@ typed text.
 **The effects.** `core/design/Blocks.kt` (NavRow, SectionBreak, Framed,
 FigureRow, TapSurface) and four effects in `Motion.kt` (Reveal, page drift,
 animatedLong, motionSpec), all honouring `LocalMotionPreference`.
+
+## The schema was never versioned (second report, same button)
+
+The fix above did not work on the user's machine, and the reason is worse than
+the first diagnosis: **no build of this app has ever written `PRAGMA
+user_version`.** The generated `create` does not do it. So every database in
+existence reports version 0, `openOrMigrate` read that as "empty file", skipped
+the migration, and every query then failed - `no such column: capture.category`,
+`table trip has no column named place`. The migration test passed because it
+built a "version 1" fixture that no build ever produced.
+
+What changed:
+
+- The baseline schema is captured verbatim in `tools/storecheck/baseline-v1.sql`,
+  from commit 81df38b, and is one of the three shapes the store gate opens.
+- `openOrMigrate` decides from the file - does a `trip` table exist - not from
+  the pragma, and writes the version after `create` as well as after `migrate`.
+- A failed `migrate` is retried by column (`reconcile`), so a half-upgraded file
+  cannot be made worse.
+- `AppModel.start()` guards every step separately. `outbox.resume()` used to run
+  before the route was chosen, so one exception left the app on its default
+  screen with no trip state - which is the "empty landing page" that was reported.
+- "Begin empty" routed to a page that rendered the same form behind it; it opens
+  a blank form now.
+
+Still not verified here: the fix on the user's actual machine, and the Android
+camera. Both need hardware this sandbox does not have.

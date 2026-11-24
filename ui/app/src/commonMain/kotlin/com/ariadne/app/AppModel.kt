@@ -72,11 +72,24 @@ public class AppModel(
 
     public fun start() {
         scope.launch {
-            fx = FxTable(store.allRates())
-            settings = store.settings()
-            outbox.resume()
-            extraction.drain()
-            val trips = store.trips()
+            // Every step below is guarded on its own, and the route is decided
+            // even if all of them fail.
+            //
+            // This ordering is the whole fix for "the landing page is empty and
+            // the button does nothing". `outbox.resume()` runs a SELECT over a
+            // table that a stale database may not have, and it used to run before
+            // the route was chosen - so one SQLiteException left the app on its
+            // default screen with no trip state at all, looking like a form whose
+            // button was wired to nothing. A failure in the background work must
+            // never be able to prevent the app from showing a screen.
+            runCatching { fx = FxTable(store.allRates()) }.onFailure(::report)
+            runCatching { settings = store.settings() }.onFailure(::report)
+            runCatching { outbox.resume() }.onFailure(::report)
+            runCatching { extraction.drain() }.onFailure(::report)
+            val trips = runCatching { store.trips() }.getOrElse {
+                report(it)
+                emptyList()
+            }
             val active = trips.firstOrNull { !it.isClosed }
             if (active == null) {
                 // No trip, no record. The front door is the form, not a manifesto:
@@ -92,7 +105,22 @@ public class AppModel(
                     ),
                 )
             } else {
-                bindTrip(active)
+                runCatching { bindTrip(active) }.onFailure { error ->
+                    report(error)
+                    // The trip is on disk but could not be read. Say so on the
+                    // front door rather than showing an app with no trip in it.
+                    _state.value = _state.value.copy(
+                        route = Route.NewTrip,
+                        today = clock.today(),
+                        draft = TripDraft(
+                            startIso = clock.today().iso,
+                            endIso = clock.today().plusDays(6).iso,
+                            currency = settings.baseCurrency.code,
+                            error = "Your trip could not be opened. " +
+                                (error.message ?: "Unknown error"),
+                        ),
+                    )
+                }
             }
         }
     }

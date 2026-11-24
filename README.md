@@ -37,7 +37,8 @@ record you would otherwise lose between a market stall and a hotel room.
 | Search by what you remember | `SearchIndex`: merchant, price, day, currency — one index |
 | Retries survive a dead zone | backoff persisted on the row, resumed on start |
 | A button never silently does nothing | `commitDraft` reports a failed write on the page; `failureNote` in Prefs |
-| An old install keeps its data | `openOrMigrate`: `PRAGMA user_version`, then create, migrate, or neither |
+| An old install keeps its data | `openOrMigrate`: decides from the columns present, not from `PRAGMA user_version` |
+| Startup cannot be blocked by background work | every step in `AppModel.start()` is guarded on its own |
 
 ## The screens
 
@@ -78,7 +79,9 @@ function rather than a tween typed into a page:
   Fades only; no slide, because a list that slides up is the most generic
   animation there is.
 - the route crossfade plus `Motion.Drift` - ten points sideways as a page
-  arrives, because the app is a book and pages turn across, not up.
+  arrives, because the app is a book and pages turn across, not up. The index on
+  Home and the ways into Search both use `Reveal`; Search's four example queries
+  are live searches, not captions.
 - `animatedLong` - a total counts to its new value. Money here is read in columns
   and compared against a fence, so the direction of a change matters. The value
   underneath stays a `Long`; the float exists only for the frames in between.
@@ -119,7 +122,7 @@ Everything below runs in this checkout with no Gradle and no device. All green:
 |---|---|---|
 | Domain logic | `./tools/test-domain.sh` | **70 tests** |
 | The capture flow, walked end to end | `./tools/flow-check.sh` | **54 checks** |
-| The store against a real SQLite file | `./tools/store-check.sh` | **41 checks, incl. a v1-to-v2 upgrade** |
+| The store against a real SQLite file | `./tools/store-check.sh` | **59 checks, incl. three real database shapes** |
 | Every page renders | `./tools/run-preview.sh --shots` | **21 frames** |
 | All four entry points compile | `./tools/entry-check.sh` | android, ios, wasm, desktop |
 
@@ -135,13 +138,34 @@ FxTest                    12   HALF_UP once, inverse pairs, missing rates, multi
 SearchIndexTest           12   merchant / price / day / currency, results are captures
 ```
 
-`store-check.sh` and `flow-check.sh` are the two that earn their keep. The store
-gate builds a **version 1 database by hand**, migrates it through the shipping
-`openOrMigrate`, and proves the old trip survives and a new one writes into it -
-the bug that made "Open the trip" do nothing was invisible to a gate that only
-ever created a fresh schema. The flow gate walks the same failure deliberately,
-with a store that refuses every write, and asserts that the form says so instead
-of sitting there looking dead.
+`store-check.sh` and `flow-check.sh` are the two that earn their keep, and the
+reason is worth stating plainly because both were written after being wrong.
+
+The store gate opens **three real database shapes**: the schema exactly as it
+shipped at the first commit (kept verbatim in `tools/storecheck/baseline-v1.sql`
+and regenerated from git history), a file created by an interim build that never
+stamped its version, and a genuinely empty file. Only the last is allowed to
+`create`. The earlier version of this test invented a "version 1" that no build
+ever wrote to disk, so it passed while every real database in existence failed
+with `no such column: capture.category`. A fixture is only worth anything if it
+is the thing the user has.
+
+The flow gate walks the same failure deliberately, with a store that refuses
+every write, and asserts the form says so instead of sitting there looking dead.
+
+## Database versions
+
+The schema is at **3**, and the two migrations are `1.sqm` (capture gained
+`category` and `note`) and `2.sqm` (trip gained `place` and `budgetMinor`).
+
+The version number is written by `openOrMigrate`, not by the generated `create` -
+that omission is what broke every existing install, so the opener does not trust
+the number on its own. It decides from the file: no `trip` table means new; a
+`trip` table means this app has been here before, whatever the pragma claims; and
+a failed `migrate` is repaired by adding only the missing columns, because a
+half-upgraded file makes `ALTER TABLE ... ADD COLUMN` fail with "duplicate column
+name". On desktop, a file that cannot be reconciled is moved aside and kept -
+never deleted - and the app opens.
 
 ## Run it
 

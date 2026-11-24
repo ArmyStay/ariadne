@@ -102,7 +102,11 @@ private const val StaggerMillis: Long = 34L
  * still fading does not recompose: only its layer's alpha changes.
  */
 @Composable
-public fun Reveal(index: Int, content: @Composable () -> Unit) {
+public fun Reveal(
+    index: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
     val reduced = LocalMotionPreference.current.reduced
     if (reduced) {
         content()
@@ -119,6 +123,6 @@ public fun Reveal(index: Int, content: @Composable () -> Unit) {
         )
     }
     androidx.compose.foundation.layout.Box(
-        Modifier.graphicsLayer { alpha = shown.value },
+        modifier.graphicsLayer { alpha = shown.value },
     ) { content() }
 }

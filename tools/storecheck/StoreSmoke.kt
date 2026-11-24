@@ -9,8 +9,10 @@ import com.ariadne.model.Trip
 import com.ariadne.queue.Outbox
 import com.ariadne.queue.QueueEvent
 import com.ariadne.store.AriadneStore
+import com.ariadne.store.hasColumn
+import com.ariadne.store.hasTable
 import com.ariadne.store.openOrMigrate
-import com.ariadne.store.schemaVersion
+import com.ariadne.store.userVersion
 import com.ariadne.store.db.AriadneDb
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -219,68 +221,55 @@ fun main() = runBlocking {
     println("persistence")
     expect("db file written", file.length() > 0, true)
 
-    // ── The upgrade path ────────────────────────────────────────────────────
+    // ── The upgrade path ────────────────────────────────────────────────
     //
     // Everything above ran against a database created at the current version,
-    // which is exactly the case that hid the "Open the trip" bug: a fresh
-    // install worked and an existing one did not. So build a *v1* database by
-    // hand — the schema as it shipped — put a trip in it, then migrate it and
-    // prove the trip is still readable and that a new one can be written.
-    println("migration from v1")
-    val old = File(System.getProperty("java.io.tmpdir"), "ariadne-store-v1.db")
+    // which is exactly the case that hid the bug: a fresh install worked and an
+    // existing one did not.
+    //
+    // This fixture is the schema **as it actually shipped**, read from commit
+    // 81df38b and kept in `baseline-v1.sql`. The previous version of this test
+    // invented a "version 1" that no build ever wrote, so it proved nothing -
+    // and every real database went on failing. The lesson is in the file names:
+    // a fixture is only worth anything if it is the thing the user has.
+    println("migration from the shipped baseline")
+    val old = File(System.getProperty("java.io.tmpdir"), "ariadne-store-baseline.db")
     old.delete()
     val oldDriver = JdbcSqliteDriver("jdbc:sqlite:${old.absolutePath}")
-    // SqlDriver.execute prepares exactly one statement - a multi-statement
-    // string silently runs only its first line. Hence one call per line.
-    // The schema exactly as it shipped at version 1: no place, no budgetMinor on
-    // trip, and everything else as Ariadne.sq has it today.
-    val v1Schema = listOf(
-        "CREATE TABLE trip (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
-            "startDate TEXT NOT NULL, endDate TEXT NOT NULL, baseCurrency TEXT NOT NULL, " +
-            "homeCurrency TEXT NOT NULL, closedAt INTEGER)",
-        "CREATE INDEX trip_start ON trip(startDate)",
-        "CREATE TABLE capture (id TEXT NOT NULL PRIMARY KEY, " +
-            "tripId TEXT NOT NULL REFERENCES trip(id) ON DELETE CASCADE, " +
-            "localDate TEXT NOT NULL, photoPath TEXT NOT NULL, createdAt INTEGER NOT NULL, " +
-            "state TEXT NOT NULL, amountMinor INTEGER, currency TEXT, merchant TEXT, " +
-            "extractionConfidence REAL, confirmedAt INTEGER, " +
-            "markedNoAmount INTEGER NOT NULL DEFAULT 0, category TEXT, note TEXT, " +
-            "failedAttempts INTEGER NOT NULL DEFAULT 0, retryNotBefore INTEGER)",
-        "CREATE INDEX capture_trip_day ON capture(tripId, localDate, createdAt)",
-        "CREATE INDEX capture_state ON capture(state)",
-        "CREATE INDEX capture_merchant ON capture(merchant)",
-        "CREATE TABLE dayCard (id TEXT NOT NULL PRIMARY KEY, " +
-            "tripId TEXT NOT NULL REFERENCES trip(id) ON DELETE CASCADE, " +
-            "localDate TEXT NOT NULL, closedAt INTEGER, UNIQUE(tripId, localDate))",
-        "CREATE TABLE rate (base TEXT NOT NULL, quote TEXT NOT NULL, " +
-            "rateDate TEXT NOT NULL, rateScaled INTEGER NOT NULL, " +
-            "PRIMARY KEY (base, quote, rateDate))",
-        "CREATE TABLE settings (id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1), " +
-            "baseCurrency TEXT NOT NULL, homeCurrency TEXT NOT NULL, " +
-            "theme TEXT NOT NULL, ocrProvider TEXT NOT NULL)",
-        "PRAGMA user_version = 1",
-    )
-    v1Schema.forEach { oldDriver.execute(null, it, 0) }
+    // SqlDriver.execute prepares exactly one statement, so the fixture is split
+    // on the semicolons rather than handed over whole.
+    File("tools/storecheck/baseline-v1.sql").readText()
+        .split(";")
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !it.lines().all { l -> l.trim().startsWith("--") } }
+        .forEach { oldDriver.execute(null, it, 0) }
     oldDriver.execute(
         null,
         "INSERT INTO trip (id, name, startDate, endDate, baseCurrency, homeCurrency) " +
             "VALUES ('trip-old', 'An older trip', '2026-11-01', '2026-11-05', 'INR', 'INR')",
         0,
     )
-    expect("v1 database reports version 1", oldDriver.schemaVersion(), 1L)
+    // The crux: this is what every real database looks like. Nothing ever wrote
+    // the pragma, so a file full of trips reports version 0.
+    expect("the baseline reports version 0, like every real install", oldDriver.userVersion(), 0L)
+    expect("but it does have a trip table", oldDriver.hasTable("trip"), true)
 
-    // Not a reimplementation: the exact function Main.kt calls on startup.
+    // Not a reimplementation: the exact function the desktop app calls on startup.
     com.ariadne.store.openOrMigrate(oldDriver)
-    expect("migrated to the current version", oldDriver.schemaVersion(), AriadneDb.Schema.version.toLong())
+    expect("versioned after opening", oldDriver.userVersion(), AriadneDb.Schema.version.toLong())
 
     val oldStore = AriadneStore(oldDriver)
     val migrated = oldStore.trip("trip-old")
     expect("the old trip survived the migration", migrated?.name, "An older trip")
-    expect("it starts without a place", migrated?.place, null)
-    expect("it starts without a budget", migrated?.budgetMinor, null)
+    expect("it now has a place column, empty", migrated?.place, null)
+    expect("it now has a budget column, empty", migrated?.budgetMinor, null)
 
-    // The bug itself: writing a trip with place and budget into a migrated
-    // database. Before 1.sqm this threw and the button did nothing.
+    // The three queries that threw on the user's machine, in the order they threw.
+    expect("capturesForTrip works after the upgrade", oldStore.capturesForTrip("trip-old").size, 0)
+    expect("openCaptures works after the upgrade", oldStore.openCaptures().size, 0)
+    expect("categoryTotals works after the upgrade", oldStore.categoryTotals("trip-old").size, 0)
+
+    // And the write that used to fail silently: a trip with a place and a fence.
     oldStore.createTrip(
         Trip(
             id = "trip-new",
@@ -296,12 +285,78 @@ fun main() = runBlocking {
     expect("a new trip writes into a migrated database", oldStore.trip("trip-new")?.name, "The one that would not open")
     expect("its place is there", oldStore.trip("trip-new")?.place, "Bangkok")
     expect("its fence is there", oldStore.trip("trip-new")?.budgetMinor, 3_000_000L)
-    expect("it becomes the active trip", oldStore.activeTrip()?.id, "trip-new")
-    // Opening again must be a no-op: this is the call that used to run `create`
-    // and throw on every launch after the first.
+
+    // A capture with a category, through the column the upgrade added.
+    oldStore.insert(
+        Capture(
+            id = "c-old",
+            tripId = "trip-new",
+            localDate = LocalDay.of(2026, 12, 1),
+            photoPath = "trip-new/2026-12-01/c-old.jpg",
+            createdAt = 2_000L,
+            state = CaptureState.CONFIRMED,
+            amountMinor = 1_500L,
+            currency = CurrencyCode.of("INR"),
+            confirmedAt = 2_100L,
+        ),
+    )
+    oldStore.updateDetail("c-old", 1_500L, "INR", "Old shop", "Food", "a note")
+    expect("category writes into the migrated column", oldStore.findById("c-old")?.category, Category.Food)
+    expect("note writes into the migrated column", oldStore.findById("c-old")?.note, "a note")
+
+    // Opening a second time must be a no-op: this is the call that used to run
+    // `create` and throw on every launch after the first.
     com.ariadne.store.openOrMigrate(oldDriver)
     expect("re-opening keeps the data", AriadneStore(oldDriver).trip("trip-new")?.place, "Bangkok")
+
+    // A file that is already current must also be left alone.
+    com.ariadne.store.openOrMigrate(oldDriver)
+    expect("version is stable across opens", oldDriver.userVersion(), AriadneDb.Schema.version.toLong())
     old.delete()
+
+    // ── The shape the user actually had ────────────────────────────────────
+    //
+    // The interim commit created its database with `create` (so `place` and
+    // `category` were already there) and - like every build before it - never
+    // wrote `PRAGMA user_version`, so the file reports 0. Re-running declared
+    // migrations on it fails with "duplicate column name". This is that file,
+    // and it must open without losing the trip inside it.
+    println("migration from the interim build's file")
+    val interim = File(System.getProperty("java.io.tmpdir"), "ariadne-store-interim.db")
+    interim.delete()
+    val interimDriver = JdbcSqliteDriver("jdbc:sqlite:${interim.absolutePath}")
+    // The current schema, but left unversioned. `create` does not set the pragma.
+    AriadneDb.Schema.create(interimDriver)
+    expect("a created file reports version 0", interimDriver.userVersion(), 0L)
+    interimDriver.execute(
+        null,
+        "INSERT INTO trip (id, name, startDate, endDate, baseCurrency, homeCurrency, place, budgetMinor) " +
+            "VALUES ('trip-i', 'A trip from the interim build', '2026-11-10', '2026-11-20', 'INR', 'INR', 'Chennai', 500000)",
+        0,
+    )
+    com.ariadne.store.openOrMigrate(interimDriver)
+    val interimStore = AriadneStore(interimDriver)
+    expect("the interim trip opened", interimStore.trip("trip-i")?.name, "A trip from the interim build")
+    expect("its place survived", interimStore.trip("trip-i")?.place, "Chennai")
+    expect("its fence survived", interimStore.trip("trip-i")?.budgetMinor, 500_000L)
+    expect("the interim file is versioned now", interimDriver.userVersion(), AriadneDb.Schema.version.toLong())
+    // The queries that threw on the user's machine.
+    expect("openCaptures works on it", interimStore.openCaptures().size, 0)
+    expect("confirmedForTrip works on it", interimStore.confirmedForTrip("trip-i").size, 0)
+    interim.delete()
+
+    // ── A file with no version and no trip table is genuinely new ───────────
+    println("a genuinely new file")
+    val fresh = File(System.getProperty("java.io.tmpdir"), "ariadne-store-fresh.db")
+    fresh.delete()
+    val freshDriver = JdbcSqliteDriver("jdbc:sqlite:${fresh.absolutePath}")
+    expect("no trip table yet", freshDriver.hasTable("trip"), false)
+    com.ariadne.store.openOrMigrate(freshDriver)
+    expect("created and versioned", freshDriver.userVersion(), AriadneDb.Schema.version.toLong())
+    expect("trip table exists", freshDriver.hasTable("trip"), true)
+    expect("place column exists", freshDriver.hasColumn("trip", "place"), true)
+    expect("budgetMinor is an integer column", freshDriver.hasColumn("trip", "budgetMinor"), true)
+    fresh.delete()
 
     file.delete()
     if (failures > 0) {

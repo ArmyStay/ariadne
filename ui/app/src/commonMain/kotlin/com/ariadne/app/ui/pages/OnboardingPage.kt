@@ -119,7 +119,11 @@ public fun OnboardingPage(model: AppModel, paper: Paper, wide: Boolean) {
                     modifier = Modifier.widthIn(max = 360.dp),
                 )
                 Spacer(Modifier.height(16.dp))
-                QuietAction("Begin empty", paper, { model.go(com.ariadne.app.Route.Trips) })
+                // "Begin empty" used to route to Trips, which - with no trip in
+                // state - rendered the same form this page was already standing
+                // in front of. It looked like a button that does nothing because
+                // it was one. It opens a blank form now, which is a real place.
+                QuietAction("Begin empty", paper, { model.startNewTrip() })
 
                 Spacer(Modifier.height(40.dp))
                 Label(
