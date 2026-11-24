@@ -1,0 +1,6 @@
+﻿CAFE CENTRAL
+Americano  180.00
+Tax         18.00
+Service      0.00
+Change     200.00
+TOTAL      198.00

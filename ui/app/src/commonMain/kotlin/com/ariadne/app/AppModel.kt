@@ -704,12 +704,15 @@ public class AppModel(
         val stack = _state.value.stack
         if (index !in stack.indices) return
         val capture = stack[index]
+        val currency = capture.currency ?: _state.value.trip?.baseCurrency
+        val amountMinor = capture.amountMinor
         _state.value = _state.value.copy(
             stackIndex = index,
-            amountInput = capture.amountMinor?.let { minor ->
-                val code = capture.currency ?: _state.value.trip?.baseCurrency?.code ?: return@let ""
-                Money.ofMinor(minor).format(CurrencyCode.of(code), grouping = false)
-            } ?: "",
+            amountInput = if (amountMinor != null && currency != null) {
+                Money.ofMinor(amountMinor).format(currency, grouping = false)
+            } else {
+                ""
+            },
         )
     }
 

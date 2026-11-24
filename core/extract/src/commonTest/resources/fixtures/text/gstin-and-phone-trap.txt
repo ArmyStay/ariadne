@@ -1,0 +1,9 @@
+﻿SHREE GANESH CHAI
+Shop 4, MG Road
+GSTIN 27AAACB1234C1Z5
+Phone 9876543210
+2 x Masala Chai      40.00
+1 x Bun Butter       25.00
+Subtotal             65.00
+GST 5%               3.25
+Grand Total       ₹ 68.25

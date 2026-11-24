@@ -9,6 +9,7 @@ import net.sourceforge.tess4j.Tesseract
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.io.File
+import java.nio.file.Files
 import javax.imageio.ImageIO
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -16,12 +17,13 @@ import kotlin.math.roundToInt
 /**
  * Desktop OCR via Tess4J/Tesseract.
  *
- * Requires `eng.traineddata` to be discoverable via TESSDATA_PREFIX, a local `tessdata/` directory,
- * or bundled resources/configuration on the host machine. If unavailable, recognition fails gracefully.
+ * Prefers bundled `eng.traineddata` from resources to avoid TESSDATA_PREFIX "works on my machine" issues.
+ * All failures (missing native libs, missing traineddata, decode/OCR errors, timeout) return [OcrResult.Failure]
+ * so a recognizer problem never crashes the capture path.
  */
 internal class Tess4JTextRecognizer(
     private val language: String = "eng",
-    private val dataPath: String? = resolveDataPath(),
+    private val dataPath: String? = defaultDataPath(),
 ) : TextRecognizer {
 
     override suspend fun recognize(imagePath: String): OcrResult = withContext(Dispatchers.IO) {
@@ -31,17 +33,12 @@ internal class Tess4JTextRecognizer(
                 if (!file.exists()) return@runCatching OcrResult.Failure("Photo file missing")
                 val image = ImageIO.read(file) ?: return@runCatching OcrResult.Failure("Unsupported image")
                 val scaled = downscale(image, 1600)
-                val tesseract = Tesseract().apply {
+                val text = Tesseract().apply {
                     setLanguage(language)
                     dataPath?.let { setDatapath(it) }
-                    // Receipts benefit from sparse text/page segmentation in many cases; default is acceptable fallback.
                     setPageSegMode(6)
-                }
-                val text = tesseract.doOCR(scaled).orEmpty()
-                val lines = text.lines()
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                OcrResult.Text(lines)
+                }.doOCR(scaled).orEmpty()
+                OcrResult.Text(text.lines().map { it.trim() }.filter { it.isNotEmpty() })
             }.getOrElse { error ->
                 OcrResult.Failure(error.message ?: "Desktop OCR failed")
             }
@@ -69,7 +66,8 @@ internal class Tess4JTextRecognizer(
     }
 
     companion object {
-        private fun resolveDataPath(): String? {
+        internal fun defaultDataPath(): String? {
+            extractBundledTessdata()?.let { return it }
             val env = System.getenv("TESSDATA_PREFIX")?.takeIf { it.isNotBlank() }
             if (env != null) return env
             val candidates = listOf(
@@ -79,5 +77,18 @@ internal class Tess4JTextRecognizer(
             )
             return candidates.firstOrNull { it.exists() && it.isDirectory }?.absolutePath
         }
+
+        private fun extractBundledTessdata(): String? = runCatching {
+            val stream = Tess4JTextRecognizer::class.java.getResourceAsStream("/tessdata/eng.traineddata")
+                ?: return@runCatching null
+            val dir = File(System.getProperty("java.io.tmpdir"), "ariadne-tessdata").apply { mkdirs() }
+            val out = File(dir, "eng.traineddata")
+            if (!out.exists() || out.length() == 0L) {
+                stream.use { input -> Files.copy(input, out.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING) }
+            } else {
+                stream.close()
+            }
+            dir.absolutePath
+        }.getOrNull()
     }
 }
