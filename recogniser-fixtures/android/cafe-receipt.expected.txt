@@ -1,0 +1,4 @@
+amount_minor=25000
+currency=INR
+merchant=Blue Tokai Coffee
+notes=Example expected outcome for a cafe receipt fixture. Replace/add a real image file (cafe-receipt.jpg) for recogniser integration tests.

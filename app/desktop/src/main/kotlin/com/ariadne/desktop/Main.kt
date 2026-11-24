@@ -99,10 +99,7 @@ private class DesktopServices : PlatformServices {
         false
     }
 
-    override fun recognizer(): TextRecognizer = object : TextRecognizer {
-        override suspend fun recognize(imagePath: String): OcrResult =
-        OcrResult.Failure("desktop OCR (Tesseract) lands in the next commit")
-    }
+    override fun recognizer(): TextRecognizer = Tess4JTextRecognizer()
 
     override fun close() = Unit
 }
