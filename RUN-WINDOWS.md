@@ -113,6 +113,20 @@ You should now see `ariadne.db`. Two things worth knowing:
 
 ---
 
+## 5b. What is new in this build
+
+- **The register.** `Home → Trips` lists every trip on the device. Tap one to
+  make it the active journey; a photograph taken now lands in it. One trip is
+  open at a time, deliberately: a photo belongs to exactly one journey.
+- **Fold the margin.** On a wide window the glyph at the top-left seam folds the
+  left margin away and brings it back. It is a view preference, so it is not
+  remembered across restarts.
+- **From the library.** On the capture page, "From the library" opens the Windows
+  file dialog instead of the camera. The image takes exactly the same path as a
+  photograph - it joins the queue and meets the same two taps at Nightfall.
+- **Trimmed copy.** The pages say less. Where a paragraph was explaining the
+  product, there is now a figure, a glyph or a rule.
+
 ## 6. The checks that need no Gradle
 
 These are what I run here, and they are much faster than a full build:
