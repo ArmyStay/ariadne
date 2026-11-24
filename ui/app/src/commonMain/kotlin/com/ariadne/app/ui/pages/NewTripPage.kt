@@ -33,6 +33,7 @@ import com.ariadne.design.Masthead
 import com.ariadne.design.Optical
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.Page
+import com.ariadne.design.ScrollingMargin
 import com.ariadne.design.Paper
 import com.ariadne.design.Rule
 import com.ariadne.design.SectionHead

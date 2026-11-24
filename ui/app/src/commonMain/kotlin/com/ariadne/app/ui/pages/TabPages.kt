@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,6 +40,7 @@ import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
+import com.ariadne.design.ScrollRail
 import com.ariadne.design.Label
 import com.ariadne.design.LinkAction
 import com.ariadne.design.Motion
@@ -109,12 +111,20 @@ private fun TabPage(
         onToggleRail = onToggleRail,
         rail = rail,
     ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 40.dp),
-        ) { content() }
+        Row(Modifier.fillMaxWidth()) {
+            val scroll = rememberScrollState()
+            Column(
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(scroll)
+                    .padding(bottom = 40.dp),
+            ) { content() }
+            // The bar hangs in the margin, level with the text it measures and
+            // never on top of it.
+            Box(Modifier.fillMaxHeight().padding(start = 18.dp)) {
+                ScrollRail(scroll, paper, Modifier.fillMaxHeight())
+            }
+        }
     }
 }
 
@@ -207,7 +217,9 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.weight(1.5f)) {
                 Action(
-                    "Take a photograph",
+                    // Short enough to fit beside Finish at 440dp without the
+                    // word photograph being clipped to "A".
+                    "Take a photo",
                     paper,
                     { model.go(Route.Capture) },
                     accent = true,

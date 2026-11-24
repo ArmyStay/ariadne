@@ -1,7 +1,16 @@
 package com.ariadne.design
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.ui.draw.clipToBounds
@@ -17,11 +26,15 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
@@ -334,4 +347,149 @@ public fun RailFigure(label: String, value: String, paper: Paper, size: TextUnit
 @Composable
 public fun Spine(paper: Paper, height: Dp = 240.dp) {
     Box(Modifier.width(Bone.Hairline).height(height).background(paper.edge))
+}
+
+
+
+// ── The scroll bar ──────────────────────────────────────────────────────────
+
+/**
+ * A scroll bar in the page's own hand.
+ *
+ * Compose's desktop bar is a Material widget: a rounded grey thumb that floats
+ * inside the content and grows when hovered. On this paper it reads as a light
+ * left on in the wrong room. So the bar is drawn as a margin mark instead — a
+ * hairline track down the outer margin, and a thumb that is simply a heavier
+ * line moving along it.
+ *
+ * Two things make it feel set rather than supplied:
+ *
+ *  - it sits *outside* the text column, in the margin where a folio would be, so
+ *    it never covers a word;
+ *  - it is quiet until touched. At rest the thumb is faint; while the page is
+ *    moving it is ink. Nothing fades, nothing grows, nothing rounds.
+ *
+ * It also answers the question a wheel cannot: *how much of this is there?* A
+ * page with 40dp of remainder gets a thumb almost the full height, which says
+ * "one line more" rather than "one screen more".
+ *
+ * Drag the thumb to scrub; drag the track to jump. Both are already in the hand.
+ */
+@Composable
+public fun ScrollRail(
+    state: ScrollState,
+    paper: Paper,
+    modifier: Modifier = Modifier,
+) {
+    if (state.maxValue <= 0) return
+
+    BoxWithConstraints(modifier.width(RailBar.Width)) {
+        val show = constraints.maxHeight > 0
+        if (!show) return@BoxWithConstraints
+
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val trackPx = constraints.maxHeight.toFloat()
+        val viewportPx = trackPx
+        val totalPx = viewportPx + state.maxValue.toFloat()
+        // Never shorter than a thumb you can actually catch, even on a long page.
+        val thumbPx = (trackPx * (viewportPx / totalPx))
+            .coerceIn(with(density) { RailBar.MinThumb.toPx() }, trackPx)
+        val travel = (trackPx - thumbPx).coerceAtLeast(1f)
+        val progress = if (state.maxValue == 0) 0f else state.value.toFloat() / state.maxValue
+        val offsetPx = travel * progress.coerceIn(0f, 1f)
+
+        var held by remember { mutableStateOf(false) }
+        // Highlight while the page moves for any reason: a wheel, a key, a drag.
+        val live = held || state.isScrollInProgress
+
+        Box(
+            Modifier
+                .fillMaxHeight()
+                .width(RailBar.Width)
+                .draggable(
+                    orientation = Orientation.Vertical,
+                    state = rememberDraggableState { delta ->
+                        if (travel <= 0f) return@rememberDraggableState
+                        val target = (offsetPx + delta) / travel
+                        state.dispatchRawDelta(target.coerceIn(0f, 1f) * state.maxValue - state.value)
+                    },
+                    onDragStarted = { held = true },
+                    onDragStopped = { held = false },
+                ),
+        ) {
+            // The track: a hairline, not a groove. It says where you may go
+            // without pretending to be a control in its own right.
+            // The track is barely there: a suggestion of a rail, so the thumb has
+            // somewhere to have come from. Drawn at 40% so it never competes with
+            // the type it sits beside.
+            Box(
+                Modifier
+                    .offset(x = RailBar.Rule)
+                    .fillMaxHeight()
+                    .width(Bone.Hairline)
+                    .background(paper.edge.copy(alpha = 0.4f)),
+            )
+            // The thumb is a rule, not a pill: two points wide, square, no radius,
+            // no shadow, no hover growth. It moves; that is the whole interaction.
+            Box(
+                Modifier
+                    .offset(x = RailBar.Rule - 1.dp, y = with(density) { offsetPx.toDp() })
+                    .width(if (live) 3.dp else 2.dp)
+                    .height(with(density) { thumbPx.toDp() })
+                    .background(if (live) paper.ink else paper.inkFaint),
+            )
+        }
+    }
+}
+
+/** The bar's dimensions, in one place so pages never disagree about them. */
+public object RailBar {
+    /** Total width reserved in the margin, including the gap to the text. */
+    public val Width: Dp = 18.dp
+
+    /** Where the hairline sits inside that width. */
+    public val Rule: Dp = 9.dp
+
+    /** Shortest catchable thumb. */
+    public val MinThumb: Dp = 28.dp
+}
+
+/**
+ * A page that scrolls, with its bar in the outer margin.
+ *
+ * Every long page used to put the bar on the *inside* of its own padding, which
+ * put a grey strip of browser between the text and the edge of the paper. The
+ * margin is the app's oldest idea — it is where the rail, the folio and the
+ * section marks already live — so the bar belongs there too, and the text keeps
+ * its measure untouched.
+ *
+ * The bar hangs in the gutter, half the page margin wide: enough to catch, not
+ * enough to be a second column.
+ */
+@Composable
+public fun ScrollingMargin(
+    paper: Paper,
+    wide: Boolean,
+    margin: Dp = if (wide) Bone.MarginWide else Bone.Margin,
+    vertical: Dp = 22.dp,
+    content: @Composable ColumnScope.(ScrollState) -> Unit,
+) {
+    val scroll = rememberScrollState()
+    Row(Modifier.fillMaxSize().background(paper.bg)) {
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxSize()
+                .verticalScroll(scroll)
+                .padding(horizontal = margin, vertical = vertical),
+        ) { content(scroll) }
+        Box(
+            Modifier
+                .fillMaxHeight()
+                .padding(end = (margin - 4.dp).coerceAtLeast(2.dp))
+                .padding(top = vertical, bottom = vertical),
+        ) {
+            ScrollRail(scroll, paper, Modifier.fillMaxHeight())
+        }
+    }
 }

@@ -34,6 +34,7 @@ import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.Masthead
 import com.ariadne.design.PageAction
+import com.ariadne.design.ScrollingMargin
 import com.ariadne.design.Paper
 import com.ariadne.design.Plate
 import com.ariadne.design.Subject
@@ -62,13 +63,7 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
     val days = state.dayCards
     val shown = state.route.let { (it as? Route.Record)?.day } ?: state.today
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(paper.bg)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
-    ) {
+    ScrollingMargin(paper, wide, margin = if (wide) 56.dp else Bone.Margin) { _ ->
         Masthead(
             number = "06",
             eyebrow = state.trip?.name ?: "Record",
