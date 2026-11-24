@@ -31,7 +31,7 @@ done
 OUT="$1"; shift
 rm -rf "$OUT"; mkdir -p "$OUT"
 
-"$JAVA_HOME/bin/java" -cp "$TOOLS/psi-shim.jar:$COMPILER_CP" \
+"$JAVA_HOME/bin/java" -cp "${TOOLS}/psi-shim.jar:$COMPILER_CP" \
   org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \
   -nowarn -jvm-target 17 \
   -Xplugin="$TOOLS/kotlinc/lib/compose-compiler-plugin.jar" \

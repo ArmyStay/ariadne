@@ -94,7 +94,7 @@ the paths that are verified are Gradle-free:
 ./tools/test-domain.sh              # 70 domain tests
 ```
 
-See `TESTING.md`. And on a machine with the memory for it, the real targets:
+See **[RUN.md](RUN.md)** for the full walkthrough, or `TESTING.md` for the short version. And on a machine with the memory for it, the real targets:
 
 ```bash
 ./gradlew :app:desktop:run          # the comfortable triage surface
