@@ -1,6 +1,12 @@
 package com.ariadne.design
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,6 +71,8 @@ public fun Page(
     paper: Paper,
     wide: Boolean,
     modifier: Modifier = Modifier,
+    railDocked: Boolean = true,
+    onToggleRail: (() -> Unit)? = null,
     rail: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -82,15 +90,90 @@ public fun Page(
                     top = if (wide) 34.dp else 20.dp,
                 ),
         ) {
+            // The fold control lives at the seam, as the first thing in the row:
+            // a margin mark, not a button floating over the page. It stays put
+            // when the margin folds, because it is the only way back.
+            if (wide && rail != null && onToggleRail != null) {
+                Column(Modifier.width(26.dp).padding(top = 4.dp)) {
+                    FoldRail(
+                        paper = paper,
+                        docked = railDocked,
+                        description = if (railDocked) "Fold the margin" else "Unfold the margin",
+                        onClick = onToggleRail,
+                    )
+                }
+            }
+
+            // The hanging margin folds away and comes back. It is furniture, so
+            // it animates with the same curve as everything else rather than
+            // snapping: 180ms, width only, no bounce - the column beside it simply
+            // gets the room back.
             if (wide && rail != null) {
-                Column(Modifier.width(Grid.Rail).padding(top = 26.dp)) { rail() }
-                Spacer(Modifier.width(Grid.RailGutter))
+                val shown = railDocked
+                val width = androidx.compose.animation.core.animateDpAsState(
+                    targetValue = if (shown) Grid.Rail else 0.dp,
+                    animationSpec = motionSpec(),
+                    label = "rail",
+                )
+                val gutter = androidx.compose.animation.core.animateDpAsState(
+                    targetValue = if (shown) Grid.RailGutter else 0.dp,
+                    animationSpec = motionSpec(),
+                    label = "railGutter",
+                )
+                Column(
+                    Modifier.width(width.value).then(
+                        if (shown) Modifier else Modifier.clipToBounds(),
+                    ),
+                ) {
+                    if (shown) {
+                        Column(Modifier.width(Grid.Rail).padding(top = 26.dp)) { rail() }
+                    }
+                }
+                Spacer(Modifier.width(gutter.value))
             }
             Column(
                 Modifier
                     .widthIn(max = if (wide) Bone.Measure + 120.dp else Dp.Unspecified)
                     .fillMaxWidth(),
             ) { content() }
+        }
+    }
+}
+
+/**
+ * The fold control for the hanging margin.
+ *
+ * A glyph rather than a word, because "collapse sidebar" in 10px tracked uppercase
+ * is the least premium thing a page can say. Two hairlines and an arrow: the
+ * margin, folding.
+ */
+@Composable
+private fun FoldRail(
+    paper: Paper,
+    docked: Boolean,
+    description: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        Modifier
+            .size(26.dp)
+            .semantics { contentDescription = description }
+            .pointerInput(docked) {
+                detectTapGestures(onTap = { onClick() })
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.foundation.Canvas(Modifier.size(14.dp)) {
+            val ink = paper.inkFaint
+            // Two vertical rules: the page and its margin.
+            drawLine(ink, androidx.compose.ui.geometry.Offset(size.width * 0.18f, 0f), androidx.compose.ui.geometry.Offset(size.width * 0.18f, size.height), 1.2f)
+            // The arrow points the way the margin will go.
+            val from = if (docked) size.width * 0.95f else size.width * 0.45f
+            val to = if (docked) size.width * 0.45f else size.width * 0.95f
+            drawLine(ink, androidx.compose.ui.geometry.Offset(from, size.height / 2), androidx.compose.ui.geometry.Offset(to, size.height / 2), 1.2f)
+            val tip = if (docked) to else from
+            drawLine(ink, androidx.compose.ui.geometry.Offset(tip, size.height / 2), androidx.compose.ui.geometry.Offset(tip - 3f * (if (docked) -1f else 1f), size.height / 2 - 3f), 1.2f)
+            drawLine(ink, androidx.compose.ui.geometry.Offset(tip, size.height / 2), androidx.compose.ui.geometry.Offset(tip - 3f * (if (docked) -1f else 1f), size.height / 2 + 3f), 1.2f)
         }
     }
 }

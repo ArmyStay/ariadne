@@ -2,6 +2,7 @@ package com.ariadne.app.ui.pages
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,11 +11,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
@@ -23,20 +27,33 @@ import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
+import com.ariadne.design.Glyph
+import com.ariadne.design.Icon
 import com.ariadne.design.Label
-import com.ariadne.design.Numeral
 import com.ariadne.design.Masthead
+import com.ariadne.design.Motion
+import com.ariadne.design.Numeral
+import com.ariadne.design.OutlineAction
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
+import com.ariadne.design.Reveal
 import com.ariadne.design.Rule
+import com.ariadne.design.Tick
 import com.ariadne.design.Title
+import com.ariadne.design.motionSpec
+import com.ariadne.model.Money
+import com.ariadne.model.Trip
 
 /**
- * Page 1 — Trips.
+ * The register.
  *
- * The shelf the whole record hangs off. A closed trip is a bound volume; the open
- * one is the only thing you can add to. Deliberately the first thing a visitor
- * sees: one trip, one line, no dashboard.
+ * Every trip this device holds, open and closed, newest first. One of them is
+ * *active* - the one a photograph taken now belongs to - and that is marked by
+ * the single blue element on the page rather than by a badge saying "active".
+ *
+ * The page is set as a register in the paper sense: numbered entries, a rule
+ * between them, dates in the margin, and a figure on the right. No cards, because
+ * a trip is not a card.
  */
 @Composable
 public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
@@ -44,151 +61,193 @@ public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         Modifier
             .fillMaxSize()
             .background(paper.bg)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 26.dp),
+            .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
     ) {
         Masthead(
-            number = "01",
-            eyebrow = "Ariadne",
-            title = if (state.trip == null) "No trips yet" else "Trips",
+            number = "02",
+            eyebrow = "The register",
+            title = "Trips",
             paper = paper,
-            trailing = { QuietAction("Settings", paper, { model.go(Route.Settings) }) },
+            italic = true,
+            wide = wide,
+            lede = "Every journey this device holds. One of them is open.",
         )
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(10.dp))
+        Rule(paper, color = paper.ink)
 
-        val trip = state.trip
-        if (trip == null) {
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
+            Spacer(Modifier.height(8.dp))
+
+            if (state.trips.isEmpty()) {
+                Spacer(Modifier.height(28.dp))
+                Body(
+                    "No trips yet.",
+                    paper,
+                    serif = true,
+                    color = paper.inkSoft,
+                    size = 18.sp,
+                )
+            }
+
+            state.trips.forEachIndexed { index, trip ->
+                Reveal(index) {
+                    TripEntry(
+                        trip = trip,
+                        index = index + 1,
+                        active = trip.id == state.activeTripId,
+                        paper = paper,
+                        onOpen = { model.switchTrip(trip.id) },
+                    )
+                }
+                Rule(paper, color = paper.edge.copy(alpha = 0.7f))
+            }
+
+            Spacer(Modifier.height(30.dp))
+            // Not blue: the single blue element on this page is the open trip.
+            // An outlined action is how this language says "available, not now".
+            OutlineAction(
+                "Begin a new trip",
+                paper,
+                { model.startNewTrip() },
+            )
+            Spacer(Modifier.height(10.dp))
+            if (state.trips.isEmpty()) {
+                QuietAction("Or open the demo roll", paper, { model.startTripDemo() }, color = paper.inkSoft)
+            }
+            Spacer(Modifier.height(26.dp))
+            Rule(paper, color = paper.edge)
+
+            // The space below the register is not padding: it holds the facts the
+            // device can vouch for. An empty page under a list is the tell of a
+            // layout that assumed more rows than it got.
+            val closed = state.trips.count { it.isClosed }
+            val open = state.trips.size - closed
+            Spacer(Modifier.height(20.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(34.dp)) {
+                ShelfFigure("journeys", state.trips.size.toString(), paper)
+                ShelfFigure("open", open.toString(), paper)
+                ShelfFigure("closed", closed.toString(), paper)
+            }
+            Spacer(Modifier.height(30.dp))
             Body(
-                "A trip is the whole of what you keep. Start one and every photograph you " +
-                    "take belongs to it, until the day it closes.",
+                "One at a time. A photograph taken now belongs to the open journey.",
                 paper,
                 serif = true,
-                size = 18.sp(),
+                color = paper.inkFaint,
+                size = 15.sp,
             )
-            Spacer(Modifier.height(26.dp))
-            Action("Begin with the demo roll", paper, { model.startSeedTrip() }, accent = true)
-            Spacer(Modifier.height(14.dp))
-            Action("Begin empty", paper, { model.startEmptyTrip() })
-            return@Column
+            Spacer(Modifier.height(40.dp))
         }
-
-        // The open trip: the one thing that wants attention.
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            Column {
-                Label("Open", paper, color = paper.thread)
-                Spacer(Modifier.height(8.dp))
-                Title(trip.name, paper, size = 30.sp())
-                Spacer(Modifier.height(6.dp))
-                Label("${trip.startDate.iso} — ${trip.endDate.iso}", paper, color = paper.inkFaint)
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Label("Days", paper, color = paper.inkFaint)
-                Spacer(Modifier.height(6.dp))
-                Numeral(state.dayCards.size.toString(), paper, size = 22.sp())
-            }
-        }
-
-        Spacer(Modifier.height(18.dp))
-        Rule(paper)
-        Spacer(Modifier.height(8.dp))
-
-        TripRow("Today's tally", "${state.stack.size} waiting", paper) { model.openNightfall(state.today) }
-        TripRow("The record", "${state.dayCards.count { it.isClosed }} days closed", paper) {
-            model.go(Route.Record(state.today))
-        }
-        TripRow("Search", "by shop, price, day", paper) { model.go(Route.Search) }
-        TripRow("Capture", "photograph a spend", paper) { model.go(Route.Capture) }
-
-        Spacer(Modifier.height(30.dp))
-        Label("Closed", paper, color = paper.inkFaint)
-        Spacer(Modifier.height(12.dp))
-        Body(
-            "Nothing here yet. When this trip ends it closes into a card, and the card is the point.",
-            paper,
-            serif = true,
-            color = paper.inkSoft,
-        )
-
-        Spacer(Modifier.height(26.dp))
-        TickedBlock(paper)
-
-        Spacer(Modifier.height(24.dp))
-        Body(
-            "No account. No sync. Nothing leaves this device — a record of what you spent " +
-                "should not need permission to exist.",
-            paper,
-            color = paper.inkFaint,
-            size = 13.sp(),
-        )
     }
 }
 
+/** A labelled figure on the register's lower rule. */
 @Composable
-private fun TripRow(
-    title: String,
-    detail: String,
+private fun ShelfFigure(label: String, value: String, paper: Paper) {
+    Column {
+        Numeral(value, paper, color = paper.inkSoft, size = 26.sp, weight = FontWeight.Light)
+        Spacer(Modifier.height(3.dp))
+        Label(label, paper, color = paper.inkGhost, size = 9.sp, tracking = 1.4.sp)
+    }
+}
+
+private val Months = listOf(
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+)
+
+/**
+ * A trip's dates, the way a register writes them: "24 Nov — 30 Nov".
+ *
+ * The first attempt used `iso.drop(2)`, which produced "26-11-24 — 26-11-30" -
+ * a range that reads as arithmetic. A year is added only when the trip is not in
+ * the current one, because repeating this year on every line is noise.
+ */
+private fun Trip.dates(): String {
+    fun end(day: com.ariadne.model.LocalDay): String =
+        "${day.day} ${Months[day.month - 1]}"
+    return "${end(startDate)} — ${end(endDate)}"
+}
+
+/**
+ * One line of the register.
+ *
+ * Numbered, with the place under the name, the dates in the margin and the trip's
+ * own total on the right. Tapping opens it; the active one is the only thing on
+ * the page carrying blue.
+ */
+@Composable
+private fun TripEntry(
+    trip: Trip,
+    index: Int,
+    active: Boolean,
     paper: Paper,
-    onClick: () -> Unit,
+    onOpen: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 15.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            Modifier
+                .fillMaxWidth()
+                .androidTap { onOpen() }
+                .padding(vertical = 16.dp),
+            verticalAlignment = Alignment.Top,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box3(paper)
-                Spacer(Modifier.width(14.dp))
-                Title(title, paper, size = 18.sp())
+            // The entry number, set in the figure face so the register aligns as
+            // a column of numbers rather than a column of words.
+            Box(Modifier.width(34.dp)) {
+                Numeral(
+                    index.toString().padStart(2, '0'),
+                    paper,
+                    color = if (active) paper.blue else paper.inkFaint,
+                    size = 13.sp,
+                )
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Label(detail, paper, color = paper.inkFaint)
-                Spacer(Modifier.width(14.dp))
-                QuietAction("Open", paper, onClick, color = paper.inkMid)
+            Column(Modifier.weight(1f)) {
+                Title(
+                    trip.name,
+                    paper,
+                    size = 21.sp,
+                    italic = false,
+                    color = if (active) paper.ink else paper.inkMid,
+                )
+                Spacer(Modifier.height(5.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Glyph.Place, paper, size = 13.dp, color = paper.inkFaint)
+                    Spacer(Modifier.width(7.dp))
+                    Label(
+                        trip.place ?: "no place",
+                        paper,
+                        color = paper.inkFaint,
+                        size = 9.sp,
+                        tracking = 1.3.sp,
+                    )
+                    Spacer(Modifier.width(14.dp))
+                    Label(
+                        trip.dates(),
+                        paper,
+                        color = paper.inkFaint,
+                        size = 9.sp,
+                        tracking = 1.3.sp,
+                    )
+                }
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                Numeral(
+                    trip.budgetMinor?.let { Money.ofMinor(it).format(trip.baseCurrency) } ?: "—",
+                    paper,
+                    color = if (trip.budgetMinor == null) paper.inkFaint else paper.inkMid,
+                    size = 15.sp,
+                )
+                Spacer(Modifier.height(5.dp))
+                if (active) {
+                    // The one blue thing on this page.
+                    Tick(paper, width = 22.dp, color = paper.blue)
+                } else {
+                    Label("closed", paper, color = paper.inkGhost, size = 8.sp, tracking = 1.2.sp)
+                }
             }
         }
-        Rule(paper)
     }
 }
-
-/** A small square of manuscript paper, the visual signature of the shelf. */
-@Composable
-private fun Box3(paper: Paper) {
-    androidx.compose.foundation.layout.Box(
-        Modifier
-            .width(10.dp)
-            .height(10.dp)
-            .background(paper.edge),
-    )
-}
-
-@Composable
-private fun TickedBlock(paper: Paper) {
-    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(7.dp)) {
-        val step = 9f
-        var x = 0f
-        while (x < size.width) {
-            drawLine(
-                color = paper.edge,
-                start = androidx.compose.ui.geometry.Offset(x, size.height),
-                end = androidx.compose.ui.geometry.Offset(x, size.height - 5f),
-                strokeWidth = 1f,
-            )
-            x += step
-        }
-        drawLine(
-            color = paper.edge,
-            start = androidx.compose.ui.geometry.Offset(0f, size.height),
-            end = androidx.compose.ui.geometry.Offset(size.width, size.height),
-            strokeWidth = 1f,
-        )
-    }
-}
-
-/** Local sp helper so the page reads as sizes, not types. */
-private fun Int.sp() = this.sp

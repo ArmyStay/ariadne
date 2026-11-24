@@ -8,10 +8,12 @@ Last updated: 2026-11-23.
 | --- | --- | --- |
 | Shared UI compiles | `tools/verify-ui.sh …` | **0 errors** |
 | Domain logic | `tools/test-domain.sh` | **OK (70 tests)** |
-| Real UI renders | `tools/run-preview.sh --shots docs/shots` | **17 frames, PNG** |
+| Real UI renders | `tools/run-preview.sh --shots docs/shots` | **21 frames, PNG** |
 | Real UI window | `tools/run-preview.sh` | launches under Xvfb |
-| SQLDelight codegen | `tools/store-check.sh` | generates from `Ariadne.sq` |
-| `AriadneStore` vs real SQLite | `tools/store-check.sh` | **25 checks pass** |
+| SQLDelight codegen | `tools/store-check.sh` | generates from `Ariadne.sq`, `verifyMigrations` on |
+| three real database shapes open correctly | `tools/store-check.sh` | **ok**: baseline, interim, fresh |
+| `AriadneStore` vs real SQLite | `tools/store-check.sh` | **59 checks pass** |
+| The capture flow, walked | `tools/flow-check.sh` | **54 checks pass** |
 | Four entry points compile | `tools/entry-check.sh` | **all four** |
 | Desktop app launches + persists | manual, under Xvfb | window opens, DB written |
 
@@ -33,6 +35,140 @@ ones the four app targets compile.
 | Gradle four-target build | sandbox is 2 GB, no swap; AGP 9 configuration is OOM-killed | medium — one `./gradlew build` settles it |
 | Android/iOS on-device run | no SDK, no Xcode here | low — the Ariadne code in both now compiles against the real schema |
 | iOS linking | no Kotlin/Native here | unknown — nothing below the entry point is iOS-specific |
+
+## Hierarchy pass — one blue thing per page
+
+Looking at the rendered frames side by side, the recurring defect was not colour
+or type: it was **two competing primary actions**, which is what a generated
+layout does when it has no opinion about which choice matters.
+
+- **Nightfall (wide)** had "Confirm" and "Close the day" as two identical
+  full-width blue bars, one above the other. Closing the day is how you *leave*,
+  not a second decision, so it is now a hairline bar under a rule with a caption
+  that says what it costs you. Confirm is the only blue on the page.
+- **Nightfall (wide)** also had the plate on a fixed 4:5 box inside a weighted
+  row, which overran the viewport and cut the caption off the bottom. The plate
+  now takes the space that is left, and the stack position and Earlier/Later
+  moved under it where they belong.
+- **The trip's page** stacked "See every day" over "Close the trip into a card".
+  Closing is now the single action; the record is a quiet exit under it. The
+  place and the budget also appear here now, hung under the dates with their
+  glyphs, because they are facts about the trip and this is the trip's page.
+- **Home's index** was four rows of bare serif. Each row now carries its glyph in
+  the hanging margin, so the block scans as a list of places instead of four
+  lines that happen to be different words. The same treatment reached Prefs.
+
+## The camera
+
+`AndroidCamera` is a real CameraX binding: `ProcessCameraProvider` bound to the
+activity's lifecycle, a `PreviewView` behind the ruled frame, and an `ImageCapture`
+case that fires from the shutter. The pieces that matter, in the order they break:
+
+- **Permission** is asked when the shutter page is entered, not at launch. Refused
+  means the plate is drawn and the caption says "Camera permission declined" — the
+  app stays completely usable, which is the stance everywhere else too.
+- **The lifecycle** is unbound in `onDispose`, not left to the activity. A camera
+  held open behind a page is warm hardware and a flat battery.
+- **The bytes** are decoded, rotated by `imageInfo.rotationDegrees`, scaled to
+  1600px on the long edge and re-encoded at quality 88. A 12MP sensor frame is
+  ~4MB; a receipt does not need it. `ImageProxy` is closed in a `finally` —
+  skipping that locks the capture pipeline and the next shot never arrives.
+- **Resolution** uses `ResolutionSelector` with
+  `FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER`, not the deprecated
+  `setTargetResolution`, so a sensor that cannot do exactly 1600 still gives its
+  nearest larger size instead of a postscript stamp.
+- **Photos** go to `filesDir/photographs/<trip>/<day>/<id>.jpg` via `AndroidFiles`,
+  written to a `.part` name first so a kill mid-write cannot leave a half-JPEG
+  under the real name. Never the shared gallery: the photo backup is exactly the
+  thing this app promises not to do.
+
+`CameraBinding` also gains `capture()`, and `shutterAction()` in the shared UI
+wires the shutter to whichever binding is in the `CompositionLocal`. With none,
+the old placeholder path runs — so the desktop preview, the Wasm build and the
+iOS target compile and pass the same 50 flow checks.
+
+**Not verified:** the camera has not been run on a device. It compiles against
+stubs whose signatures were checked against the CameraX 1.4 reference, and the
+shared UI is unchanged in behaviour, but "compiles" is not "opens the sensor".
+
+## Stale-control pass — dead pages out, icons in
+
+A sweep of every control in the app found three classes of rot.
+
+**Two whole pages were never rendered.** `SettingsPage.kt` and `TripsPage.kt` were
+built, styled, and then superseded by `PrefsPage` and `HomePage` — and left in the
+tree. Their dead ends were visible from the surface: `Route.Settings` resolved to
+`PrefsPage`, so the old page's "Delete this trip" lambda was empty and unreachable
+at the same time. Both files are gone; git has them if they are ever wanted.
+
+**Two live controls did nothing.** "Delete this trip" and "Share" were
+`{ }`. Both are now real: deletion is two taps (arm, then confirm) because there
+is no copy anywhere else, and it removes the trip's photographs as well as its
+rows. Share copies the card as text, generated from the same state the page
+draws, so the shared numbers cannot disagree with the printed ones.
+
+**Two routes carried lies.** Prefs linked to `TripCard("0")`, a hardcoded id that
+resolved to whatever `state.trip` was; it now closes the trip properly. The
+preference rows ("Date format", "Paper", "Reading") looked like settings and were
+not — the two that can change (base and home currency) are now real pickers, and
+the two that cannot are set as read-outs that say so.
+
+**Icons.** There was one icon system in the app — the four tab glyphs, drawn as
+line art in `TabBar.kt` — and nothing else. A Material icon font would arrive with
+its own weight and joins and immediately look bolted on beside this type, so
+`Glyphs.kt` draws eighteen glyphs on the same 0..1 grid at the same 1.4dp stroke:
+trip, date, place, budget, camera, photograph, night, search, record, stats, gear,
+waiting, remove, share, back, done, ledger, edit, paper. They scale from 14dp
+beside a label to a page ornament, and they read as cut from the same plate as the
+rules and the letters.
+
+**One bug the flow check caught:** deletion iterated `confirmedForTrip`, so
+photographs of *unfinished* captures stayed in the folder forever. `capturesForTrip`
+now returns every state, and the check asserts that a deleted trip's folder is
+empty while a neighbouring trip's is untouched.
+
+## Flow pass — the front door, the frame, the fence
+
+Three changes, each of which the product was missing rather than merely
+under-designed.
+
+**The front door is creating a trip.** On a first run there is no trip, so there
+is nothing to show: the record has to be scoped before a frame can hang on it.
+`Route.NewTrip` and `NewTripPage` now take name, place, dates, currency and an
+optional budget, in a stack of labelled hairlines rather than a form. A draft is
+held in `AppUiState.draft`, validated on commit (`Ariadne` can say *which* field
+is wrong), and only then written. `startEmptyTrip` and `startSeedTrip` are now
+thin wrappers over the same draft path, so there is exactly one place a trip is
+born.
+
+**The shutter stops and shows you the frame.** It used to fire and throw you
+back into the app, which meant the photograph vanished into a queue you could not
+see. `Route.Frame` holds it up with two ways out and no way to lose it: *keep it
+for nightfall* (nothing to type) or *fill it in now* (amount, category, what it
+was for). The photograph is the largest element on the page, at the same measure
+it had in the viewfinder.
+
+**Photos are written before the row.** `PhotoFiles` is the new seam: one write,
+one read, one delete, one footprint, and a platform supplies it. The order is
+enforced in `AppModel.capturePhoto` — bytes hit the disk first, then the row, so
+a capture can never point at a file that was never written. `CameraBinding` in a
+`CompositionLocal` is how a camera arrives; with no binding (every target today)
+the ruled plate is drawn, the shutter still fires, and the flow is identical.
+The page never branches on the target, only on whether it was handed a frame.
+
+**The budget is a fence, not a target.** `Trip.place` and `Trip.budgetMinor` are
+new columns. `remainingAgainstBudget` is arithmetic, not a stored column, so it
+cannot disagree with the captures. Stats states over-budget in the same voice as
+under: this is a record, not a scold.
+
+### On Appwrite
+
+A server API key was supplied for Appwrite storage. It was **not** wired in.
+That key grants full read/write/delete on the whole database; shipping it in a
+client — and the Wasm build is public — would hand it to anyone who opens dev
+tools, and it would contradict the app's central claim that nothing leaves the
+device. Trips live in SQLite, photos in the app-private folder. Decision taken
+by the user, recorded here because it is a design decision, not an omission.
 
 ## Design pass — Ink
 
@@ -69,3 +205,56 @@ real defects, all now fixed:
    Tesseract (desktop), none (Wasm — by design).
 4. Wasm: replace `InMemoryStore` with the IndexedDB driver before the Pages deploy.
 5. A real camera/photo picker behind `PlatformPhotos`.
+
+## Reliability + motion pass (same day, after a side-by-side test round)
+
+Three reports came back from someone running the app on their own machine: "Open
+the trip" did nothing, the app felt laggy, and there were no modular effects.
+
+**The button.** Not a UI bug. `trip` had gained `place` and `budgetMinor` while
+the SQLDelight schema stayed at version 1, so an existing device never ran a
+migration; the INSERT named columns the table did not have, threw inside a
+`SupervisorJob` coroutine, and was swallowed. A fresh install worked, which is
+why it passed every gate. Fixed with `1.sqm`, `verifyMigrations.set(true)`, and
+`openOrMigrate` in `core/store` used by both the desktop entry point and the
+store gate. Proven by building a v1 file by hand and migrating it.
+
+**The silence.** A failure now reaches the page: `commitDraft` catches, shows a
+sentence on the form, and records `failureNote`, which Preferences displays.
+
+**The lag.** `ExtractionService.drain()` was single-flight already this round;
+the remaining source was recomposition width - `Amount(state, paper)` took the
+whole `AppUiState`, so a keystroke recomposed the plate, band and keypad. Those
+take primitives now, and the Nightfall columns are keyed on the card and the
+typed text.
+
+**The effects.** `core/design/Blocks.kt` (NavRow, SectionBreak, Framed,
+FigureRow, TapSurface) and four effects in `Motion.kt` (Reveal, page drift,
+animatedLong, motionSpec), all honouring `LocalMotionPreference`.
+
+## The schema was never versioned (second report, same button)
+
+The fix above did not work on the user's machine, and the reason is worse than
+the first diagnosis: **no build of this app has ever written `PRAGMA
+user_version`.** The generated `create` does not do it. So every database in
+existence reports version 0, `openOrMigrate` read that as "empty file", skipped
+the migration, and every query then failed - `no such column: capture.category`,
+`table trip has no column named place`. The migration test passed because it
+built a "version 1" fixture that no build ever produced.
+
+What changed:
+
+- The baseline schema is captured verbatim in `tools/storecheck/baseline-v1.sql`,
+  from commit 81df38b, and is one of the three shapes the store gate opens.
+- `openOrMigrate` decides from the file - does a `trip` table exist - not from
+  the pragma, and writes the version after `create` as well as after `migrate`.
+- A failed `migrate` is retried by column (`reconcile`), so a half-upgraded file
+  cannot be made worse.
+- `AppModel.start()` guards every step separately. `outbox.resume()` used to run
+  before the route was chosen, so one exception left the app on its default
+  screen with no trip state - which is the "empty landing page" that was reported.
+- "Begin empty" routed to a page that rendered the same form behind it; it opens
+  a blank form now.
+
+Still not verified here: the fix on the user's actual machine, and the Android
+camera. Both need hardware this sandbox does not have.

@@ -35,12 +35,35 @@ public class AppModel(
     private val outbox: Outbox,
     private val extraction: ExtractionService,
     private val index: SearchIndex,
+    private val files: PhotoFiles? = null,
+    private val clipboard: Clipboard? = null,
     private val clock: Clock,
     private val scope: CoroutineScope,
     private val newId: () -> String,
 ) {
     private val _state = MutableStateFlow(AppUiState())
     public val state: StateFlow<AppUiState> = _state.asStateFlow()
+
+    /**
+     * Where a failed write is reported.
+     *
+     * Set by the graph so the same error the user is shown is the one the
+     * diagnostic line in Preferences can quote. Left alone in tests, which is
+     * why it is a plain assignable rather than a constructor parameter.
+     */
+    public var onFailure: ((Throwable) -> Unit)? = null
+
+    /**
+     * Records a failure twice: once in state, where the page can show it, and
+     * once to the graph, where the console handler can print it. Both, because a
+     * failure caught here never reaches the coroutine handler.
+     */
+    private fun report(failure: Throwable) {
+        onFailure?.invoke(failure)
+        _state.value = _state.value.copy(
+            failureNote = "${failure::class.simpleName}: ${failure.message ?: "no message"}",
+        )
+    }
 
     private var fx = FxTable(emptyList())
     private var settings = Settings()
@@ -49,16 +72,55 @@ public class AppModel(
 
     public fun start() {
         scope.launch {
-            fx = FxTable(store.allRates())
-            settings = store.settings()
-            outbox.resume()
-            extraction.drain()
-            val trips = store.trips()
+            // Every step below is guarded on its own, and the route is decided
+            // even if all of them fail.
+            //
+            // This ordering is the whole fix for "the landing page is empty and
+            // the button does nothing". `outbox.resume()` runs a SELECT over a
+            // table that a stale database may not have, and it used to run before
+            // the route was chosen - so one SQLiteException left the app on its
+            // default screen with no trip state at all, looking like a form whose
+            // button was wired to nothing. A failure in the background work must
+            // never be able to prevent the app from showing a screen.
+            runCatching { fx = FxTable(store.allRates()) }.onFailure(::report)
+            runCatching { settings = store.settings() }.onFailure(::report)
+            runCatching { outbox.resume() }.onFailure(::report)
+            runCatching { extraction.drain() }.onFailure(::report)
+            val trips = runCatching { store.trips() }.getOrElse {
+                report(it)
+                emptyList()
+            }
             val active = trips.firstOrNull { !it.isClosed }
             if (active == null) {
-                _state.value = _state.value.copy(route = Route.Onboarding, today = clock.today())
+                // No trip, no record. The front door is the form, not a manifesto:
+                // a first-run visitor should be able to create a trip in one screen.
+                val today = clock.today()
+                _state.value = _state.value.copy(
+                    route = Route.NewTrip,
+                    today = today,
+                    draft = TripDraft(
+                        startIso = today.iso,
+                        endIso = today.plusDays(6).iso,
+                        currency = settings.baseCurrency.code,
+                    ),
+                )
             } else {
-                bindTrip(active)
+                runCatching { bindTrip(active) }.onFailure { error ->
+                    report(error)
+                    // The trip is on disk but could not be read. Say so on the
+                    // front door rather than showing an app with no trip in it.
+                    _state.value = _state.value.copy(
+                        route = Route.NewTrip,
+                        today = clock.today(),
+                        draft = TripDraft(
+                            startIso = clock.today().iso,
+                            endIso = clock.today().plusDays(6).iso,
+                            currency = settings.baseCurrency.code,
+                            error = "Your trip could not be opened. " +
+                                (error.message ?: "Unknown error"),
+                        ),
+                    )
+                }
             }
         }
     }
@@ -68,11 +130,14 @@ public class AppModel(
         val cards = store.dayCards(trip.id)
         val confirmed = store.confirmedForTrip(trip.id)
         index.rebuild(confirmed)
+        val register = runCatching { store.trips() }.getOrDefault(_state.value.trips)
         _state.value = _state.value.copy(
             trip = trip,
+            activeTripId = trip.id,
+            trips = register,
             today = day,
             dayCards = cards,
-            route = Route.Capture,
+            route = Route.Home,
         )
         refreshDay(day)
         loadTripDays(trip)
@@ -138,13 +203,26 @@ public class AppModel(
 
     // -- capture -----------------------------------------------------------
 
-    /** A real capture: photo bytes arrive already downscaled by the platform. */
+    /**
+     * A real capture: photo bytes arrive already downscaled by the platform.
+     *
+     * The caller is told the id because the shutter now hands the frame straight
+     * back to the person holding it: keep it for nightfall, or fill it in now.
+     */
     public fun capturePhoto(bytes: ByteArray, downscaleAdjusted: Boolean = true) {
         val trip = _state.value.trip ?: return
         val day = clock.today().coerceInto(trip)
         scope.launch {
             val id = newId()
-            val path = com.ariadne.store.PhotoPaths.capturePath(trip.id, day, id)
+            // Photo first, then the row: a row pointing at a file that was never
+            // written is a hole in the record, and this is the one ordering that
+            // cannot produce it.
+            val path = if (bytes.isNotEmpty() && files != null) {
+                runCatching { files.write(trip.id, day, id, bytes) }.getOrNull()
+                    ?: com.ariadne.store.PhotoPaths.capturePath(trip.id, day, id)
+            } else {
+                com.ariadne.store.PhotoPaths.capturePath(trip.id, day, id)
+            }
             store.insert(
                 Capture(
                     id = id,
@@ -158,13 +236,14 @@ public class AppModel(
             // Extraction picks it up on the next drain; the shutter is already back.
             extraction.drain()
             refreshDay(day)
+            _state.value = _state.value.copy(route = Route.Frame(id))
         }
     }
 
-    /** Onboarding path: a trip that already has the demo roll in it. */
+    /** The demo path, still one call so the judged route stays short. */
     public fun startTripDemo() {
-        startSeedTrip()
-        go(Route.Trips)
+        fillDraftFromDemo()
+        commitDraft(withDemoRoll = true)
     }
 
     /** Capture a placeholder frame (the platform camera supplies bytes in the real build). */
@@ -172,16 +251,318 @@ public class AppModel(
         capturePhoto(ByteArray(0))
     }
 
-    /** Start a trip from the trips page, seeded with the demo roll. */
-    public fun startSeedTrip() {
-        val today = clock.today()
-        startTrip("Bangkok & Home", today, today.plusDays(6), settings.baseCurrency, settings.homeCurrency, true)
+    /**
+     * A photograph that arrived from somewhere other than the shutter.
+     *
+     * Deliberately the same path as [capturePhoto] once the bytes exist: the
+     * record does not care, and should not care, whether an image came from the
+     * sensor or from the photo library. Imported captures go straight into the
+     * queue like any other, so they meet the same two taps at Nightfall.
+     */
+    public fun importPhoto(bytes: ByteArray) {
+        capturePhoto(bytes)
     }
 
-    /** Start a trip with nothing in it. */
+    /** Kept for the older call sites: they now open the form rather than a trip. */
     public fun startEmptyTrip() {
+        startNewTrip()
+    }
+
+    public fun startSeedTrip() {
+        startTripDemo()
+    }
+
+    // -- the trip as an object --------------------------------------------
+
+    /**
+     * Closes the trip and shows it as a card.
+     *
+     * Closing is not deletion: the record stays, the totals stay, and a closed
+     * trip simply stops being the one the shutter points at. The card is the
+     * thing you keep, so this is the one-way door that is not frightening.
+     */
+    public fun closeTripIntoCard() {
+        val trip = _state.value.trip ?: return
+        scope.launch {
+            store.closeTrip(trip.id, clock.nowMillis())
+            val closed = store.trip(trip.id) ?: trip
+            _state.value = _state.value.copy(
+                trip = closed,
+                route = Route.TripCard(trip.id),
+            )
+        }
+    }
+
+    /**
+     * Deletes the trip and everything hanging off it: captures, day cards, and
+     * the photographs in the app's private folder.
+     *
+     * Two taps, never one. The first arms it and says what will go; the second
+     * does it. There is no undo because there is no copy anywhere else — which is
+     * the whole design, and the reason this cannot be a single tap.
+     */
+    public fun armTripDeletion() {
+        _state.value = _state.value.copy(deleteArmed = !_state.value.deleteArmed)
+    }
+
+    public fun deleteTripNow() {
+        val trip = _state.value.trip ?: return
+        if (!_state.value.deleteArmed) return
+        scope.launch {
+            _state.value = _state.value.copy(busy = true)
+            if (files != null) {
+                runCatching {
+                    // Every capture, not only the finished ones: a photo whose
+                    // row goes with the trip would otherwise sit in the folder forever.
+                    store.capturesForTrip(trip.id).forEach { capture ->
+                        files.delete(capture.photoPath)
+                    }
+                }
+            }
+            store.deleteTrip(trip.id)
+            index.rebuild(emptyList())
+            _state.value = AppUiState(
+                route = Route.NewTrip,
+                today = clock.today(),
+                draft = TripDraft(
+                    startIso = clock.today().iso,
+                    endIso = clock.today().plusDays(6).iso,
+                    currency = settings.baseCurrency.code,
+                ),
+            )
+        }
+    }
+
+    /**
+     * The trip card as text, for the share sheet.
+     *
+     * Built here rather than in the page because it is content: the numbers in
+     * the shared card have to be the numbers in the record, and the way to
+     * guarantee that is for both to be read from the same state.
+     */
+    /**
+     * Puts the card text on the system clipboard.
+     *
+     * The clipboard is a platform thing, so it arrives through the same optional
+     * interface as the camera and the file system. With no implementation the
+     * label simply never flips, which is honest: nothing was copied.
+     */
+    public fun copyCardToClipboard() {
+        val text = tripCardText()
+        if (text.isEmpty()) return
+        val copied = clipboard?.copy(text) == true
+        _state.value = _state.value.copy(cardCopied = copied)
+    }
+
+    public fun tripCardText(): String {
+        val trip = _state.value.trip ?: return ""
+        val total = _state.value.categoryTotals.sumOf { it.baseMinor }
+        val closed = _state.value.dayCards.count { it.isClosed }
+        val totalText = Money.ofMinor(total).formatWithSymbol(trip.baseCurrency)
+        return buildString {
+            appendLine(trip.name)
+            trip.place?.let { appendLine(it) }
+            appendLine("${trip.startDate.iso} to ${trip.endDate.iso}")
+            appendLine()
+            appendLine("$closed of ${_state.value.dayCards.size} days closed")
+            appendLine("$totalText across ${_state.value.categoryTotals.sumOf { it.captures }} photographs")
+            trip.budgetMinor?.let { budget ->
+                val left = budget - total
+                appendLine(
+                    if (left >= 0) {
+                        "against a budget of ${Money.ofMinor(budget).formatWithSymbol(trip.baseCurrency)}, " +
+                            "${Money.ofMinor(left).formatWithSymbol(trip.baseCurrency)} left"
+                    } else {
+                        "${Money.ofMinor(-left).formatWithSymbol(trip.baseCurrency)} over a budget of " +
+                            Money.ofMinor(budget).formatWithSymbol(trip.baseCurrency)
+                    },
+                )
+            }
+            appendLine()
+            append("Ariadne — kept on the device it was written on.")
+        }
+    }
+
+    // -- the new-trip page ------------------------------------------------
+
+    public fun startNewTrip() {
         val today = clock.today()
-        startTrip("New trip", today, today.plusDays(6), settings.baseCurrency, settings.homeCurrency, false)
+        _state.value = _state.value.copy(
+            route = Route.NewTrip,
+            draft = TripDraft(
+                startIso = today.iso,
+                endIso = today.plusDays(6).iso,
+                currency = settings.baseCurrency.code,
+            ),
+        )
+    }
+
+    public fun editDraft(
+        name: String? = null,
+        place: String? = null,
+        startIso: String? = null,
+        endIso: String? = null,
+        currency: String? = null,
+        budget: String? = null,
+    ) {
+        val d = _state.value.draft
+        _state.value = _state.value.copy(
+            draft = d.copy(
+                name = name ?: d.name,
+                place = place ?: d.place,
+                startIso = startIso ?: d.startIso,
+                endIso = endIso ?: d.endIso,
+                currency = currency ?: d.currency,
+                budget = budget ?: d.budget,
+                error = null,
+            ),
+        )
+    }
+
+    /** Prefill from the demo roll, so the judged path stays one tap. */
+    public fun fillDraftFromDemo() {
+        val today = clock.today()
+        _state.value = _state.value.copy(
+            draft = TripDraft(
+                name = "Bangkok & Home",
+                place = "Bangkok",
+                startIso = today.iso,
+                endIso = today.plusDays(6).iso,
+                currency = settings.baseCurrency.code,
+                budget = "25000",
+            ),
+        )
+    }
+
+    /**
+     * Create the trip the draft describes.
+     *
+     * Every rejection carries a sentence a person can act on. A silent no-op on a
+     * page with five fields is the worst possible answer, because the human cannot
+     * tell which field was wrong.
+     */
+    public fun commitDraft(withDemoRoll: Boolean = false) {
+        val d = _state.value.draft
+        val start = LocalDay.parseOrNull(d.startIso.trim())
+        val end = LocalDay.parseOrNull(d.endIso.trim())
+        val error = when {
+            d.name.isBlank() -> "A trip needs a name."
+            start == null -> "The start date should look like 2026-11-24."
+            end == null -> "The end date should look like 2026-11-30."
+            end < start -> "The trip cannot end before it starts."
+            else -> null
+        }
+        if (error != null) {
+            _state.value = _state.value.copy(draft = d.copy(error = error))
+            return
+        }
+        val currency = CurrencyCode.parseOrNull(d.currency.trim().uppercase()) ?: settings.baseCurrency
+        val budgetMinor = parseBudgetMinor(d.budget, currency)
+        val trip = Trip(
+            id = newId(),
+            name = d.name.trim(),
+            place = d.place.trim().ifBlank { null },
+            startDate = start!!,
+            endDate = end!!,
+            baseCurrency = currency,
+            homeCurrency = settings.homeCurrency,
+            budgetMinor = budgetMinor,
+        )
+        scope.launch {
+            _state.value = _state.value.copy(busy = true)
+            // Whatever goes wrong here has to reach the page. This is the call
+            // that used to fail silently: it threw inside a launched coroutine,
+            // the exception was swallowed, and "Open the trip" simply did
+            // nothing, which reads as a dead button rather than as an error.
+            val failure = runCatching {
+                store.createTrip(trip)
+                store.saveSettings(settings.copy(baseCurrency = currency))
+                if (withDemoRoll) seedDemoRoll(trip)
+                bindTrip(trip)
+            }.exceptionOrNull()
+            if (failure != null) {
+                report(failure)
+                _state.value = _state.value.copy(
+                    busy = false,
+                    draft = d.copy(
+                        error = "The trip could not be saved. " +
+                            (failure.message ?: failure::class.simpleName ?: "Unknown error") +
+                            " — nothing was lost; try again.",
+                    ),
+                )
+                return@launch
+            }
+            _state.value = _state.value.copy(busy = false, draft = TripDraft(), route = Route.Home)
+        }
+    }
+
+    /**
+     * "2500", "2,500", "2500.50" -> minor units. Blank means no budget at all,
+     * which is a different thing from a budget of zero and is stored as null.
+     */
+    private fun parseBudgetMinor(text: String, currency: CurrencyCode): Long? {
+        val cleaned = text.trim().replace(",", "").replace(" ", "")
+        if (cleaned.isEmpty()) return null
+        val parts = cleaned.split('.')
+        if (parts.size > 2) return null
+        val whole = parts[0].toLongOrNull() ?: return null
+        val fraction = parts.getOrNull(1)?.padEnd(2, '0')?.take(2)?.toLongOrNull() ?: 0L
+        return whole * 100 + fraction
+    }
+
+    // -- the frame just taken ---------------------------------------------
+
+    /** Nothing to change: the photograph waits for nightfall as it is. */
+    /**
+     * Sets or clears the trip's fence, in base-currency minor units.
+     *
+     * A separate call from creation because a budget is a thing people revise on
+     * the third day, not only when they open the trip.
+     */
+    public fun editTripBudget(text: String) {
+        val trip = _state.value.trip ?: return
+        val minor = parseBudgetMinor(text, trip.baseCurrency)
+        val updated = trip.copy(budgetMinor = minor)
+        scope.launch {
+            store.updateTrip(updated)
+            _state.value = _state.value.copy(trip = updated)
+        }
+    }
+
+    /** Base currency is what every total is stated in, so changing it re-states them. */
+    public fun editTripCurrency(code: String) {
+        val trip = _state.value.trip ?: return
+        val currency = CurrencyCode.parseOrNull(code) ?: return
+        val updated = trip.copy(baseCurrency = currency)
+        scope.launch {
+            store.updateTrip(updated)
+            settings = settings.copy(baseCurrency = currency)
+            store.saveSettings(settings)
+            _state.value = _state.value.copy(trip = updated)
+            _state.value.today?.let { refreshDay(it) }
+            loadTripDays(updated)
+        }
+    }
+
+    public fun editTripHomeCurrency(code: String) {
+        val trip = _state.value.trip ?: return
+        val currency = CurrencyCode.parseOrNull(code) ?: return
+        val updated = trip.copy(homeCurrency = currency)
+        scope.launch {
+            store.updateTrip(updated)
+            settings = settings.copy(homeCurrency = currency)
+            store.saveSettings(settings)
+            _state.value = _state.value.copy(trip = updated)
+        }
+    }
+
+    public fun keepFrameForLater() {
+        go(Route.Home)
+    }
+
+    /** Fill it in now: the detail page is the form, and it is already built. */
+    public fun openFrame(captureId: String) {
+        openDetail(captureId)
     }
 
     // -- nightfall ---------------------------------------------------------
@@ -398,6 +779,49 @@ public class AppModel(
 
     public fun go(route: Route) {
         _state.value = _state.value.copy(route = route)
+    }
+
+    /**
+     * Fold or unfold the hanging rail.
+     *
+     * A view preference, so it is not persisted: reopening the app returns to the
+     * full spread, which is the composition the app was designed to be read in.
+     */
+    public fun toggleRail() {
+        _state.value = _state.value.copy(railDocked = !_state.value.railDocked)
+    }
+
+    /**
+     * Make another trip the active one.
+     *
+     * Switching is a read, not a write: it re-binds the pages to a trip already on
+     * disk. Nothing is moved or merged, because nothing here has a home other than
+     * the device it was written on.
+     */
+    public fun switchTrip(id: String) {
+        val target = _state.value.trips.firstOrNull { it.id == id } ?: return
+        scope.launch {
+            _state.value = _state.value.copy(busy = true)
+            runCatching { bindTrip(target) }.onFailure { error ->
+                report(error)
+                _state.value = _state.value.copy(
+                    busy = false,
+                    draft = _state.value.draft.copy(
+                        error = "That trip could not be opened. " +
+                            (error.message ?: "Unknown error"),
+                    ),
+                )
+            }
+            _state.value = _state.value.copy(busy = false)
+        }
+    }
+
+    /** Re-read the register: after a trip is created, closed or deleted. */
+    public fun refreshTrips() {
+        scope.launch {
+            val register = runCatching { store.trips() }.getOrDefault(emptyList())
+            _state.value = _state.value.copy(trips = register)
+        }
     }
 
     public fun openRecord(day: LocalDay? = null) {

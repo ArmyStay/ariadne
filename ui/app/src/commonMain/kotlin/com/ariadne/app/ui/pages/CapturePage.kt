@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -30,6 +31,8 @@ import com.ariadne.app.AppUiState
 import com.ariadne.app.Route
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
+import com.ariadne.design.Glyph
+import com.ariadne.design.Icon
 import com.ariadne.design.Label
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
@@ -50,8 +53,31 @@ public fun CapturePage(
     paper: Paper,
     wide: Boolean,
     onShutter: () -> Unit,
-    onImport: () -> Unit,
+    onImport: () -> Unit = {},
+    onFrame: (ByteArray) -> Unit = {},
 ) {
+    val shoot = shutterAction()
+
+    // Import is a suspending call, so the page owns a scope for it. Scoped to the
+    // composition, not a global: leaving the page cancels a picker nobody is
+    // waiting for any more.
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val picker = LocalPhotoPicker.current
+    val import: () -> Unit = {
+        if (picker == null) {
+            // No picker on this target: fall through to whatever the host gave us
+            // rather than presenting a control that silently does nothing.
+            onImport()
+        } else {
+            scope.launch {
+                val bytes = runCatching { picker.pick() }.getOrNull()
+                if (bytes != null && bytes.isNotEmpty()) model.importPhoto(bytes)
+            }
+        }
+    }
+    // With a camera, the shutter fires the sensor and the bytes come back through
+    // onFrame. Without one, the caller's placeholder path runs instead.
+    val fire: () -> Unit = if (cameraAvailable()) ({ shoot() }) else onShutter
     Column(
         Modifier
             .fillMaxSize()
@@ -78,14 +104,19 @@ public fun CapturePage(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .border(Bone.Hairline, paper.edge)
                 .semantics { contentDescription = "Viewfinder. Tap to keep the photograph." }
-                .pointerInput(Unit) { detectTapGestures(onTap = { onShutter() }) },
+                .pointerInput(fire) { detectTapGestures(onTap = { fire() }) },
         ) {
-            PlateField(paper)
+            // The live frame if the target has a camera, the ruled plate if not.
+            // Same frame either way, so the shutter never lies about what it saw.
+            CameraPlate(paper, Modifier.fillMaxSize(), live = true, onFrame = onFrame)
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Label("Tap anywhere to keep", paper, color = paper.inkFaint)
+                    Label(
+                        if (cameraAvailable()) "Tap anywhere to keep" else "No camera here — tap to keep a plate",
+                        paper,
+                        color = paper.inkFaint,
+                    )
                     Spacer(Modifier.height(18.dp))
                 }
             }
@@ -98,8 +129,12 @@ public fun CapturePage(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            QuietAction("From photos", paper, onImport)
-            Shutter(paper, onShutter)
+            if (pickerAvailable() || true) {
+                // Offered on every target: the shutter is one way in, the library
+                // is the other, and both are real.
+                QuietAction("From the library", paper, import)
+            }
+            Shutter(paper, fire)
             QuietAction(
                 if (state.stack.isEmpty()) "Nothing waiting" else "${state.stack.size} waiting",
                 paper,
@@ -111,14 +146,15 @@ public fun CapturePage(
         Spacer(Modifier.height(6.dp))
         Rule(paper)
         Spacer(Modifier.height(12.dp))
-        Body(
-            "No amount. No category. The photograph is the record until nightfall, when two taps finish it.",
-            paper,
-            color = paper.inkFaint,
-            size = 12.sp,
-            align = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Glyph.Budget, paper, size = 12.dp, color = paper.inkGhost)
+            Spacer(Modifier.width(7.dp))
+            Label("no figure here · settle it at nightfall", paper, color = paper.inkGhost, size = 9.sp, tracking = 1.3.sp)
+        }
     }
 }
 

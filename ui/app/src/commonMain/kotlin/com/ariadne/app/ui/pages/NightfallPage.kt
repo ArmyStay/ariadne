@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -62,6 +63,9 @@ public fun NightfallPage(
 ) {
     val capture = state.current
     val day = (state.route as? Route.Nightfall)?.day
+    // Read here, once, and passed down as values. Everything below is boxed on
+    // its own keys, so a keypress recomposes the amount and nothing else.
+    val typed = state.amountInput
 
     Column(
         Modifier
@@ -96,13 +100,41 @@ public fun NightfallPage(
         }
 
         if (wide) {
-            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(44.dp)) {
-                Column(Modifier.weight(1f)) {
-                    PhotographOf(capture, paper, Modifier.fillMaxWidth().aspectRatio(4f / 5f))
-                    Spacer(Modifier.height(12.dp))
-                    Label("Plate ${state.stackIndex + 1} of ${state.stack.size}", paper, color = paper.inkFaint)
+            Row(
+                Modifier.fillMaxWidth().weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(44.dp),
+            ) {
+                // The plate takes the space that is left, not a fixed ratio: a 4:5
+                // box in a weighted row overran the viewport on a laptop.
+                Column(Modifier.weight(1.05f)) {
+                    Box(Modifier.weight(1f)) {
+                        PhotographOf(capture, paper, Modifier.fillMaxSize())
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Label(
+                            "plate ${state.stackIndex + 1} of ${state.stack.size}",
+                            paper,
+                            color = paper.inkFaint,
+                            size = 9.sp,
+                            tracking = 1.4.sp,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        QuietAction("Earlier", paper, { model.previous() }, color = paper.inkFaint)
+                        Spacer(Modifier.width(16.dp))
+                        QuietAction("Later", paper, { model.next() }, color = paper.inkFaint)
+                    }
                 }
-                Column(Modifier.weight(1f)) { Triage(state, model, paper, capture) }
+                Column(Modifier.weight(1f)) {
+                    // Boxing on the card, not on the state: the whole of the
+                    // right-hand column only has to recompose when the card
+                    // changes. The amount it holds is boxed again further down.
+                    val card = state.current
+                    val typedIn = state.amountInput
+                    key(card?.id, card?.amountMinor, card?.markedNoAmount, card?.currency) {
+                        Triage(state, model, paper, capture, wide = true, typed = typedIn)
+                    }
+                }
             }
         } else {
             // Phone: the plate, the merchant and the typed amount stay put; the
@@ -126,7 +158,7 @@ public fun NightfallPage(
                     Spacer(Modifier.height(10.dp))
                 }
                 Spacer(Modifier.height(10.dp))
-                Amount(state, paper)
+                Amount(typed, state.dayCurrency, paper)
                 Spacer(Modifier.height(12.dp))
                 // The decision never scrolls away: two taps finish a card, so both
                 // taps have to be on screen at the same time as the number.
@@ -138,17 +170,28 @@ public fun NightfallPage(
 }
 
 @Composable
-private fun Triage(state: AppUiState, model: AppModel, paper: Paper, capture: Capture) {
+private fun Triage(
+    state: AppUiState,
+    model: AppModel,
+    paper: Paper,
+    capture: Capture,
+    wide: Boolean = false,
+    typed: String = "",
+) {
     Column(Modifier.fillMaxWidth()) {
         Header(state, model, paper, capture)
         Spacer(Modifier.height(18.dp))
         Rule(paper)
         Spacer(Modifier.height(18.dp))
-        Amount(state, paper)
+        key(typed) { Amount(typed, state.dayCurrency, paper) }
         Spacer(Modifier.height(18.dp))
         Rule(paper)
         Spacer(Modifier.height(20.dp))
-        Decisions(state, model, paper, wide = true)
+        // Decisions reads only two facts: which card, and whether anything has
+        // been typed. Keying on those keeps the buttons still under a keystroke.
+        key(state.current?.id, typed.isEmpty(), state.stackIndex, state.stack.size) {
+            Decisions(state, model, paper, wide = true, typed = typed)
+        }
     }
 }
 
@@ -184,20 +227,20 @@ private fun Header(state: AppUiState, model: AppModel, paper: Paper, capture: Ca
 
 /** The amount: the largest thing on the page, monospace, tabular. */
 @Composable
-private fun Amount(state: AppUiState, paper: Paper) {
+private fun Amount(amountInput: String, dayCurrency: String, paper: Paper) {
     Column(Modifier.fillMaxWidth()) {
         Label("Amount", paper, color = paper.inkSoft)
         Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Numeral(
-                CurrencyCode.of(state.dayCurrency).symbol(),
+                CurrencyCode.of(dayCurrency).symbol(),
                 paper,
                 color = paper.inkSoft,
                 size = 20.sp,
             )
             Spacer(Modifier.width(8.dp))
             Numeral(
-                state.amountInput.ifEmpty { "0" },
+                amountInput.ifEmpty { "0" },
                 paper,
                 size = 44.sp,
                 weight = androidx.compose.ui.text.font.FontWeight.Medium,
@@ -212,13 +255,19 @@ private fun Amount(state: AppUiState, paper: Paper) {
  * holds priced things is a spreadsheet.
  */
 @Composable
-private fun Decisions(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
+private fun Decisions(
+    state: AppUiState,
+    model: AppModel,
+    paper: Paper,
+    wide: Boolean,
+    typed: String = "",
+) {
     Column(Modifier.fillMaxWidth()) {
         if (wide) {
             Action("Confirm", paper, { model.confirmCurrent() }, accent = true)
             Spacer(Modifier.height(6.dp))
             QuietAction(
-                if (state.current?.amountMinor == null && state.amountInput.isEmpty()) {
+                if (state.current?.amountMinor == null && typed.isEmpty()) {
                     "Keep it without an amount"
                 } else {
                     "No amount"
@@ -226,21 +275,24 @@ private fun Decisions(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
                 paper,
                 { model.confirmCurrent(noAmount = true) },
             )
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                QuietAction("Earlier", paper, { model.previous() }, color = paper.inkFaint)
-                QuietAction("Later", paper, { model.next() }, color = paper.inkFaint)
-            }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(18.dp))
             Rule(paper)
-            Spacer(Modifier.height(14.dp))
-            Action("Close the day", paper, { model.closeDay((state.route as? Route.Nightfall)?.day) })
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
+            // The only blue thing on the page is Confirm. Closing the day is how you
+            // leave, not a second decision competing with the first — so it is a
+            // hairline bar, and the caption under it says what it costs you.
+            OutlineAction(
+                "Close the day",
+                paper,
+                { model.closeDay((state.route as? Route.Nightfall)?.day) },
+            )
+            Spacer(Modifier.height(9.dp))
             Body(
-                "Closing locks the day into the record. Long-press any card to open it again.",
+                "Closing files the day. Long-press a card to reopen it.",
                 paper,
                 color = paper.inkFaint,
-                size = 12.sp,
+                size = 11.sp,
+                lineHeight = 16.sp,
             )
         } else {
             Row(

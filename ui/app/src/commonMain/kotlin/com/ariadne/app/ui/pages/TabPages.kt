@@ -19,6 +19,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -36,14 +40,23 @@ import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.Label
 import com.ariadne.design.LinkAction
+import com.ariadne.design.Motion
+import com.ariadne.design.NavRow
+import com.ariadne.design.Reveal
+import com.ariadne.design.SectionBreak
+import com.ariadne.design.Rule
 import com.ariadne.design.Numeral
+import com.ariadne.design.motionSpec
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.Masthead
 import com.ariadne.design.Page
 import com.ariadne.design.PageHeader
 import com.ariadne.design.RailFigure
 import com.ariadne.design.SectionHead
+import com.ariadne.design.Glyph
+import com.ariadne.design.animatedLong
 import com.ariadne.design.Grid
+import com.ariadne.design.Icon
 import com.ariadne.design.Paper
 import com.ariadne.design.Panel
 import com.ariadne.design.Pill
@@ -82,10 +95,18 @@ import com.ariadne.model.symbol
 private fun TabPage(
     paper: Paper,
     wide: Boolean,
+    railDocked: Boolean,
+    onToggleRail: () -> Unit,
     rail: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Page(paper, wide, rail = rail) {
+    Page(
+        paper,
+        wide,
+        railDocked = railDocked,
+        onToggleRail = onToggleRail,
+        rail = rail,
+    ) {
         Column(
             Modifier
                 .fillMaxWidth()
@@ -103,6 +124,8 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
     TabPage(
         paper,
         wide,
+        railDocked = state.railDocked,
+        onToggleRail = { model.toggleRail() },
         rail = {
             if (trip != null) {
                 RailFigure("today", state.today?.iso ?: "—", paper, 13.sp)
@@ -130,8 +153,7 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         if (trip == null) {
             Spacer(Modifier.height(28.dp))
             Body(
-                "A trip starts on a date and ends on a date. Everything in between is a photograph " +
-                    "you take now and finish tonight.",
+                "A journey, from its first day to its last. Photographs now; figures at nightfall.",
                 paper,
                 serif = true,
                 color = paper.inkSoft,
@@ -187,47 +209,58 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
 
         SectionHead("II", "the trip", paper, trailing = "${trip.startDate.iso} → ${trip.endDate.iso}")
 
-        NavRow("Timeline", "${state.dayCards.count { it.isClosed }} of ${state.dayCards.size} days closed", paper) {
-            model.go(Route.Timeline)
+        // The shelf, first: everything else on this page is about the trip you are
+        // in, and this is the way out of it.
+        Reveal(0) {
+            NavRow(
+                Glyph.Trip,
+                "Trips",
+                if (state.trips.size <= 1) "the register" else "${state.trips.size} in the register",
+                paper,
+            ) {
+                model.go(Route.Trips)
+            }
         }
-        NavRow("The record", "${state.dayCaptures.size} kept today", paper) {
-            model.go(Route.Record(state.today))
+        Rule(paper)
+
+        // The index settles in, one row behind the next. Each row is a Reveal, so
+        // the page arrives as a composed set rather than as a block that appears.
+        Reveal(1) {
+            NavRow(Glyph.Date, "Timeline", "${state.dayCards.count { it.isClosed }} of ${state.dayCards.size} days closed", paper) {
+                model.go(Route.Timeline)
+            }
         }
-        NavRow("Search what you kept", "by shop, price, day", paper) {
-            model.go(Route.Search)
+        Rule(paper)
+        Reveal(2) {
+            NavRow(Glyph.Record, "The record", "${state.dayCaptures.size} kept today", paper) {
+                model.go(Route.Record(state.today))
+            }
         }
-        NavRow("The trip's page", "dates, currencies, the card", paper) {
-            model.go(Route.Trip)
+        Rule(paper)
+        Reveal(3) {
+            NavRow(Glyph.Search, "Search what you kept", "by shop, price, day", paper) {
+                model.go(Route.Search)
+            }
         }
+        Rule(paper)
+        Reveal(4) {
+            NavRow(Glyph.Trip, "The trip's page", "dates, currencies, the card", paper) {
+                model.go(Route.Trip)
+            }
+        }
+        Rule(paper)
 
         Spacer(Modifier.height(30.dp))
+        // One line, no argument. The old sentence argued with an imaginary
+        // competitor; a guest book does not do that.
         Body(
-            "No account. No sync. Nothing leaves this device — a record of what you spent should " +
-                "not need permission to exist.",
+            "No account. No sync. The record stays here.",
             paper,
             color = paper.inkFaint,
             size = 12.sp,
             lineHeight = 19.sp,
         )
         Spacer(Modifier.height(96.dp))
-    }
-}
-
-@Composable
-private fun NavRow(label: String, detail: String, paper: Paper, onClick: () -> Unit) {
-    Column {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .pointerInput(label) { detectTapGestures(onTap = { onClick() }) }
-                .padding(vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Title(label, paper, size = 19.sp)
-            Label(detail, paper, color = paper.inkFaint, tracking = 1.2.sp)
-        }
-        Rule(paper)
     }
 }
 
@@ -239,6 +272,8 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
     TabPage(
         paper,
         wide,
+        railDocked = state.railDocked,
+        onToggleRail = { model.toggleRail() },
         rail = {
             RailFigure("closed", "${days.count { it.isClosed }}", paper, 26.sp)
             Spacer(Modifier.height(26.dp))
@@ -254,7 +289,7 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
             paper = paper,
             italic = true,
             wide = wide,
-            lede = "Every day you kept something, and the hours it happened in.",
+            lede = "Each day, and the hours it was spent in.",
             trailing = { QuietAction("Record", paper, { model.go(Route.Record(state.today)) }) },
         )
 
@@ -337,6 +372,8 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
     TabPage(
         paper,
         wide,
+        railDocked = state.railDocked,
+        onToggleRail = { model.toggleRail() },
         rail = {
             RailFigure(
                 "the trip",
@@ -376,8 +413,11 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         Row(verticalAlignment = Alignment.Bottom) {
             Numeral(CurrencyCode.of(base.code).symbol(), paper, color = paper.inkFaint, size = 22.sp)
             Spacer(Modifier.width(6.dp))
+            // Counts to the new total rather than snapping: this figure is read
+            // against a fence, and seeing which way it moved is the point.
+            val shown = animatedLong(tripTotal)
             Numeral(
-                Money.ofMinor(tripTotal).format(base),
+                Money.ofMinor(shown).format(base),
                 paper,
                 size = if (wide) 64.sp else 50.sp,
                 weight = FontWeight.Medium,
@@ -386,6 +426,42 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         Spacer(Modifier.height(12.dp))
         Rule(paper, color = paper.ink)
         Spacer(Modifier.height(10.dp))
+
+        // The fence, if one was set. Over budget is stated plainly and in the same
+        // voice as under it: this is a record, not a scold.
+        val budget = state.trip?.budgetMinor
+        if (budget != null) {
+            val remaining = budget - tripTotal
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Label("against a budget of", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
+                Spacer(Modifier.width(8.dp))
+                Label(
+                    Money.ofMinor(budget).formatWithSymbol(base),
+                    paper,
+                    color = paper.inkSoft,
+                    size = 10.sp,
+                    tracking = 1.2.sp,
+                )
+                Spacer(Modifier.weight(1f))
+                Label(
+                    if (remaining >= 0) "left" else "over",
+                    paper,
+                    color = paper.inkFaint,
+                    size = 9.sp,
+                    tracking = 1.4.sp,
+                )
+                Spacer(Modifier.width(8.dp))
+                Numeral(
+                    Money.ofMinor(if (remaining >= 0) remaining else -remaining).format(base),
+                    paper,
+                    size = 15.sp,
+                    weight = FontWeight.Medium,
+                    color = if (remaining >= 0) paper.ink else paper.blue,
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+
         Body(
             "Only photographs that were finished. Anything still waiting tonight is not in " +
                 "this figure, and is not counted as zero.",
@@ -469,10 +545,18 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
 // ── 4. Prefs ────────────────────────────────────────────────────────────────
 
 @Composable
-public fun PrefsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
+public fun PrefsPage(
+    state: AppUiState,
+    model: AppModel,
+    paper: Paper,
+    wide: Boolean,
+    lastFailure: String? = null,
+) {
     TabPage(
         paper,
         wide,
+        railDocked = state.railDocked,
+        onToggleRail = { model.toggleRail() },
         rail = {
             Label("on device only", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
             Spacer(Modifier.height(10.dp))
@@ -490,49 +574,223 @@ public fun PrefsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
 
         Spacer(Modifier.height(14.dp))
 
-        PrefRow("Base currency", state.trip?.baseCurrency?.code ?: "INR", paper)
-        PrefRow("Home currency", state.trip?.homeCurrency?.code ?: "INR", paper)
-        PrefRow("Date format", "2026-11-23", paper)
-        PrefRow("Paper", "Follows the system", paper)
-        PrefRow("Reading", "On device only", paper)
+        // Every row below is a read-out of something real, and the two that can be
+        // changed are the two that are actually changeable. A row that says
+        // "Date format — 2026-11-23" with no way to set it would be decoration
+        // pretending to be a setting; the ones that cannot change say so instead.
+        SectionHead("I", "the record", paper)
+
+        PrefChoice(
+            glyph = Glyph.Budget,
+            label = "Base currency",
+            value = state.trip?.baseCurrency?.code ?: "INR",
+            note = "Every total is stated in this one",
+            paper = paper,
+            options = listOf("INR", "THB", "USD", "EUR", "GBP", "JPY"),
+            onChoose = { model.editTripCurrency(it) },
+        )
+        PrefChoice(
+            glyph = Glyph.Trip,
+            label = "Home currency",
+            value = state.trip?.homeCurrency?.code ?: "INR",
+            note = "What a foreign amount is converted back to",
+            paper = paper,
+            options = listOf("INR", "THB", "USD", "EUR", "GBP", "JPY"),
+            onChoose = { model.editTripHomeCurrency(it) },
+        )
+        PrefReadout(Glyph.Date, "Dates", "2026-11-23, ISO order", paper)
+        PrefReadout(Glyph.Paper, "Paper", "Follows the system", paper)
 
         Spacer(Modifier.height(26.dp))
+        SectionHead("II", "what leaves this device", paper)
 
-        Label("What leaves this device", paper, color = paper.inkSoft)
-        Spacer(Modifier.height(10.dp))
+        PrefReadout(Glyph.Ledger, "Reading", "On device only", paper)
+        Spacer(Modifier.height(12.dp))
         Body(
-            "Nothing. There is no account to sign into and no server to sign into it from. " +
-                "Photographs are stored in the app's private folder, the record lives in a local " +
-                "database, and the only network call in the whole product is an optional one you " +
-                "would have to configure yourself.",
+            "Nothing leaves. There is no account to sign into and no server to sign into it " +
+                "from. Photographs are stored in the app's private folder, the record lives in " +
+                "a local database, and there is no network call in the product at all.",
             paper,
             color = paper.inkMid,
             size = 14.sp,
             lineHeight = 21.sp,
         )
 
-        Spacer(Modifier.height(26.dp))
-        Label("This trip", paper, color = paper.inkSoft)
-        Spacer(Modifier.height(10.dp))
-        LinkAction("Close the trip into a card", paper, { model.go(Route.TripCard("0")) })
-        Spacer(Modifier.height(6.dp))
-        LinkAction("See the trip's page", paper, { model.go(Route.Trip) })
+        // The honest diagnostic. If anything threw and was swallowed - which is
+        // exactly how a dead button happens - it is written here rather than
+        // living only in a console nobody has attached to.
+        if (lastFailure != null) {
+            Spacer(Modifier.height(22.dp))
+            SectionBreak("something failed", paper, top = 0.dp)
+            Label(lastFailure, paper, color = paper.inkSoft, size = 9.sp, tracking = 0.6.sp)
+            Spacer(Modifier.height(6.dp))
+            Body(
+                "This is the last error the app saw. Nothing was lost; it is written here " +
+                    "because a failure that only happens in a log is a failure nobody fixes.",
+                paper,
+                color = paper.inkFaint,
+                size = 12.sp,
+                lineHeight = 18.sp,
+            )
+        }
+
+        Spacer(Modifier.height(28.dp))
+        SectionHead("III", "this trip", paper)
+
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Glyph.Trip, paper, size = 16.dp)
+            Spacer(Modifier.width(10.dp))
+            Title(state.trip?.name ?: "No trip", paper, size = 17.sp)
+            Spacer(Modifier.weight(1f))
+            Label(
+                state.trip?.place ?: "no place set",
+                paper,
+                color = paper.inkFaint,
+                size = 9.sp,
+                tracking = 1.3.sp,
+            )
+        }
+        Spacer(Modifier.height(14.dp))
+
+        IconAction(Glyph.Ledger, "See the trip's page", paper) { model.go(Route.Trip) }
+        IconAction(Glyph.Done, "Close the trip into a card", paper) { model.closeTripIntoCard() }
+
+        Spacer(Modifier.height(22.dp))
+        Rule(paper, color = paper.edge)
+        Spacer(Modifier.height(14.dp))
+
+        if (!state.deleteArmed) {
+            IconAction(Glyph.Remove, "Delete this trip", paper, color = paper.inkMid) {
+                model.armTripDeletion()
+            }
+            Spacer(Modifier.height(6.dp))
+            Body(
+                "Deletes its photographs and its record. Nothing is kept anywhere else, so this " +
+                    "is the one action in the app you cannot take back.",
+                paper,
+                color = paper.inkFaint,
+                size = 12.sp,
+                lineHeight = 18.sp,
+            )
+        } else {
+            // Armed. The copy says exactly what will go, and the only way out that
+            // is not deletion is the quieter of the two controls.
+            Label("this deletes everything, now", paper, color = paper.blue, size = 9.sp, tracking = 1.6.sp)
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Action("Delete for good", paper, { model.deleteTripNow() }, enabled = !state.busy)
+                OutlineAction("Keep it", paper, { model.armTripDeletion() })
+            }
+        }
 
         Spacer(Modifier.height(96.dp))
     }
 }
 
+/**
+ * A setting you can change: the value is the control.
+ *
+ * Not a dropdown, not a switch. The options are laid out under the row when it is
+ * open, at the same tracked size as the label, because a currency is a word and
+ * six words fit on one line.
+ */
 @Composable
-private fun PrefRow(label: String, value: String, paper: Paper) {
+private fun PrefChoice(
+    glyph: Glyph,
+    label: String,
+    value: String,
+    note: String,
+    paper: Paper,
+    options: List<String>,
+    onChoose: (String) -> Unit,
+) {
+    var open by remember(label) { mutableStateOf(false) }
     Column {
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 15.dp)
+                .androidTap { open = !open },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Title(label, paper, size = 17.sp)
-            Label(value, paper, color = paper.inkSoft, tracking = 1.2.sp)
+            Icon(glyph, paper, size = 16.dp, color = paper.inkSoft)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Title(label, paper, size = 17.sp)
+                Spacer(Modifier.height(3.dp))
+                Label(note, paper, color = paper.inkFaint, size = 9.sp, tracking = 1.1.sp)
+            }
+            Numeral(value, paper, size = 18.sp, weight = FontWeight.Medium, color = paper.ink)
+            Spacer(Modifier.width(8.dp))
+            Icon(Glyph.Edit, paper, size = 14.dp, color = paper.inkFaint)
+        }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = open,
+            enter = androidx.compose.animation.expandVertically(motionSpec(Motion.Reveal)) +
+                androidx.compose.animation.fadeIn(motionSpec(Motion.Reveal)),
+            exit = androidx.compose.animation.shrinkVertically(motionSpec(Motion.Reveal)) +
+                androidx.compose.animation.fadeOut(motionSpec(Motion.Reveal)),
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                options.forEach { code ->
+                    val chosen = code == value
+                    Box(
+                        Modifier
+                            .border(
+                                Bone.Hairline,
+                                if (chosen) paper.blue else paper.edge,
+                            )
+                            .androidTap { onChoose(code); open = false }
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                    ) {
+                        Label(
+                            code,
+                            paper,
+                            color = if (chosen) paper.blue else paper.inkSoft,
+                            size = 9.sp,
+                            tracking = 1.4.sp,
+                        )
+                    }
+                }
+            }
         }
         Rule(paper)
     }
 }
+
+/** A setting that is a fact, not a choice. It says so rather than pretending. */
+@Composable
+private fun PrefReadout(glyph: Glyph, label: String, value: String, paper: Paper) {
+    // Same block as the index rows on the front page: glyph in the hanging
+    // margin, title, a figure set in the sans face. A read-out is simply a row
+    // that does nothing when tapped, which is why it is the shared one with a
+    // no-op rather than a second copy that looks almost the same.
+    NavRow(glyph, label, value, paper, onClick = {})
+    Rule(paper)
+}
+
+/** An icon and a tracked label that is a control. Nothing about it is a link blue. */
+@Composable
+private fun IconAction(
+    glyph: Glyph,
+    text: String,
+    paper: Paper,
+    color: androidx.compose.ui.graphics.Color? = null,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp)
+            .androidTap(onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(glyph, paper, size = 16.dp, color = color ?: paper.inkSoft)
+        Spacer(Modifier.width(12.dp))
+        Label(text, paper, color = color ?: paper.ink, size = 10.sp, tracking = 1.5.sp)
+    }
+}
+

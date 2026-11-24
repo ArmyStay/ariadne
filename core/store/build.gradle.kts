@@ -37,7 +37,15 @@ sqldelight {
         create("AriadneDb") {
             packageName.set("com.ariadne.store.db")
             schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
-            verifyMigrations.set(false)
+            // The tables are declared once, in 1.sqm, and everything else is
+            // derived from the migrations. The alternative - CREATE statements in
+            // Ariadne.sq *and* ALTERs in .sqm - meant `verifyMigrations` compiled
+            // each migration against an empty derived schema and failed with
+            // "No table found with name capture", while the local gate (which
+            // never raised this flag) passed. Two declarations, one of them
+            // silently wrong.
+            deriveSchemaFromMigrations.set(true)
+            verifyMigrations.set(true)
         }
     }
 }

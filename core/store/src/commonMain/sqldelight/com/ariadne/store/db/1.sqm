@@ -1,0 +1,76 @@
+-- Migration 1: the first shape of the record.
+--
+-- This is the baseline - the schema as it originally shipped - written as a
+-- migration because SQLDelight should derive the schema from the migrations
+-- rather than have it declared twice and agree by luck.
+--
+-- It was not written this way at first. The CREATE statements lived in
+-- `Ariadne.sq` and the later ALTERs lived in `1.sqm`/`2.sqm`, and that arrangement
+-- passed every gate in this repo while failing to build at all in Gradle:
+-- `verifyMigrations` compiles each `.sqm` against a schema derived from the
+-- migrations, which was empty, so it reported "No table found with name capture".
+-- The local gate never parsed the `.sqm` files, so it never noticed. Now the
+-- local gate sets `verifyMigrations` too, and there is one place a table is
+-- defined: here.
+--
+-- The two later migrations are `2.sqm` (capture: category, note) and `3.sqm`
+-- (trip: place, budgetMinor).
+
+CREATE TABLE trip (
+    id              TEXT NOT NULL PRIMARY KEY,
+    name            TEXT NOT NULL,
+    startDate       TEXT NOT NULL,
+    endDate         TEXT NOT NULL,
+    baseCurrency    TEXT NOT NULL,
+    homeCurrency    TEXT NOT NULL,
+    closedAt        INTEGER
+);
+
+CREATE INDEX trip_start ON trip(startDate);
+
+CREATE TABLE capture (
+    id                      TEXT NOT NULL PRIMARY KEY,
+    tripId                  TEXT NOT NULL REFERENCES trip(id) ON DELETE CASCADE,
+    localDate               TEXT NOT NULL,
+    photoPath               TEXT NOT NULL,
+    createdAt               INTEGER NOT NULL,
+    state                   TEXT NOT NULL,
+    amountMinor             INTEGER,
+    currency                TEXT,
+    merchant                TEXT,
+    extractionConfidence    REAL,
+    confirmedAt             INTEGER,
+    markedNoAmount          INTEGER NOT NULL DEFAULT 0,
+    -- Retry bookkeeping lives with the row, not in memory, so a process death
+    -- in a dead zone resumes exactly where it stopped.
+    failedAttempts          INTEGER NOT NULL DEFAULT 0,
+    retryNotBefore          INTEGER
+);
+
+CREATE INDEX capture_trip_day ON capture(tripId, localDate, createdAt);
+CREATE INDEX capture_state ON capture(state);
+CREATE INDEX capture_merchant ON capture(merchant);
+
+CREATE TABLE dayCard (
+    id          TEXT NOT NULL PRIMARY KEY,
+    tripId      TEXT NOT NULL REFERENCES trip(id) ON DELETE CASCADE,
+    localDate   TEXT NOT NULL,
+    closedAt    INTEGER,
+    UNIQUE(tripId, localDate)
+);
+
+CREATE TABLE rate (
+    base        TEXT NOT NULL,
+    quote       TEXT NOT NULL,
+    rateDate    TEXT NOT NULL,
+    rateScaled  INTEGER NOT NULL,
+    PRIMARY KEY (base, quote, rateDate)
+);
+
+CREATE TABLE settings (
+    id              INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    baseCurrency    TEXT NOT NULL,
+    homeCurrency    TEXT NOT NULL,
+    theme           TEXT NOT NULL,
+    ocrProvider     TEXT NOT NULL
+);

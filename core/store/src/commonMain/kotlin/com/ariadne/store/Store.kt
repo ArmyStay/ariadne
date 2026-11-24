@@ -21,6 +21,9 @@ public interface Store : CaptureRepository {
     public suspend fun trip(id: String): Trip?
     public suspend fun activeTrip(): Trip?
     public suspend fun createTrip(trip: Trip)
+
+    /** Edits an existing trip in place: a budget revised mid-trip is the usual case. */
+    public suspend fun updateTrip(trip: Trip)
     public suspend fun closeTrip(id: String, at: Long)
     public suspend fun deleteTrip(id: String)
 
@@ -28,6 +31,9 @@ public interface Store : CaptureRepository {
     public suspend fun recordRetry(id: String, failedAttempts: Int, notBefore: Long?)
     public suspend fun staleExtractions(): List<Capture>
     public suspend fun confirmedForTrip(tripId: String): List<Capture>
+
+    /** Every capture of a trip in any state: what deletion has to clean up. */
+    public suspend fun capturesForTrip(tripId: String): List<Capture>
 
     public suspend fun dayCards(tripId: String): List<DayCard>
     public suspend fun closeDay(tripId: String, day: LocalDay, at: Long)

@@ -1,73 +1,16 @@
--- Ariadne schema, v1.
+-- Ariadne queries.
+--
+-- The tables are not declared here. They are declared once, in the migrations
+-- (1.sqm, 2.sqm, 3.sqm), and SQLDelight derives the schema from those - see
+-- `deriveSchemaFromMigrations` in build.gradle.kts. Declaring them in both places
+-- is how a schema and its migrations drift apart, and that drift is what broke
+-- the build and every existing install twice.
 --
 -- Money is stored as INTEGER minor units next to a three-letter currency code:
 -- a REAL column for an amount is a bug that outlives the reviewer who let it in.
 -- Days are ISO-8601 TEXT so they sort lexicographically and survive every
 -- driver; they are never stored as epoch millis, because a day is a calendar
 -- fact, not an instant.
-
-CREATE TABLE trip (
-    id              TEXT NOT NULL PRIMARY KEY,
-    name            TEXT NOT NULL,
-    startDate       TEXT NOT NULL,
-    endDate         TEXT NOT NULL,
-    baseCurrency    TEXT NOT NULL,
-    homeCurrency    TEXT NOT NULL,
-    closedAt        INTEGER
-);
-
-CREATE INDEX trip_start ON trip(startDate);
-
-CREATE TABLE capture (
-    id                      TEXT NOT NULL PRIMARY KEY,
-    tripId                  TEXT NOT NULL REFERENCES trip(id) ON DELETE CASCADE,
-    localDate               TEXT NOT NULL,
-    photoPath               TEXT NOT NULL,
-    createdAt               INTEGER NOT NULL,
-    state                   TEXT NOT NULL,
-    amountMinor             INTEGER,
-    currency                TEXT,
-    merchant                TEXT,
-    extractionConfidence    REAL,
-    confirmedAt             INTEGER,
-    markedNoAmount          INTEGER NOT NULL DEFAULT 0,
-    -- Optional by design: a capture is valid without either. Category is what a
-    -- person says it was; note is anything they want to remember about it.
-    category                TEXT,
-    note                    TEXT,
-    -- Retry bookkeeping lives with the row, not in memory, so a process death
-    -- in a dead zone resumes exactly where it stopped.
-    failedAttempts          INTEGER NOT NULL DEFAULT 0,
-    retryNotBefore          INTEGER
-);
-
-CREATE INDEX capture_trip_day ON capture(tripId, localDate, createdAt);
-CREATE INDEX capture_state ON capture(state);
-CREATE INDEX capture_merchant ON capture(merchant);
-
-CREATE TABLE dayCard (
-    id          TEXT NOT NULL PRIMARY KEY,
-    tripId      TEXT NOT NULL REFERENCES trip(id) ON DELETE CASCADE,
-    localDate   TEXT NOT NULL,
-    closedAt    INTEGER,
-    UNIQUE(tripId, localDate)
-);
-
-CREATE TABLE rate (
-    base        TEXT NOT NULL,
-    quote       TEXT NOT NULL,
-    rateDate    TEXT NOT NULL,
-    rateScaled  INTEGER NOT NULL,
-    PRIMARY KEY (base, quote, rateDate)
-);
-
-CREATE TABLE settings (
-    id              INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
-    baseCurrency    TEXT NOT NULL,
-    homeCurrency    TEXT NOT NULL,
-    theme           TEXT NOT NULL,
-    ocrProvider     TEXT NOT NULL
-);
 
 -- -- queries ---------------------------------------------------------------
 
@@ -78,14 +21,21 @@ selectTripById:
 SELECT * FROM trip WHERE id = ?;
 
 insertTrip:
-INSERT INTO trip(id, name, startDate, endDate, baseCurrency, homeCurrency, closedAt)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO trip(id, name, startDate, endDate, baseCurrency, homeCurrency, closedAt, place, budgetMinor)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateTrip:
+UPDATE trip SET name = ?, place = ?, startDate = ?, endDate = ?, baseCurrency = ?, homeCurrency = ?, budgetMinor = ?
+WHERE id = ?;
 
 closeTrip:
 UPDATE trip SET closedAt = ? WHERE id = ?;
 
 deleteTrip:
 DELETE FROM trip WHERE id = ?;
+
+selectCapturesForTrip:
+SELECT * FROM capture WHERE tripId = ? ORDER BY createdAt ASC;
 
 selectCapturesForDay:
 SELECT * FROM capture

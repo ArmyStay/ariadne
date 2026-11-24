@@ -25,6 +25,8 @@ import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.FigureRow
+import com.ariadne.design.Glyph
+import com.ariadne.design.Icon
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
@@ -44,7 +46,7 @@ import com.ariadne.model.Money
  * where "the trip is the container" becomes visible in one screen.
  */
 @Composable
-public fun TripPage(state: AppUiState, model: AppModel, paper: Paper) {
+public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean = false) {
     val trip = state.trip ?: return
     val closed = state.dayCards.count { it.isClosed }
 
@@ -53,7 +55,7 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper) {
             .fillMaxSize()
             .background(paper.bg)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = Bone.Margin, vertical = 26.dp),
+            .padding(horizontal = if (wide) Bone.MarginWide else Bone.Margin, vertical = 26.dp),
     ) {
         Masthead(
             number = "09",
@@ -69,7 +71,49 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             DateBlock("From", trip.startDate.iso, paper)
             DateBlock("To", trip.endDate.iso, paper)
-            DateBlock("Days", (closed + (state.dayCards.size - closed)).toString(), paper, alignEnd = true)
+            DateBlock("Days", state.dayCards.size.toString(), paper, alignEnd = true)
+        }
+
+        if (trip.place != null || trip.budgetMinor != null) {
+            Spacer(Modifier.height(20.dp))
+            Rule(paper, color = paper.edge)
+            Spacer(Modifier.height(14.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Glyph.Place, paper, size = 15.dp, color = paper.inkFaint)
+                    Spacer(Modifier.width(9.dp))
+                    Label(trip.place ?: "no place set", paper, color = paper.inkSoft, tracking = 1.3.sp)
+                }
+                trip.budgetMinor?.let { budget ->
+                    val spent = state.categoryTotals.sumOf { it.baseMinor }
+                    val left = budget - spent
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Glyph.Budget, paper, size = 15.dp, color = paper.inkFaint)
+                        Spacer(Modifier.width(9.dp))
+                        Label("fence", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Numeral(
+                            Money.ofMinor(budget).formatWithSymbol(trip.baseCurrency),
+                            paper,
+                            size = 13.sp,
+                            color = paper.inkSoft,
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Label(
+                            if (left >= 0) "${Money.ofMinor(left).formatWithSymbol(trip.baseCurrency)} left"
+                            else "${Money.ofMinor(-left).formatWithSymbol(trip.baseCurrency)} over",
+                            paper,
+                            color = paper.inkFaint,
+                            size = 9.sp,
+                            tracking = 1.2.sp,
+                        )
+                    }
+                }
+            }
         }
 
         Spacer(Modifier.height(24.dp))
@@ -113,9 +157,9 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper) {
         )
 
         Spacer(Modifier.height(30.dp))
-        OutlineAction("See every day", paper, { model.go(Route.Record(state.today)) })
-        Spacer(Modifier.height(10.dp))
-        Action("Close the trip into a card", paper, { model.go(Route.TripCard(trip.id)) }, accent = true)
+        Action("Close the trip into a card", paper, { model.closeTripIntoCard() }, accent = true)
+        Spacer(Modifier.height(12.dp))
+        QuietAction("Every day of it", paper, { model.go(Route.Record(state.today)) }, color = paper.inkMid)
     }
 }
 

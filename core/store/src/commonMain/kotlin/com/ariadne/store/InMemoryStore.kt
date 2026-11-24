@@ -52,6 +52,15 @@ public class InMemoryStore : Store {
         bump()
     }
 
+    public override suspend fun capturesForTrip(tripId: String): List<Capture> =
+        captures.values.filter { it.tripId == tripId }.sortedBy { it.createdAt }
+
+    public override suspend fun updateTrip(trip: Trip) {
+        if (!trips.containsKey(trip.id)) return
+        trips[trip.id] = trip
+        bump()
+    }
+
     public override suspend fun closeTrip(id: String, at: Long) {
         trips[id]?.let { trips[id] = it.copy(closedAt = at) }
         bump()

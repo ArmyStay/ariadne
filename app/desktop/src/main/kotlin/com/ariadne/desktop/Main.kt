@@ -34,7 +34,12 @@ fun main() {
             state = WindowState(size = DpSize(1180.dp, 820.dp)),
         ) {
             LaunchedEffect(Unit) { graph.model.start() }
-            AriadneApp(model = graph.model, wide = true)
+            // The system file dialog, supplied to the shared UI exactly as the
+            // camera is on Android: the page asks "which image?", the target
+            // answers with whatever its platform calls a picker.
+            ProvideDesktopPhotoPicker(null) {
+                AriadneApp(model = graph.model, wide = true)
+            }
         }
     }
 }
@@ -46,26 +51,50 @@ private class DesktopServices : PlatformServices {
         driver = run {
             dbFile.parentFile?.mkdirs()
             val driver = JdbcSqliteDriver("jdbc:sqlite:${dbFile.absolutePath}")
-            // The schema must be created once, not on every launch: `CREATE TABLE`
-            // on an existing database throws "table already exists" and takes the
-            // app down before the window opens.
-            if (!databaseInitialised(driver)) {
-                com.ariadne.store.db.AriadneDb.Schema.create(driver)
+            // Create at the current version, migrate a database that predates it,
+            // or leave a current one alone. See `openOrMigrate`: a file can exist
+            // and still report version 0, because no early build wrote the pragma.
+            com.ariadne.store.openOrMigrate(driver)
+            // The one shape that cannot be migrated honestly: an early build ran
+            // `create`, never wrote the version, and the tables have since grown
+            // columns. Probe for it, and if it is there move the file aside - kept,
+            // not deleted, because it may hold a trip someone cares about - and
+            // start clean so the app opens instead of failing under a window.
+            if (com.ariadne.store.db.AriadneDb.Schema.version > 0 && !hasCurrentColumns(driver)) {
+                val aside = File(dbFile.parentFile, "ariadne-unusable-${System.currentTimeMillis()}.db")
+                println("ariadne: this database predates versioning and cannot be migrated; moved to ${aside.name}")
+                driver.close()
+                dbFile.renameTo(aside)
+                val fresh = JdbcSqliteDriver("jdbc:sqlite:${dbFile.absolutePath}")
+                com.ariadne.store.openOrMigrate(fresh)
+                return@run fresh
             }
             driver
         },
     )
 
-    private fun databaseInitialised(driver: SqlDriver): Boolean = try {
-        driver.executeQuery(
+    /**
+     * Every column the current schema expects, actually present?
+     *
+     * Cheaper and more honest than a version number here: the whole defect this
+     * guards is a version number that did not move when the columns did.
+     */
+    private fun hasCurrentColumns(driver: app.cash.sqldelight.db.SqlDriver): Boolean = try {
+        fun columnsOf(table: String): Set<String> = driver.executeQuery(
             identifier = null,
-            sql = "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'trip'",
+            sql = "PRAGMA table_info($table)",
             mapper = { cursor ->
-                cursor.next()
-                app.cash.sqldelight.db.QueryResult.Value(cursor.getLong(0) ?: 0L)
+                val names = mutableSetOf<String>()
+                while (cursor.next().value) cursor.getString(1)?.let { names += it }
+                app.cash.sqldelight.db.QueryResult.Value(names)
             },
             parameters = 0,
-        ).value > 0L
+        ).value
+        val trip = columnsOf("trip")
+        val capture = columnsOf("capture")
+        // An empty table list means the file is new, which is fine: openOrMigrate
+        // has already created it by the time this runs.
+        (trip.isEmpty() || "place" in trip) && (capture.isEmpty() || "category" in capture)
     } catch (e: Exception) {
         false
     }

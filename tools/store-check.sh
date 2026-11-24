@@ -25,10 +25,15 @@ for j in runtime-jvm sqlite-driver jdbc-driver coroutines-ext sqlite-jdbc; do
 done
 
 CP=""
-for j in "$T"/libs/*.jar; do [ "$(stat -c%s "$j")" -gt 12000 ] && CP="$CP$j:"; done
+for j in "$T"/libs/*.jar; do [ -s "$j" ] && CP="$CP$j:"; done
+# The stdlib and reflect are not in libs/: they live with the compiler, and a
+# compile classpath without them fails on `kotlin.Unit` of all things.
+CP="$CP$T/kotlinc/lib/kotlin-stdlib.jar:$T/kotlinc/lib/kotlin-stdlib-jdk8.jar:$T/kotlinc/lib/kotlin-reflect.jar:"
 CP="$CP$SD/runtime-jvm.jar:$SD/sqlite-driver.jar:$SD/jdbc-driver.jar:$SD/coroutines-ext.jar:$SD/sqlite-jdbc.jar"
-COMPILER_CP=""
-for j in "$T"/kotlinc/lib/*.jar; do case "$j" in *sources*) continue ;; esac; COMPILER_CP="$COMPILER_CP$j:"; done
+# The narrow classpath, not the whole distribution: kotlinc/lib also ships plugin
+# jars built against unrelocated IntelliJ classes, and loading them next to the
+# embeddable compiler makes the frontend die with AbstractMethodError.
+COMPILER_CP="$T/kotlinc/lib/kotlin-compiler-embeddable-2.4.21.jar:$T/kotlinc/lib/kotlin-stdlib.jar:$T/kotlinc/lib/kotlin-reflect.jar:$T/kotlinc/lib/annotations-13.0.jar:$T/kotlinc/lib/kotlinx-coroutines-core-jvm.jar:"
 
 # 1. Generate the interface from the app's schema. Codegen runs in its own
 #    JVM-only Gradle project so it does not need AGP's memory.

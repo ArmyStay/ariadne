@@ -31,6 +31,12 @@ dependencies {
     implementation(libs.sqldelight.android)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core)
+    // The camera, bound to this activity's lifecycle.
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.androidx.lifecycle.compose)
     implementation(compose.runtime)
     implementation(compose.ui)
 }

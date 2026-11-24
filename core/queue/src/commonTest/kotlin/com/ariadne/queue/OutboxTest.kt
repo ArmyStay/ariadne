@@ -168,6 +168,8 @@ class OutboxTest {
         val outbox = Outbox(repo, now = { 0L })
         outbox.enqueue(capture("x", 1))
         repo.updateDetails("x", 45_000, "THB", "Chatuchak", false, null)
+        // findById is suspending: the test is already in runTest, so it reads
+        // from the same coroutine rather than forcing a blocking bridge.
         val stored = repo.findById("x")
         assertEquals(CurrencyCode.of("THB"), stored?.currency)
         assertEquals("Chatuchak", stored?.merchant)

@@ -99,10 +99,9 @@ public fun OnboardingPage(model: AppModel, paper: Paper, wide: Boolean) {
 
                 Spacer(Modifier.height(22.dp))
                 Body(
-                    "You spent forty rupees on chai and twelve hundred on shoes, and by tonight you " +
-                        "won't remember either. Point the camera at the receipt, the stall, the ticket — " +
-                        "no amount, no category, no form. When the day is over, sit down and finish it " +
-                        "in two taps a card.",
+                    "Forty rupees on chai, twelve hundred on shoes, and by tonight neither is " +
+                        "remembered. Point the camera at the receipt, the stall, the ticket. When " +
+                        "the day is done, sit down and settle it - two taps a card.",
                     paper,
                     serif = true,
                     color = paper.inkMid,
@@ -119,7 +118,11 @@ public fun OnboardingPage(model: AppModel, paper: Paper, wide: Boolean) {
                     modifier = Modifier.widthIn(max = 360.dp),
                 )
                 Spacer(Modifier.height(16.dp))
-                QuietAction("Begin empty", paper, { model.go(com.ariadne.app.Route.Trips) })
+                // "Begin empty" used to route to Trips, which - with no trip in
+                // state - rendered the same form this page was already standing
+                // in front of. It looked like a button that does nothing because
+                // it was one. It opens a blank form now, which is a real place.
+                QuietAction("Begin empty", paper, { model.startNewTrip() })
 
                 Spacer(Modifier.height(40.dp))
                 Label(

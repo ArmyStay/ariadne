@@ -39,11 +39,21 @@ fun main(args: Array<String>) {
         val settle: Int = 0,
     )
 
+    // Each shot's route lambda is called `settle` times, so a flow that needs more
+    // than one step keeps its own cursor here rather than inside the model.
+    var budgetStep = 0
+
     val shots = listOf(
+        // The front door on a first run: no trip, so the form.
+        Shot("01-new-trip", 440, 900, seed = false, route = { it.startNewTrip() }),
+        Shot("01-new-trip-desktop", 1200, 800, seed = false, route = { it.startNewTrip() }),
         Shot("01-onboarding", 440, 900, seed = false),
         Shot("02-home", 440, 900, route = { it.go(Route.Home) }),
         Shot("02-home-desktop", 1200, 800, route = { it.go(Route.Home) }),
         Shot("02b-timeline", 440, 900, route = { it.go(Route.Timeline) }),
+        // The register: every trip on this device, one of them active.
+        Shot("02a-trips", 440, 900, route = { it.go(Route.Trips) }),
+        Shot("02a-trips-desktop", 1200, 800, route = { it.go(Route.Trips) }),
         Shot("02c-stats", 440, 900, route = { it.go(Route.Stats) }),
         // Finished through the real ritual, so the breakdown below is the one the
         // app would actually compute — not a fixture.
@@ -56,6 +66,29 @@ fun main(args: Array<String>) {
         Shot("02d-prefs", 440, 900, route = { it.go(Route.Prefs) }),
         Shot("03-trip", 440, 900, route = { it.go(Route.Trip) }),
         Shot("04-capture", 440, 900, route = { it.go(Route.Capture) }),
+        // The frame just taken, held up with its two ways out.
+        Shot(
+            "04b-frame", 440, 900, settle = 4,
+            route = { m -> m.capturePlaceholder() },
+        ),
+        // The front door on a phone with the tab bar hidden, and a seeded Stats page
+        // so the budget fence is visible against real numbers.
+        // The whole stack finished through the real ritual, then Stats: the budget
+        // line is arithmetic over captures that went through Nightfall, not a fixture.
+        // A fence is set on the trip (the same call a budget field makes), then the
+        // whole stack is finished through the real ritual, then Stats: the budget
+        // line is arithmetic over captures that went through Nightfall.
+        Shot("02c-stats-budget", 440, 900, settle = 12, route = { m ->
+            when {
+                budgetStep == 0 -> {
+                    m.editTripBudget("140000")
+                    m.openNightfall(null)
+                }
+                m.state.value.stack.isNotEmpty() -> m.confirmCurrent()
+                else -> m.go(Route.Stats)
+            }
+            budgetStep++
+        }),
         Shot("05-nightfall", 440, 900, route = { it.openNightfall(null) }),
         Shot("05-nightfall-desktop", 1200, 800, route = { it.openNightfall(null) }),
         Shot("06-record", 440, 900, route = { it.openRecord(null) }, settle = 1),

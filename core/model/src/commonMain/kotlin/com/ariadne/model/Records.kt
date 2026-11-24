@@ -78,8 +78,24 @@ public data class Trip(
     public val baseCurrency: CurrencyCode,
     public val homeCurrency: CurrencyCode,
     public val closedAt: Long? = null,
+    /** Where the traveller says they are. Free text: a city, a coast, a train. */
+    public val place: String? = null,
+    /**
+     * What they meant to spend, in [baseCurrency], as minor units.
+     *
+     * Optional, because a trip without a budget is still a trip. When it is set it
+     * is a fence, not a target: the record compares the finished total to it and
+     * says how much room is left, and never calls an overspend a failure.
+     */
+    public val budgetMinor: Long? = null,
 ) {
     public val isClosed: Boolean get() = closedAt != null
+
+    public fun budget(): Money? = budgetMinor?.let(Money::ofMinor)
+
+    /** Negative means over budget. Null when no budget was set. */
+    public fun remainingAgainstBudget(spentMinor: Long): Long? =
+        budgetMinor?.let { it - spentMinor }
 }
 
 /**

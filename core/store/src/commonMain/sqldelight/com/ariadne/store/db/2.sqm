@@ -1,0 +1,15 @@
+-- Migration 2: capture gained category and note.
+--
+-- Two schema changes happened before this project wrote migrations down, and the
+-- history matters, because a database in the wild can be at either point:
+--
+--   baseline (81df38b)  trip has no place/budget; capture has no category/note
+--   2.sqm               capture gained category and note      <- this file
+--   3.sqm               trip gained place and budgetMinor     <- 3.sqm
+--
+-- Both are nullable on purpose: a capture is valid without either. Category is
+-- what a person says it was; note is anything they want to remember about it.
+
+ALTER TABLE capture ADD COLUMN category TEXT;
+
+ALTER TABLE capture ADD COLUMN note TEXT;
