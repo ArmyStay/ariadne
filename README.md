@@ -32,6 +32,23 @@ record you would otherwise lose between a market stall and a hotel room.
 | Search by what you remember | `SearchIndex`: merchant, price, day, currency — one index |
 | Retries survive a dead zone | backoff persisted on the row, resumed on start |
 
+## The screens
+
+Real frames, rendered from the shared Compose UI by `tools/run-preview.sh --shots`
+— not mockups. Palette and components from a sign-in reference, structure and type
+from a trips reference; see `docs/DESIGN.md`.
+
+<p align="center">
+  <img src="docs/shots/02-home.png" width="200" alt="Home" />
+  <img src="docs/shots/05-nightfall.png" width="200" alt="Nightfall" />
+  <img src="docs/shots/02b-timeline.png" width="200" alt="Timeline" />
+  <img src="docs/shots/07-trip-card.png" width="200" alt="The trip card" />
+</p>
+
+Home · Nightfall · Timeline · the card. The rest — onboarding, Stats, Prefs, the
+shutter, the record, search, the desktop spread and the night paper — are in
+[`docs/shots/`](docs/shots/).
+
 ## Layout
 
 ```
@@ -42,8 +59,8 @@ record you would otherwise lose between a market stall and a hotel room.
 :core:fx       scaled-integer rate table, HALF_UP conversion, Tally
 :core:search   in-memory inverted index
 :core:store    SQLDelight schema, AriadneStore, photo store
-:core:design   receipt-paper theme, monospace numerals
-:ui:app        routes, AppModel, and the six surfaces
+:core:design   Ink: palette, Instrument Serif + Inter Tight, components, plate
+:ui:app        routes, AppModel, the four tabs and the five stacked pages
 :app:android   :app:ios   :app:desktop   :app:wasm
 ```
 
@@ -67,6 +84,18 @@ SearchIndexTest           12   merchant / price / day / currency, results are ca
 
 ## Run it
 
+The four-target Gradle build has not been run in a sandbox with enough memory, so
+the paths that are verified are Gradle-free:
+
+```bash
+./tools/run-preview.sh              # compile + open the real shared UI in a window
+./tools/run-preview.sh --phone      # 420x860, the phone layout
+./tools/run-preview.sh --shots docs/shots   # render every page to PNG, headless
+./tools/test-domain.sh              # 70 domain tests
+```
+
+See `TESTING.md`. And on a machine with the memory for it, the real targets:
+
 ```bash
 ./gradlew :app:desktop:run          # the comfortable triage surface
 ./gradlew :app:wasm:wasmJsBrowserDevelopmentRun   # the browser build
@@ -78,7 +107,7 @@ SearchIndexTest           12   merchant / price / day / currency, results are ca
 
 Nov 23 2026, day one of a fourteen-day build. What is done and verified here:
 the model, the queue machine and its tests, the receipt parser with thirty
-fixtures, FX, search, the schema, and the six Compose surfaces. What is not yet
+fixtures, FX, search, the schema, and the four tab destinations and five stacked pages. What is not yet
 verified in this checkout: the four-target Gradle build itself has not been run
 end to end (see `BUILD-STATUS.md` for exactly what was and was not executed), and
 platform OCR is not yet bound on any target — it returns a failure value that the
