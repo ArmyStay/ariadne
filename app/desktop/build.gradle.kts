@@ -9,12 +9,18 @@ plugins {
 kotlin {
     jvm()
     sourceSets {
-        jvmMain.dependencies {
-            implementation(project(":ui:app"))
-            implementation(project(":core:store"))
-            implementation(libs.sqldelight.jvm)
-            implementation(libs.kotlinx.coroutines.swing)
-            implementation(compose.desktop.currentOs)
+        jvmMain {
+            kotlin.srcDir("src/main/kotlin")
+            dependencies {
+                implementation(project(":ui:app"))
+                implementation(project(":core:store"))
+                implementation(project(":core:time"))
+                implementation(project(":core:queue"))
+                implementation(project(":core:extract"))
+                implementation(libs.sqldelight.jvm)
+                implementation(libs.kotlinx.coroutines.swing)
+                implementation(compose.desktop.currentOs)
+            }
         }
     }
 }

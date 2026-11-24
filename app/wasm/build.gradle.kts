@@ -6,7 +6,6 @@ plugins {
 
 kotlin {
     wasmJs {
-        moduleName = "ariadne"
         browser {
             commonWebpackConfig {
                 outputFileName = "ariadne.js"

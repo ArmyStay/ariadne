@@ -222,11 +222,12 @@ private fun ReceiptLine(capture: Capture, index: Int, paper: Paper, onClick: () 
         Column(Modifier.weight(1f)) {
             Title(capture.merchant ?: "Untitled", paper, size = 16.sp)
             Spacer(Modifier.height(3.dp))
+            val currency = capture.currency
             Label(
                 when {
                     capture.markedNoAmount -> "no amount"
-                    capture.currency == null -> "not filled in"
-                    else -> capture.currency.code
+                    currency == null -> "not filled in"
+                    else -> currency.code
                 },
                 paper,
                 color = paper.inkFaint,
