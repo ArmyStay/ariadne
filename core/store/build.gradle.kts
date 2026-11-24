@@ -37,10 +37,14 @@ sqldelight {
         create("AriadneDb") {
             packageName.set("com.ariadne.store.db")
             schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
-            // On. The schema is versioned through .sqm files and every migration
-            // is checked against the generated schema at build time — the failure
-            // this guards against (a table that grew while its version did not) is
-            // exactly the one that made "Open the trip" do nothing on a device.
+            // The tables are declared once, in 1.sqm, and everything else is
+            // derived from the migrations. The alternative - CREATE statements in
+            // Ariadne.sq *and* ALTERs in .sqm - meant `verifyMigrations` compiled
+            // each migration against an empty derived schema and failed with
+            // "No table found with name capture", while the local gate (which
+            // never raised this flag) passed. Two declarations, one of them
+            // silently wrong.
+            deriveSchemaFromMigrations.set(true)
             verifyMigrations.set(true)
         }
     }

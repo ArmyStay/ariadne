@@ -22,10 +22,15 @@ import com.ariadne.store.db.AriadneDb
  *
  * So the decision is made from the **file**, not from the pragma:
  *
- * - no `trip` table at all      -> it is new; create at the current version
- * - a `trip` table but version 0 -> it predates versioning; it is at the baseline
- * - version 1 or 2              -> migrate up
- * - version 3 (current)         -> nothing at all
+ * - no `trip` table at all       -> it is new; create at the current version
+ * - a `trip` table but version 0 -> it predates versioning; stamp it and, if it
+ *                                   is missing columns, repair by column
+ * - an older version             -> migrate up
+ * - the current version          -> nothing at all
+ *
+ * `1.sqm` is the baseline CREATE, so a brand-new file reports version 1 the
+ * moment `create` runs - migration numbering is deliberately offset by one from
+ * the schema version. That is why "predates versioning" is version 0 and not 1.
  *
  * The version is written after `create` as well as after `migrate`, which is the
  * omission that caused all of this.

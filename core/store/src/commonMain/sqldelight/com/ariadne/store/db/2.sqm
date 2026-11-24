@@ -1,15 +1,15 @@
--- Migration 2 -> 3: trip gained place and a budget.
+-- Migration 2: capture gained category and note.
 --
--- A trip can now hold where it is ([place]) and the fence the traveller set for
--- it ([budgetMinor]). Both nullable: a trip without a place or a budget is a
--- trip, not an incomplete one.
+-- Two schema changes happened before this project wrote migrations down, and the
+-- history matters, because a database in the wild can be at either point:
 --
--- This is the change that made "Open the trip" do nothing. The table grew, the
--- schema version did not move, no migration ran, and the INSERT named a column
--- that was not there - throwing inside a launched coroutine, where nobody saw
--- it. The version is now written to `PRAGMA user_version` on first create, which
--- is what makes this file reachable at all.
+--   baseline (81df38b)  trip has no place/budget; capture has no category/note
+--   2.sqm               capture gained category and note      <- this file
+--   3.sqm               trip gained place and budgetMinor     <- 3.sqm
+--
+-- Both are nullable on purpose: a capture is valid without either. Category is
+-- what a person says it was; note is anything they want to remember about it.
 
-ALTER TABLE trip ADD COLUMN place TEXT;
+ALTER TABLE capture ADD COLUMN category TEXT;
 
-ALTER TABLE trip ADD COLUMN budgetMinor INTEGER;
+ALTER TABLE capture ADD COLUMN note TEXT;
