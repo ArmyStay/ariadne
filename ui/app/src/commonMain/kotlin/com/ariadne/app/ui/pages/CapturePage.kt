@@ -53,6 +53,10 @@ public fun CapturePage(
     onImport: () -> Unit,
     onFrame: (ByteArray) -> Unit = {},
 ) {
+    val shoot = shutterAction()
+    // With a camera, the shutter fires the sensor and the bytes come back through
+    // onFrame. Without one, the caller's placeholder path runs instead.
+    val fire: () -> Unit = if (cameraAvailable()) ({ shoot() }) else onShutter
     Column(
         Modifier
             .fillMaxSize()
@@ -80,7 +84,7 @@ public fun CapturePage(
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .semantics { contentDescription = "Viewfinder. Tap to keep the photograph." }
-                .pointerInput(Unit) { detectTapGestures(onTap = { onShutter() }) },
+                .pointerInput(fire) { detectTapGestures(onTap = { fire() }) },
         ) {
             // The live frame if the target has a camera, the ruled plate if not.
             // Same frame either way, so the shutter never lies about what it saw.
@@ -105,7 +109,7 @@ public fun CapturePage(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             QuietAction("From photos", paper, onImport)
-            Shutter(paper, onShutter)
+            Shutter(paper, fire)
             QuietAction(
                 if (state.stack.isEmpty()) "Nothing waiting" else "${state.stack.size} waiting",
                 paper,

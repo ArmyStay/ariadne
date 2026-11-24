@@ -86,7 +86,7 @@ the other places you can go: the timeline, the record, search, the trip itself.
 
 ### 03 — The shutter
 
-The camera, and nothing else. A single framing plate filling most of the screen,
+The camera — the real one — and nothing else. A single framing plate filling most of the screen,
 one shutter control, and two quiet ways out (home, and the evening ritual). No
 amount field, no category picker, no form. It exists to make taking the
 photograph the easiest thing in the app.

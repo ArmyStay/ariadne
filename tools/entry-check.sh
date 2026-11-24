@@ -54,8 +54,11 @@ for j in "$T"/kotlinc/lib/*.jar; do case "$j" in *sources*) continue ;; esac; CO
 
 echo "compiling the four entry points against the real schema…"
 rc=0
+# Every .kt in the Android app module, not just the activity: the camera, the
+# file store and the clipboard are separate files now.
 compile android "$ROOT/tools/entrycheck/stubs/android"/*.kt \
-                "$ROOT/app/android/src/main/kotlin/com/ariadne/android/MainActivity.kt" || rc=1
+                "$ROOT/tools/entrycheck/stubs/android"/*/*.kt \
+                "$ROOT/app/android/src/main/kotlin/com/ariadne/android"/*.kt || rc=1
 compile ios     "$ROOT/tools/entrycheck/stubs/ios"/*.kt \
                 "$ROOT/app/ios/src/iosMain/kotlin/com/ariadne/ios/MainViewController.kt" || rc=1
 compile wasm    "$ROOT/tools/entrycheck/stubs/wasm"/*.kt \

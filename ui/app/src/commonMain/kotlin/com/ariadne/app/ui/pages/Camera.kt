@@ -45,6 +45,16 @@ public interface CameraBinding {
 
     @Composable
     public fun Preview(paper: Paper, modifier: Modifier, onFrame: (ByteArray) -> Unit)
+
+    /**
+     * Fires the shutter.
+     *
+     * Asynchronous by necessity: the sensor takes a moment. The bytes arrive
+     * through the [Preview] callback, which is the same path a platform would use
+     * if it handed over a frame by any other route — so the page has exactly one
+     * way of receiving a photograph and cannot drift between targets.
+     */
+    public fun capture()
 }
 
 /** Supplied at the root. Empty by default, which is the honest state today. */
@@ -58,6 +68,8 @@ private object NoCamera : CameraBinding {
     override fun Preview(paper: Paper, modifier: Modifier, onFrame: (ByteArray) -> Unit) {
         ViewfinderPlate(paper, modifier)
     }
+
+    override fun capture() = Unit
 }
 
 /**
@@ -84,6 +96,20 @@ public fun rememberCameraFrame(
 /** True when the current composition was handed a working camera. */
 @Composable
 public fun cameraAvailable(): Boolean = (LocalCamera.current ?: NoCamera).available
+
+/**
+ * The shutter, wired to whatever camera the composition was given.
+ *
+ * A page that calls this fires the real sensor when there is one and does nothing
+ * when there is not — the caller still needs a fallback for the no-camera case,
+ * because a placeholder photograph is a legitimate record and an unfired shutter
+ * is not.
+ */
+@Composable
+public fun shutterAction(): () -> Unit {
+    val camera = LocalCamera.current ?: NoCamera
+    return { camera.capture() }
+}
 
 /**
  * The plate, drawn the way a photographic plate is: ruled lines, crop marks at

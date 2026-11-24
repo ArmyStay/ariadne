@@ -35,6 +35,39 @@ ones the four app targets compile.
 | Android/iOS on-device run | no SDK, no Xcode here | low — the Ariadne code in both now compiles against the real schema |
 | iOS linking | no Kotlin/Native here | unknown — nothing below the entry point is iOS-specific |
 
+## The camera
+
+`AndroidCamera` is a real CameraX binding: `ProcessCameraProvider` bound to the
+activity's lifecycle, a `PreviewView` behind the ruled frame, and an `ImageCapture`
+case that fires from the shutter. The pieces that matter, in the order they break:
+
+- **Permission** is asked when the shutter page is entered, not at launch. Refused
+  means the plate is drawn and the caption says "Camera permission declined" — the
+  app stays completely usable, which is the stance everywhere else too.
+- **The lifecycle** is unbound in `onDispose`, not left to the activity. A camera
+  held open behind a page is warm hardware and a flat battery.
+- **The bytes** are decoded, rotated by `imageInfo.rotationDegrees`, scaled to
+  1600px on the long edge and re-encoded at quality 88. A 12MP sensor frame is
+  ~4MB; a receipt does not need it. `ImageProxy` is closed in a `finally` —
+  skipping that locks the capture pipeline and the next shot never arrives.
+- **Resolution** uses `ResolutionSelector` with
+  `FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER`, not the deprecated
+  `setTargetResolution`, so a sensor that cannot do exactly 1600 still gives its
+  nearest larger size instead of a postscript stamp.
+- **Photos** go to `filesDir/photographs/<trip>/<day>/<id>.jpg` via `AndroidFiles`,
+  written to a `.part` name first so a kill mid-write cannot leave a half-JPEG
+  under the real name. Never the shared gallery: the photo backup is exactly the
+  thing this app promises not to do.
+
+`CameraBinding` also gains `capture()`, and `shutterAction()` in the shared UI
+wires the shutter to whichever binding is in the `CompositionLocal`. With none,
+the old placeholder path runs — so the desktop preview, the Wasm build and the
+iOS target compile and pass the same 50 flow checks.
+
+**Not verified:** the camera has not been run on a device. It compiles against
+stubs whose signatures were checked against the CameraX 1.4 reference, and the
+shared UI is unchanged in behaviour, but "compiles" is not "opens the sensor".
+
 ## Stale-control pass — dead pages out, icons in
 
 A sweep of every control in the app found three classes of rot.

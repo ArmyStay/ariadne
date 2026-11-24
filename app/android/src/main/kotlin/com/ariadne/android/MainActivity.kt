@@ -5,10 +5,12 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.CompositionLocalProvider
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.ariadne.app.AppGraph
 import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
+import com.ariadne.app.ui.pages.LocalCamera
 import com.ariadne.core.time.SystemClock
 import com.ariadne.extract.OcrResult
 import com.ariadne.extract.TextRecognizer
@@ -21,8 +23,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         graph = AppGraph(AndroidServices(this), SystemClock())
+        val camera = AndroidCamera(this, this)
         setContent {
-            AriadneApp(model = graph.model, wide = false, reducedMotion = reducedMotion())
+            // The one place a camera is attached to the shared UI. Every other
+            // target leaves the local empty and gets the ruled plate.
+            CompositionLocalProvider(LocalCamera provides camera) {
+                AriadneApp(model = graph.model, wide = false, reducedMotion = reducedMotion())
+            }
         }
     }
 
@@ -62,6 +69,10 @@ private class AndroidServices(
         // designed behaviour rather than a stub wearing a hat.
         OcrResult.Failure("ML Kit recognizer not yet bound")
     }
+
+    override fun files(): com.ariadne.app.PhotoFiles = AndroidFiles(activity)
+
+    override fun clipboard(): com.ariadne.app.Clipboard = AndroidClipboard(activity)
 
     override fun close() = Unit
 }
