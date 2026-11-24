@@ -35,6 +35,28 @@ ones the four app targets compile.
 | Android/iOS on-device run | no SDK, no Xcode here | low — the Ariadne code in both now compiles against the real schema |
 | iOS linking | no Kotlin/Native here | unknown — nothing below the entry point is iOS-specific |
 
+## Hierarchy pass — one blue thing per page
+
+Looking at the rendered frames side by side, the recurring defect was not colour
+or type: it was **two competing primary actions**, which is what a generated
+layout does when it has no opinion about which choice matters.
+
+- **Nightfall (wide)** had "Confirm" and "Close the day" as two identical
+  full-width blue bars, one above the other. Closing the day is how you *leave*,
+  not a second decision, so it is now a hairline bar under a rule with a caption
+  that says what it costs you. Confirm is the only blue on the page.
+- **Nightfall (wide)** also had the plate on a fixed 4:5 box inside a weighted
+  row, which overran the viewport and cut the caption off the bottom. The plate
+  now takes the space that is left, and the stack position and Earlier/Later
+  moved under it where they belong.
+- **The trip's page** stacked "See every day" over "Close the trip into a card".
+  Closing is now the single action; the record is a quiet exit under it. The
+  place and the budget also appear here now, hung under the dates with their
+  glyphs, because they are facts about the trip and this is the trip's page.
+- **Home's index** was four rows of bare serif. Each row now carries its glyph in
+  the hanging margin, so the block scans as a list of places instead of four
+  lines that happen to be different words. The same treatment reached Prefs.
+
 ## The camera
 
 `AndroidCamera` is a real CameraX binding: `ProcessCameraProvider` bound to the

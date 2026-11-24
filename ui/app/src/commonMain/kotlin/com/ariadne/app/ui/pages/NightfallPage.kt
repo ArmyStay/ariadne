@@ -96,13 +96,34 @@ public fun NightfallPage(
         }
 
         if (wide) {
-            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(44.dp)) {
-                Column(Modifier.weight(1f)) {
-                    PhotographOf(capture, paper, Modifier.fillMaxWidth().aspectRatio(4f / 5f))
-                    Spacer(Modifier.height(12.dp))
-                    Label("Plate ${state.stackIndex + 1} of ${state.stack.size}", paper, color = paper.inkFaint)
+            Row(
+                Modifier.fillMaxWidth().weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(44.dp),
+            ) {
+                // The plate takes the space that is left, not a fixed ratio: a 4:5
+                // box in a weighted row overran the viewport on a laptop.
+                Column(Modifier.weight(1.05f)) {
+                    Box(Modifier.weight(1f)) {
+                        PhotographOf(capture, paper, Modifier.fillMaxSize())
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Label(
+                            "plate ${state.stackIndex + 1} of ${state.stack.size}",
+                            paper,
+                            color = paper.inkFaint,
+                            size = 9.sp,
+                            tracking = 1.4.sp,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        QuietAction("Earlier", paper, { model.previous() }, color = paper.inkFaint)
+                        Spacer(Modifier.width(16.dp))
+                        QuietAction("Later", paper, { model.next() }, color = paper.inkFaint)
+                    }
                 }
-                Column(Modifier.weight(1f)) { Triage(state, model, paper, capture) }
+                Column(Modifier.weight(1f)) {
+                    Triage(state, model, paper, capture, wide = true)
+                }
             }
         } else {
             // Phone: the plate, the merchant and the typed amount stay put; the
@@ -138,7 +159,13 @@ public fun NightfallPage(
 }
 
 @Composable
-private fun Triage(state: AppUiState, model: AppModel, paper: Paper, capture: Capture) {
+private fun Triage(
+    state: AppUiState,
+    model: AppModel,
+    paper: Paper,
+    capture: Capture,
+    wide: Boolean = false,
+) {
     Column(Modifier.fillMaxWidth()) {
         Header(state, model, paper, capture)
         Spacer(Modifier.height(18.dp))
@@ -226,21 +253,24 @@ private fun Decisions(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
                 paper,
                 { model.confirmCurrent(noAmount = true) },
             )
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                QuietAction("Earlier", paper, { model.previous() }, color = paper.inkFaint)
-                QuietAction("Later", paper, { model.next() }, color = paper.inkFaint)
-            }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(18.dp))
             Rule(paper)
-            Spacer(Modifier.height(14.dp))
-            Action("Close the day", paper, { model.closeDay((state.route as? Route.Nightfall)?.day) })
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
+            // The only blue thing on the page is Confirm. Closing the day is how you
+            // leave, not a second decision competing with the first — so it is a
+            // hairline bar, and the caption under it says what it costs you.
+            OutlineAction(
+                "Close the day",
+                paper,
+                { model.closeDay((state.route as? Route.Nightfall)?.day) },
+            )
+            Spacer(Modifier.height(9.dp))
             Body(
                 "Closing locks the day into the record. Long-press any card to open it again.",
                 paper,
                 color = paper.inkFaint,
-                size = 12.sp,
+                size = 11.sp,
+                lineHeight = 16.sp,
             )
         } else {
             Row(

@@ -193,16 +193,16 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
 
         SectionHead("II", "the trip", paper, trailing = "${trip.startDate.iso} → ${trip.endDate.iso}")
 
-        NavRow("Timeline", "${state.dayCards.count { it.isClosed }} of ${state.dayCards.size} days closed", paper) {
+        NavRow(Glyph.Date, "Timeline", "${state.dayCards.count { it.isClosed }} of ${state.dayCards.size} days closed", paper) {
             model.go(Route.Timeline)
         }
-        NavRow("The record", "${state.dayCaptures.size} kept today", paper) {
+        NavRow(Glyph.Record, "The record", "${state.dayCaptures.size} kept today", paper) {
             model.go(Route.Record(state.today))
         }
-        NavRow("Search what you kept", "by shop, price, day", paper) {
+        NavRow(Glyph.Search, "Search what you kept", "by shop, price, day", paper) {
             model.go(Route.Search)
         }
-        NavRow("The trip's page", "dates, currencies, the card", paper) {
+        NavRow(Glyph.Trip, "The trip's page", "dates, currencies, the card", paper) {
             model.go(Route.Trip)
         }
 
@@ -220,17 +220,28 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
 }
 
 @Composable
-private fun NavRow(label: String, detail: String, paper: Paper, onClick: () -> Unit) {
+private fun NavRow(
+    glyph: Glyph,
+    label: String,
+    detail: String,
+    paper: Paper,
+    onClick: () -> Unit,
+) {
     Column {
         Row(
             Modifier
                 .fillMaxWidth()
                 .pointerInput(label) { detectTapGestures(onTap = { onClick() }) }
-                .padding(vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(vertical = 15.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // A glyph in the hanging margin, so the index scans as a list of places
+            // rather than four lines of serif that happen to be different words.
+            Box(Modifier.width(26.dp)) {
+                Icon(glyph, paper, size = 16.dp, color = paper.inkSoft)
+            }
             Title(label, paper, size = 19.sp)
+            Spacer(Modifier.weight(1f))
             Label(detail, paper, color = paper.inkFaint, tracking = 1.2.sp)
         }
         Rule(paper)

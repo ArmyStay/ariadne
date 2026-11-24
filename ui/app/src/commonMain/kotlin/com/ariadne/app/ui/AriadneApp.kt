@@ -127,7 +127,7 @@ private fun Destination(
         Route.Stats -> StatsPage(state, model, paper, wide)
         Route.Prefs -> PrefsPage(state, model, paper, wide)
 
-        Route.Trip -> TripPage(state, model, paper)
+        Route.Trip -> TripPage(state, model, paper, wide)
 
         Route.Capture -> CapturePage(
             state = state,
