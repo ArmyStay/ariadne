@@ -1,7 +1,5 @@
 package com.ariadne.android
 
-import android.content.Context
-import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -14,19 +12,7 @@ import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
 import com.ariadne.app.ui.pages.LocalCamera
 import com.ariadne.core.time.SystemClock
-import com.ariadne.extract.OcrResult
 import com.ariadne.extract.TextRecognizer
-import com.google.android.gms.tasks.Task
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import java.io.File
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
 
@@ -84,35 +70,4 @@ private class AndroidServices(
     override fun close() = Unit
 }
 
-/** On-device text recognition via ML Kit. Failure is returned, never thrown to the app. */
-private class MlKitTextRecognizer(private val context: Context) : TextRecognizer {
-    private val client = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-
-    override suspend fun recognize(imagePath: String): OcrResult = withContext(Dispatchers.IO) {
-        runCatching {
-            val file = File(imagePath)
-            if (!file.exists()) return@withContext OcrResult.Failure("Photo file missing")
-            val image = InputImage.fromFilePath(context, Uri.fromFile(file))
-            val result = withTimeoutOrNull(8_000L) { client.process(image).awaitTask() }
-                ?: return@withContext OcrResult.Failure("Text recognition timed out")
-            val lines = result.textBlocks
-                .flatMap { block -> block.lines.map { it.text.trim() }.filter { it.isNotEmpty() } }
-                .ifEmpty { result.text.lines().map { it.trim() }.filter { it.isNotEmpty() } }
-            if (lines.isEmpty()) OcrResult.Text(emptyList()) else OcrResult.Text(lines)
-        }.getOrElse { error ->
-            OcrResult.Failure(error.message ?: "Text recognition failed")
-        }
-    }
-}
-
-private suspend fun <T> Task<T>.awaitTask(): T = suspendCancellableCoroutine { cont ->
-    addOnSuccessListener { result ->
-        if (cont.isActive) cont.resume(result)
-    }
-    addOnFailureListener { error ->
-        if (cont.isActive) cont.resumeWithException(error)
-    }
-    addOnCanceledListener {
-        cont.cancel()
-    }
-}
+// MlKitTextRecognizer extracted to MlKitTextRecognizer.kt for testability and to keep MainActivity focused on wiring.
