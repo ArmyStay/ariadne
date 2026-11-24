@@ -7,7 +7,7 @@
 # Usage: tools/verify-ui.sh <outDir> <sources...>
 set -uo pipefail
 
-TOOLS="${ARIADNE_TOOLS:-$HOME/.tools}"
+TOOLS="${ARIADNE_TOOLS:-$HOME/.cache/tools}"
 JAVA_HOME="$TOOLS/jdk21"
 export JAVA_HOME
 export PATH="$JAVA_HOME/bin:$PATH"

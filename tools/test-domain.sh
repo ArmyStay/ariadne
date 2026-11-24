@@ -3,7 +3,7 @@
 # cores with kotlinc and runs them under JUnit.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-T=/home/user/.tools
+T="${ARIADNE_TOOLS:-$HOME/.cache/tools}"
 export JAVA_HOME="$T/jdk21"
 CP="$(ls $T/libs/*.jar | tr '\n' ':')$T/kotlinc/lib/kotlin-stdlib.jar:$T/kotlinc/lib/kotlin-test.jar:$T/kotlinc/lib/kotlin-test-junit.jar"
 OUT="${1:-/tmp/ariadne-tests}"

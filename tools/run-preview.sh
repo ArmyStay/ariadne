@@ -12,7 +12,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TOOLS="${ARIADNE_TOOLS:-$HOME/.tools}"
+TOOLS="${ARIADNE_TOOLS:-$HOME/.cache/tools}"
 export JAVA_HOME="$TOOLS/jdk21"
 export PATH="$JAVA_HOME/bin:$PATH"
 OUT="$ROOT/build/preview"
