@@ -4,6 +4,39 @@ Last updated: 2026-11-24 (workspace edits: desktop OCR bound via the Tesseract C
 
 > Note: Checks listed below were recorded in prior sessions and were not re-run in this session after the latest source edits.
 
+## Build log round (2026-11-24): the iOS X64 failure + warning cleanup
+
+A workspace build log (`gradlew :app:android:installDebug`, AGP 9.5.2) failed during
+configuration on every module with the systematic error:
+
+    KMP Dependencies Resolution Failure
+    Source set 'commonMain' couldn't resolve dependencies for all target platforms
+    Couldn't resolve dependency 'org.jetbrains.compose.runtime:runtime:1.12.2'
+    ... Unresolved platforms: [iosX64]
+
+so the build was not green and the first failing build on a stranger's machine undid the
+reducibility work above. Changes made on the current branch to fix the failure and the
+warning cascade in that log:
+
+- Removed `iosX64()` from every module (`app/ios`, `core/{design,extract,fx,time,queue,
+  search,store,model}`, `ui/app`): the compose dependencies do not resolve for it with
+  the pinned compose 1.12.2, so the target cannot be part of a green build. (Remaining
+  Intel-mac users: `iosArm64()`/`iosSimulatorArm64()` still cover the simulator.)
+- Removed `android.builtInKotlin=false` and `android.newDsl=false` from `gradle.properties`
+  (the AGP-9.0 default is `true`), and dropped `org.jetbrains.kotlin.android` from
+  `plugins` of `:app:android` and the root project — the warnings said to migrate to the
+  built-in Kotlin.
+- Added `androidTarget { withHostTest() }` to the seven core modules with an android
+  target — the "android host tests are not enabled" warnings.
+- `applicationVariants`/`testVariants`/`unitTestVariants`/`libraryVariants` callers were
+  not found in the repo; run the build with `-Pandroid.debug.obsoleteApi=true` and paste
+  the full log (see below) — a couple of warnings still need their caller located.
+
+**Verification still to do on your machine:** re-run
+`./gradlew.bat :app:android:installDebug` and confirm the install succeeds with few or
+no warnings, and paste the output here again — the workspace log still needs to be
+reduced to the remaining-obsolete-API items.
+
 ## Verified in prior sessions / by existing repo checks (not re-run in this session)
 
 | Check | Command | Result |
