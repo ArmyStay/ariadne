@@ -33,6 +33,7 @@ You spent forty rupees on chai and twelve hundred on shoes, and by tonight you w
 | Retries survive a dead zone | retry/backoff handled by outbox + extraction service, resumed on start |
 | A button never silently does nothing | `commitDraft` reports a failed write on the page; `failureNote` in Prefs |
 | An old install keeps its data | `openOrMigrate`: decides from the columns present, not from `PRAGMA user_version` alone |
+| The manifest declares no network permission | `app/android/src/main/AndroidManifest.xml` has no `INTERNET` — extraction is on-device only, nothing leaves the device |
 | Startup cannot be blocked by background work | every step in `AppModel.start()` is guarded on its own |
 
 ## The screens
@@ -113,7 +114,9 @@ Everything below runs in this checkout with no Gradle and no device. All green:
 
 | Gate | Command | Result |
 |---|---|---|
-| Domain logic | `./tools/test-domain.sh` | **70 tests** |
+| Domain logic | `./tools/test-domain.sh` | **70 tests** (default) or the same suite on iOS + Wasm: `./tools/test-domain.sh ios wasm` |
+| Extraction parse p50, committed | `./tools/benchmark-extraction.sh` | writes `docs/benchmarks/extraction-p50.txt` |
+| Six hero frames vs golden | `./tools/verify-hero-shots.sh` | prints an OK/STALE table per frame — a design change fails the run |
 | The capture flow, walked end to end | `./tools/flow-check.sh` | **54 checks** |
 | The store against a real SQLite file | `./tools/store-check.sh` | **59 checks, incl. three real database shapes** |
 | Every page renders | `./tools/run-preview.sh --shots` | **21 frames** |
