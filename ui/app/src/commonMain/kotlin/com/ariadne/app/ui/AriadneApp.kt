@@ -31,13 +31,13 @@ import com.ariadne.app.ui.pages.CapturePage
 import com.ariadne.app.ui.pages.DetailPage
 import com.ariadne.app.ui.pages.FramePage
 import com.ariadne.app.ui.pages.NewTripPage
-import com.ariadne.app.ui.pages.HomePage
-import com.ariadne.app.ui.pages.NightfallPage
+import com.ariadne.app.ui.pages.TodayPage
+import com.ariadne.app.ui.pages.CloseDayPage
 import com.ariadne.app.ui.pages.OnboardingPage
 import com.ariadne.app.ui.pages.RecordPage
 import com.ariadne.app.ui.pages.SearchPage
 import com.ariadne.app.ui.pages.StatsPage
-import com.ariadne.app.ui.pages.TimelinePage
+import com.ariadne.app.ui.pages.DaysPage
 import com.ariadne.app.ui.pages.TripCardPage
 import com.ariadne.app.ui.pages.TripsPage
 import com.ariadne.app.ui.pages.TripPage
@@ -74,6 +74,21 @@ public fun AriadneApp(
     dark: Boolean? = null,
     reducedMotion: Boolean = false,
     onShutter: () -> Unit = { model.capturePlaceholder() },
+    /**
+     * The platform's back gesture, installed by the target that has one.
+     *
+     * A composable parameter rather than an `expect/actual`: only the Android
+     * target has a system back gesture, the handler it needs is a composable from
+     * `androidx.activity`, and this module has no Android source set to put an
+     * actual in. The target passes `{ enabled, onBack -> BackHandler(enabled,
+     * onBack) }` and everything else leaves it null and keeps the Escape key.
+     *
+     * Predictive back comes for free where the platform supports it: the callback
+     * registered by `BackHandler` is what the system animates *from*, so passing
+     * the real stack depth here is what makes the gesture show the page it will
+     * return to instead of the launcher.
+     */
+    onBack: (@Composable (enabled: Boolean, onBack: () -> Unit) -> Unit)? = null,
 ) {
     LaunchedEffect(Unit) { model.start() }
     val state by model.state.collectAsState()
@@ -88,6 +103,13 @@ public fun AriadneApp(
     }
     val paper = if (night) Paper.Night else Paper.Light
     val route = state.route
+
+    // Back, before the frame is drawn: the stack is the single source of truth for
+    // whether there is anywhere to go, and the platform closes the app when there
+    // is not — which is what a root destination should do.
+    if (onBack != null) {
+        onBack(state.canGoBack) { model.back() }
+    }
 
     CompositionLocalProvider(LocalMotionPreference provides MotionPreference(reducedMotion)) {
         Box(
@@ -137,7 +159,7 @@ public fun AriadneApp(
                 }
 
                 if (route.showsTabBar()) {
-                    TabBar(
+                    AriadneBar(
                         paper = paper,
                         selected = route.tab(),
                         // A stacked page is announced as stacked from Home rather
@@ -172,8 +194,8 @@ private fun Destination(
         is Route.Frame -> FramePage(state, model, paper, wide, route.captureId)
 
         // The four tabs.
-        Route.Home -> HomePage(state, model, paper, wide)
-        Route.Timeline -> TimelinePage(state, model, paper, wide)
+        Route.Home -> TodayPage(state, model, paper, wide)
+        Route.Days -> DaysPage(state, model, paper, wide)
         Route.Stats -> StatsPage(state, model, paper, wide)
         Route.Preferences -> PreferencesPage(state, model, paper, wide, state.failureNote)
 
@@ -194,7 +216,7 @@ private fun Destination(
             onFrame = { bytes -> if (bytes.isNotEmpty()) model.capturePhoto(bytes) },
         )
 
-        is Route.Nightfall -> NightfallPage(state, model, paper, wide)
+        is Route.CloseDay -> CloseDayPage(state, model, paper, wide)
 
         is Route.Record -> RecordPage(state, model, paper, wide)
         is Route.Detail -> DetailPage(state, model, paper, wide)
@@ -217,39 +239,14 @@ private fun Destination(
 }
 
 /**
- * Which tab the current route belongs to — or none.
+ * How a stacked page describes the bar it is showing, if it shows one.
  *
- * The register and Preferences are *stacked* pages: they belong to the Home
- * family but they are not the Home tab, and marking Home selected while someone
- * is reading the register told them they were somewhere they were not. They get
- * a visible bar, no selected destination, and a page action back to Home.
+ * A screen reader should hear where the bar belongs, not be told the person is on
+ * a destination they are not on.
  */
-private fun Route.tab(): Tab? = when (this) {
-    Route.Trips -> null
-    Route.Preferences, Route.Settings -> null
-    Route.Trip, is Route.TripCard -> Tab.Trip
-    // Detail is a sheet with a keypad pinned to its foot, not a destination: its
-    // bar is hidden (see `showsTabBar`), so there is no tab to mark either way.
-    is Route.Detail -> null
-    Route.Timeline, is Route.Record -> Tab.Timeline
-    Route.Stats -> Tab.Stats
-    Route.Home, Route.Onboarding, Route.NewTrip, Route.Capture, is Route.Frame,
-    is Route.Nightfall, Route.Search -> Tab.Home
-}
-
-private fun Tab.route(): Route = when (this) {
-    // Home is today's page, not the register. The register is one row down the
-    // index, and pressing Home returns from wherever you wandered to today.
-    Tab.Home -> Route.Home
-    Tab.Timeline -> Route.Timeline
-    Tab.Stats -> Route.Stats
-    Tab.Trip -> Route.Trip
-}
-
-/** How a stacked page describes the bar it is showing, if it shows one. */
 private fun Route.stackedFrom(): String? = when (this) {
-    Route.Trips -> "Trips register, stacked from Home"
-    Route.Preferences, Route.Settings -> "Preferences, stacked from Home"
+    Route.Trips -> "Trips, stacked over Today"
+    Route.Preferences, Route.Settings -> "Preferences, stacked over Today"
     else -> null
 }
 
@@ -259,17 +256,17 @@ private fun Route.stackedFrom(): String? = when (this) {
  */
 private fun Route.showsTabBar(): Boolean = when (this) {
     Route.Onboarding, Route.NewTrip, Route.Capture,
-    is Route.Nightfall, is Route.TripCard, is Route.Detail, is Route.Frame -> false
+    is Route.CloseDay, is Route.TripCard, is Route.Detail, is Route.Frame -> false
     else -> true
 }
 
 /**
  * Desktop triage, exactly as promised: digits type the amount, Enter confirms,
- * J and K move through the stack, Escape leaves Nightfall.
+ * J and K move through the stack, Escape leaves the pager.
  */
 private fun handleKey(event: KeyEvent, model: AppModel, route: Route): Boolean {
     if (event.type != KeyEventType.KeyDown) return false
-    if (route !is Route.Nightfall) return false
+    if (route !is Route.CloseDay) return false
     return when {
         event.key == Key.Enter || event.key == Key.NumPadEnter -> { model.confirmCurrent(); true }
         event.key == Key.J || event.key == Key.DirectionDown -> { model.next(); true }

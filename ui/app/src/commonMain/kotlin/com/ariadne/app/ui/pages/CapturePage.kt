@@ -81,7 +81,7 @@ public fun CapturePage(
         ) {
             QuietAction("Home", paper, { model.go(Route.Home) })
             Label(state.trip?.name ?: "Ariadne", paper, color = paper.inkFaint)
-            QuietAction("Today", paper, { model.openNightfall(state.today) })
+            QuietAction("Today", paper, { model.openCloseDay(state.today) })
         }
 
         Spacer(Modifier.height(20.dp))
@@ -172,7 +172,7 @@ public fun CapturePage(
                 QuietAction(
                     if (state.tripSettled) "Nothing waiting" else "${state.tripPending.size} waiting",
                     paper,
-                    { model.openNightfall(state.today) },
+                    { model.openCloseDay(state.today) },
                     color = if (state.tripSettled) paper.inkFaint else paper.inkMid,
                 )
             }
@@ -188,7 +188,7 @@ public fun CapturePage(
         ) {
             Icon(Glyph.Budget, paper, size = 12.dp, color = paper.inkFaint)
             Spacer(Modifier.width(7.dp))
-            Label("no figure here · settle it at nightfall", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.3.sp)
+            Label("no figure here · settle it later", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.3.sp)
         }
     }
 }

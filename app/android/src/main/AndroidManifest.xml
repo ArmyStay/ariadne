@@ -12,7 +12,8 @@
         android:label="Ariadne"
         android:icon="@drawable/ariadne_mark"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
-        android:allowBackup="false">
+        android:allowBackup="false"
+        android:enableOnBackInvokedCallback="true">
 
         <activity
             android:name=".MainActivity"

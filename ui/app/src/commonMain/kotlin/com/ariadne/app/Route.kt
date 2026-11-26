@@ -12,6 +12,17 @@ import com.ariadne.model.entryStatus
 
 /** Every surface in the app. There are six, and none of them is a spreadsheet. */
 /**
+ * The four places in the bar. Everything else is stacked on top of one of them.
+ *
+ * This exists so navigation can be one rule instead of a per-call-site decision:
+ * moving *between* places starts a fresh stack (Back from Days should not walk you
+ * back through the record you read on the way), while moving *into* a page pushes
+ * the place onto the stack.
+ */
+public fun Route.isDestination(): Boolean =
+    this == Route.Home || this == Route.Days || this == Route.Trip || this == Route.Stats
+
+/**
  * Where a launch lands, decided once, from two facts.
  *
  * Every startup path asks this function and no other — the cold launch, a
@@ -62,12 +73,12 @@ public sealed interface Route {
      * 4b. The frame just taken, held up.
      *
      * Two ways out and no way to lose it: keep it as it is and finish it later at
-     * Nightfall, or fill it in now — amount, category, what it was for.
+     * a later amount, or fill it in now — amount, category, what it was for.
      */
     public data class Frame(val captureId: String) : Route
 
-    /** 5. Nightfall: the card stack that finishes the day. */
-    public data class Nightfall(val day: LocalDay) : Route
+    /** 5. Closing the day: the cards it still owes, one at a time. */
+    public data class CloseDay(val day: LocalDay) : Route
 
     /** 6. The record: days and their photographs. */
     public data class Record(val day: LocalDay?) : Route
@@ -81,7 +92,7 @@ public sealed interface Route {
      *
      * This is the page the ritual hands you to when a card is worth more than a
      * yes or a no — a receipt from a shop you will want to name again. It is
-     * never required: Nightfall remains two taps end to end, and nothing here is
+     * never required: closing the day remains two taps end to end, and nothing here is
      * mandatory, including the category and the note.
      */
     public data class Detail(val captureId: String) : Route
@@ -102,8 +113,8 @@ public sealed interface Route {
     /** The shelf, with today's figure on it. */
     public data object Home : Route
 
-    /** The trip as a run of days. */
-    public data object Timeline : Route
+    /** The trip as a run of days, with today's week in a strip at the top. */
+    public data object Days : Route
 
     /** What it came to. */
     public data object Stats : Route
@@ -153,6 +164,17 @@ public enum class DetailOrigin { Record, Search }
 
 public data class AppUiState(
     public val route: Route = Route.Onboarding,
+    /**
+     * Where Back goes, oldest first.
+     *
+     * The app used to have no stack at all: every route was a single value, Back
+     * was whatever the platform did with it (usually nothing), and a page stacked
+     * on a page had to remember for itself where it came from — which is why the
+     * detail page carried a `detailOrigin` enum and Back from search could land on
+     * a record nobody had opened. One list, pushed by [AppModel.go] and popped by
+     * [AppModel.back], is the whole mechanism.
+     */
+    public val history: List<Route> = emptyList(),
     /**
      * Which stock the book is printed on: light paper, night paper, or whatever
      * the device is currently asking for. Loaded from the store at start and
@@ -268,4 +290,7 @@ public data class AppUiState(
 
     /** What one day of the trip still owes, read the same way every page reads it. */
     public fun daySummary(iso: String): DaySummary = DaySummary.of(dayCapturesAll[iso].orEmpty())
+
+    /** True when Back has somewhere to go inside the app. */
+    public val canGoBack: Boolean get() = history.isNotEmpty()
 }

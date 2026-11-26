@@ -44,7 +44,18 @@ class MainActivity : ComponentActivity() {
                 // single image rather than opening their library to the app.
                 LocalPhotoPicker provides rememberAndroidPhotoPicker(this@MainActivity),
             ) {
-                AriadneApp(model = graph.model, wide = false, reducedMotion = reducedMotion())
+                AriadneApp(
+                    model = graph.model,
+                    wide = false,
+                    reducedMotion = reducedMotion(),
+                    // The system back gesture, wired to the app's own stack. When
+                    // the stack is empty the handler is disabled and the platform
+                    // closes the app, which is what Back at a root destination
+                    // should do.
+                    onBack = { enabled, onBack ->
+                        androidx.activity.compose.BackHandler(enabled = enabled, onBack = onBack)
+                    },
+                )
             }
         }
     }

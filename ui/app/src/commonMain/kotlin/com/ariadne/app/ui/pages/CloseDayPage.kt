@@ -28,7 +28,6 @@ import com.ariadne.design.Bone
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
-import com.ariadne.design.Masthead
 import com.ariadne.design.Paper
 import com.ariadne.design.Plate
 import com.ariadne.design.Subject
@@ -37,12 +36,13 @@ import com.ariadne.design.RuledKeypad
 import com.ariadne.design.Rule
 import com.ariadne.design.Title
 import com.ariadne.model.Capture
+import com.ariadne.model.DaySummary
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.Money
 import com.ariadne.model.symbol
 
 /**
- * Page 5 — Nightfall.
+ * Page 5 — Close day.
  *
  * The ritual. One card at a time, photographed plate above, one figure below,
  * two actions underneath. On a wide screen the plate gets the left page and the
@@ -53,14 +53,14 @@ import com.ariadne.model.symbol
  * page is the total, and it is just a number.
  */
 @Composable
-public fun NightfallPage(
+public fun CloseDayPage(
     state: AppUiState,
     model: AppModel,
     paper: Paper,
     wide: Boolean,
 ) {
     val capture = state.current
-    val day = (state.route as? Route.Nightfall)?.day
+    val day = (state.route as? Route.CloseDay)?.day
     // Read here, once, and passed down as values. Everything below is boxed on
     // its own keys, so a keypress recomposes the amount and nothing else.
     val typed = state.amountInput
@@ -68,35 +68,39 @@ public fun NightfallPage(
     Column(
         Modifier
             .fillMaxSize()
-            // Nightfall is the one page that is not a "record of something" — it
+            // Closing the day is the one page that is not a "record of something" — it
             // is a calm commit — so it gets the sunk ground, the same warm
             // paper the table headers read on.
             .background(if (paper.isNight) paper.bg else paper.sunk)
             .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
     ) {
-        Masthead(
-            number = "05",
-            eyebrow = day?.iso ?: "Nightfall",
-            title = "Nightfall",
-            paper = paper,
-            wide = wide,
-            trailing = {
-                Column(horizontalAlignment = Alignment.End) {
-                    Label("Today", paper, color = paper.inkFaint)
-                    Spacer(Modifier.height(4.dp))
-                    Numeral(
-                        Money.ofMinor(state.dayTotalMinor).formatWithSymbol(CurrencyCode.of(state.dayCurrency)),
-                        paper,
-                        size = 19.sp,
-                    )
-                }
-            },
-        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
+                Title("Close day", paper, size = if (wide) 40.sp else 30.sp, italic = true)
+                Spacer(Modifier.height(4.dp))
+                Label(
+                    day?.let { spokenDay(it.iso) } ?: "today",
+                    paper,
+                    color = paper.inkFaint,
+                    size = 10.sp,
+                    tracking = 0.4.sp,
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Label("spent", paper, color = paper.inkFaint, size = 9.sp, tracking = 0.6.sp)
+                Spacer(Modifier.height(3.dp))
+                Numeral(
+                    Money.ofMinor(state.dayTotalMinor).formatWithSymbol(CurrencyCode.of(state.dayCurrency)),
+                    paper,
+                    size = 19.sp,
+                )
+            }
+        }
 
         Spacer(Modifier.height(20.dp))
 
         if (capture == null) {
-            RestingDay(paper, model, day, closedTrip = state.trip?.isClosed == true)
+            DaySummaryPanel(state, paper, model, day, closedTrip = state.trip?.isClosed == true)
             return@Column
         }
 
@@ -338,7 +342,7 @@ private fun Decisions(
             OutlineAction(
                 "Close the day",
                 paper,
-                { model.closeDay((state.route as? Route.Nightfall)?.day) },
+                { model.closeDay((state.route as? Route.CloseDay)?.day) },
             )
             Spacer(Modifier.height(9.dp))
             Body(
@@ -403,7 +407,7 @@ private fun Decisions(
                         if (state.remaining > 1) {
                             model.next()
                         } else {
-                            model.closeDay((state.route as? Route.Nightfall)?.day)
+                            model.closeDay((state.route as? Route.CloseDay)?.day)
                         }
                     },
                     color = paper.inkSoft,
@@ -426,27 +430,58 @@ private fun PhotographOf(capture: Capture, paper: Paper, modifier: Modifier) {
 }
 
 @Composable
-private fun RestingDay(
+private fun DaySummaryPanel(
+    state: AppUiState,
     paper: Paper,
     model: AppModel,
     day: com.ariadne.model.LocalDay?,
     closedTrip: Boolean,
 ) {
-    Column(Modifier.fillMaxWidth().padding(top = 40.dp)) {
-        Title("The day is finished.", paper, size = 28.sp)
-        Spacer(Modifier.height(12.dp))
-        Body(
-            "Everything you kept today is tallied. Nothing is waiting, and nothing is scolding you for it.",
+    val summary = DaySummary.of(state.dayCaptures)
+    val currency = CurrencyCode.of(state.dayCurrency)
+    Column(Modifier.fillMaxWidth().padding(top = 26.dp)) {
+        Title(
+            if (summary.pending == 0) "Nothing left to settle" else "${summary.pending} left to settle",
             paper,
-            serif = true,
-            color = paper.inkSoft,
+            size = 26.sp,
+            italic = true,
         )
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(14.dp))
+
+        // The day as a summary rather than a sentence: what it came to, what it
+        // holds, and what it still owes. This is the screen after the last card,
+        // and it is the receipt for the whole day.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+            Numeral(
+                Money.ofMinor(state.dayTotalMinor).formatWithSymbol(currency),
+                paper,
+                size = 34.sp,
+            )
+            Spacer(Modifier.width(10.dp))
+            Label(
+                "on ${spokenDay(day?.iso.orEmpty())}",
+                paper,
+                color = paper.inkFaint,
+                size = 10.sp,
+                tracking = 0.4.sp,
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        ConversionNote(state.dayRateDates, state.dayUnconverted, paper)
+
+        Spacer(Modifier.height(14.dp))
         Rule(paper)
-        Spacer(Modifier.height(20.dp))
+        SummaryRow("photographs", "${summary.total}", paper)
+        Rule(paper)
+        SummaryRow("confirmed", "${summary.confirmed + summary.inRecord}", paper)
+        Rule(paper)
+        SummaryRow("no amount", "${summary.noAmount}", paper)
+        Rule(paper)
+        SummaryRow("still open", "${summary.pending}", paper)
+        Rule(paper)
+
+        Spacer(Modifier.height(22.dp))
         if (closedTrip) {
-            // A finished journey has no day left to close. The page says so and
-            // offers the only two places that still do something.
             Body(
                 "This trip is closed, so there is no day left to file.",
                 paper,
@@ -454,11 +489,26 @@ private fun RestingDay(
                 size = 12.sp,
             )
             Spacer(Modifier.height(12.dp))
-            QuietAction("Back to the record", paper, { model.go(Route.Record(day)) })
+            QuietAction("Back to the day", paper, { model.openRecord(day) })
         } else {
             Action("Close the day", paper, { model.closeDay(day) }, accent = true)
             Spacer(Modifier.height(10.dp))
-            QuietAction("Back to the record", paper, { model.go(Route.Record(day)) })
+            QuietAction("Back to the day", paper, { model.openRecord(day) })
         }
+        // The bar is hidden on this page, so the last action needs its own room
+        // rather than a spacer sized for a bar that is not there.
+        Spacer(Modifier.height(28.dp))
+    }
+}
+
+@Composable
+private fun SummaryRow(label: String, value: String, paper: Paper) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Label(label, paper, color = paper.inkSoft, size = 11.sp, tracking = 0.4.sp)
+        Spacer(Modifier.weight(1f))
+        Numeral(value, paper, size = 15.sp)
     }
 }

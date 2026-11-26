@@ -334,7 +334,8 @@ private fun localMonthName(day: com.ariadne.model.LocalDay): String = listOf(
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 )[(day.month - 1).coerceIn(0, 11)]
 
-private fun weekdayName(day: com.ariadne.model.LocalDay): String = listOf(
+/** "Mon", "Tue" … — one definition for the whole package. */
+internal fun weekdayName(day: com.ariadne.model.LocalDay): String = listOf(
     "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
 )[(day.isoWeekday() - 1).coerceIn(0, 6)]
 

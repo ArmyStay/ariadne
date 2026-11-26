@@ -44,7 +44,7 @@ import com.ariadne.design.Title
  * everything, or is there more to it?
  *
  * Two ways out, and neither of them loses the photograph:
- *   - **Keep it for nightfall** — nothing to type, it waits with the rest.
+ *   - **Add the amount later** — nothing to type, it waits with the rest.
  *   - **Open it now** — amount, what it was, what it was for.
  *
  * The photograph is the largest thing on the page. Always.
@@ -134,7 +134,7 @@ public fun FramePage(
         // The two answers, one under the other, so neither is hidden behind a swipe.
         Action("Fill it in now", paper, { model.openFrame(captureId) }, accent = true)
         Spacer(Modifier.height(12.dp))
-        OutlineAction("Keep it for nightfall", paper, { model.keepFrameForLater() })
+        OutlineAction("Add the amount later", paper, { model.keepFrameForLater() })
 
         Spacer(Modifier.height(18.dp))
         Label(
@@ -150,7 +150,7 @@ public fun FramePage(
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             QuietAction("Take another", paper, { model.openCapture() })
-            QuietAction("Nightfall", paper, { model.openNightfall(state.today) })
+            QuietAction("Close day", paper, { model.openCloseDay(state.today) })
         }
         Spacer(Modifier.height(20.dp))
     }

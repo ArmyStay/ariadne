@@ -46,6 +46,16 @@ public class AppModel(
     private val rateSource: com.ariadne.fx.RateSource? = null,
 ) {
     private val _state = MutableStateFlow(AppUiState())
+
+    /**
+     * How deep Back may go.
+     *
+     * A phone trip is a few dozen moves; a cap exists only so a session that opens
+     * the same page five hundred times cannot grow a list without bound.
+     */
+    private companion object {
+        const val MAX_HISTORY = 24
+    }
     public val state: StateFlow<AppUiState> = _state.asStateFlow()
 
     /**
@@ -91,7 +101,7 @@ public class AppModel(
         scope.launch {
             val route = _state.value.route
             val day = when (route) {
-                is Route.Nightfall -> route.day
+                is Route.CloseDay -> route.day
                 is Route.Record -> route.day ?: _state.value.today
                 is Route.Detail -> _state.value.detail?.localDate ?: _state.value.today
                 is Route.Frame -> _state.value.detail?.localDate ?: _state.value.today
@@ -304,7 +314,7 @@ public class AppModel(
 
     private suspend fun seedDemoRoll(trip: Trip) {
         // Every demo capture lands on today: the stack a visitor sees at
-        // Nightfall has to be a stack, not a single card.
+        // Closing the day has to be a stack, not a single card.
         val day = clock.today()
         DemoRoll.entries.forEachIndexed { i, entry ->
             val id = newId()
@@ -388,7 +398,7 @@ public class AppModel(
      * Deliberately the same path as [capturePhoto] once the bytes exist: the
      * record does not care, and should not care, whether an image came from the
      * sensor or from the photo library. Imported captures go straight into the
-     * queue like any other, so they meet the same two taps at Nightfall.
+     * queue like any other, so they meet the same two taps when the day is closed.
      */
     public fun importPhoto(bytes: ByteArray) {
         capturePhoto(bytes)
@@ -808,12 +818,12 @@ public class AppModel(
 
     // -- nightfall ---------------------------------------------------------
 
-    public fun openNightfall(day: LocalDay? = null) {
+    public fun openCloseDay(day: LocalDay? = null) {
         val trip = _state.value.trip ?: return
         scope.launch {
             val target = (day ?: clock.today()).coerceInto(trip)
             refreshDay(target)
-            _state.value = _state.value.copy(route = Route.Nightfall(target))
+            go(Route.CloseDay(target))
         }
     }
 
@@ -944,7 +954,7 @@ public class AppModel(
         val stack = _state.value.stack
         if (stack.isEmpty()) return
         val now = clock.nowMillis()
-        val day = (state.value.route as? Route.Nightfall)?.day ?: state.value.today ?: stack.first().localDate
+        val day = (state.value.route as? Route.CloseDay)?.day ?: state.value.today ?: stack.first().localDate
         scope.launch {
             stack.forEach { capture ->
                 store.updateDetails(
@@ -1001,7 +1011,7 @@ public class AppModel(
                 }
                 outbox.apply(capture.id, QueueEvent.Confirmed)
             }
-            val day = (state.value.route as? Route.Nightfall)?.day ?: state.value.today ?: ready.first().localDate
+            val day = (state.value.route as? Route.CloseDay)?.day ?: state.value.today ?: ready.first().localDate
             refreshDay(day)
             loadTripDays(trip)
             val remaining = _state.value.stack
@@ -1020,7 +1030,7 @@ public class AppModel(
         // days may not be re-filed into a finished record.
         if (trip.isClosed) return
         scope.launch {
-            val target = day ?: (_state.value.route as? Route.Nightfall)?.day ?: clock.today()
+            val target = day ?: (_state.value.route as? Route.CloseDay)?.day ?: clock.today()
             store.capturesForDay(trip.id, target).forEach { capture ->
                 if (capture.state.isOpen) {
                     // An untouched capture is not silently dropped: it becomes a
@@ -1054,8 +1064,8 @@ public class AppModel(
     public fun openDetail(captureId: String, from: DetailOrigin = DetailOrigin.Record) {
         scope.launch {
             val capture = store.findById(captureId) ?: return@launch
+            go(Route.Detail(captureId))
             _state.value = _state.value.copy(
-                route = Route.Detail(captureId),
                 detailOrigin = from,
                 detail = capture,
                 detailAmount = amountBuffer(capture),
@@ -1138,8 +1148,11 @@ public class AppModel(
 
     /** Leave the detail page for wherever it was opened from. */
     public fun closeDetail() {
+        // Back, not a guessed destination: the detail page no longer has to
+        // remember where it came from, because the stack does.
+        if (back()) return
         when (_state.value.detailOrigin) {
-            DetailOrigin.Search -> _state.value = _state.value.copy(route = Route.Search)
+            DetailOrigin.Search -> go(Route.Search)
             // openRecord refreshes the day and its cards, so the record shows the
             // edit that was just made.
             DetailOrigin.Record -> openRecord(_state.value.detail?.localDate)
@@ -1173,7 +1186,7 @@ public class AppModel(
             pinRate(capture, parsed?.minorUnits, currency)
             if (parsed != null || keepWithoutAmount) {
                 // A figure entered here is a decided figure, so the card leaves the
-                // Nightfall stack through the same door the ritual uses.
+                // close-day stack through the same door the pager uses.
                 outbox.apply(capture.id, if (keepWithoutAmount) QueueEvent.MarkedNoAmount else QueueEvent.AmountEntered)
                 outbox.apply(capture.id, QueueEvent.Confirmed)
             }
@@ -1198,7 +1211,49 @@ public class AppModel(
     // -- navigation --------------------------------------------------------
 
     public fun go(route: Route) {
-        _state.value = _state.value.copy(route = route)
+        val current = _state.value.route
+        if (current == route) return
+        // "Today" is a promise about a date, not just a page: arriving on it reads
+        // the calendar's today, even if the last thing looked at was the 14th.
+        if (route == Route.Home) {
+            _state.value.trip?.let { trip ->
+                val day = clock.today().coerceInto(trip)
+                if (day != _state.value.today) scope.launch { runCatching { refreshDay(day) } }
+            }
+        }
+        // A move between the four places starts a fresh stack; a move into a page
+        // pushes the place it came from. One rule, stated once, so Back means the
+        // same thing on every surface.
+        _state.value = _state.value.copy(
+            route = route,
+            history = if (route.isDestination()) {
+                // Landing on a place still gives Back one move: to the place you
+                // came from, if it was a place.
+                if (current.isDestination() && current != route) listOf(current) else emptyList()
+            } else {
+                (current.takeIf { current != Route.Onboarding && current != Route.NewTrip }
+                    ?.let { _state.value.history + it } ?: _state.value.history)
+                    .takeLast(MAX_HISTORY)
+            },
+        )
+    }
+
+    /**
+     * One step back, or false when there is nowhere left to go.
+     *
+     * Returning false is the signal the shell needs: with an empty stack the
+     * platform's own Back (leave the app) is the right answer, and swallowing it
+     * to do nothing is how an app gets a reputation for ignoring the gesture.
+     */
+    public fun back(): Boolean {
+        val state = _state.value
+        val target = state.history.lastOrNull() ?: return false
+        _state.value = state.copy(route = target, history = state.history.dropLast(1))
+        // The place being returned to owns its own figures; re-read them rather
+        // than showing what it looked like before the page that was open on top.
+        val trip = state.trip
+        if (trip != null) scope.launch { runCatching { loadTripDays(trip) } }
+        return true
     }
 
     /**
@@ -1255,12 +1310,23 @@ public class AppModel(
     public fun openCapture() {
         val trip = _state.value.trip ?: return
         if (trip.isClosed) {
-            // Not an error: the trip is finished, and Home already explains that
+            // Not an error: the trip is finished, and Today already explains that
             // in a sentence with the card one tap away.
-            _state.value = _state.value.copy(route = Route.Home)
+            go(Route.Home)
             return
         }
-        _state.value = _state.value.copy(route = Route.Capture)
+        go(Route.Capture)
+    }
+
+    /**
+     * Show a day without leaving the page.
+     *
+     * The Days tab picks a date out of a strip, which is a *look*, not a move: the
+     * page it is looking at is the same page. Routing to the record and back for
+     * every date would make a strip into a maze.
+     */
+    public fun viewDay(day: LocalDay) {
+        scope.launch { runCatching { refreshDay(day) }.onFailure(::report) }
     }
 
     public fun openRecord(day: LocalDay? = null) {
@@ -1270,7 +1336,7 @@ public class AppModel(
                 _state.value = _state.value.copy(dayCards = store.dayCards(trip.id))
             }
             if (day != null) refreshDay(day)
-            _state.value = _state.value.copy(route = Route.Record(day))
+            go(Route.Record(day))
         }
     }
 

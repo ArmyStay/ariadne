@@ -163,9 +163,9 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
         // is the ritual. A closed day has nothing to settle, so the bar goes
         // genuinely inert rather than inviting a tap that leads nowhere.
         Action(
-            "Nightfall",
+            "Close day",
             paper,
-            { model.openNightfall(shown) },
+            { model.openCloseDay(shown) },
             accent = true,
             enabled = !dayIsClosed && !tripClosed,
         )
