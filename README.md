@@ -1,8 +1,9 @@
 # Ariadne
 
 Kotlin Multiplatform project — **Android** (Jetpack Compose), **iOS** (KMP Compose UI),
-**Desktop** (Compose for Desktop) and **Web** (Kotlin/Wasm Compose UI). No account,
-no server, nothing leaves the device by default.
+**Desktop** (Compose for Desktop) and **Web** (Kotlin/Wasm Compose UI). No account, no
+server, no sync. The record never leaves the device; the only outbound request in the
+product is for exchange rates, and the app works without it.
 
 ## Platforms
 
@@ -40,7 +41,7 @@ bucket of features.
 | Retries survive a dead zone | retry/backoff by outbox + extraction service, resumed on start |
 | A button never silently does nothing | `commitDraft` reports a failed write on the page; `failureNote` in Prefs |
 | An old install keeps its data | `openOrMigrate`: decides from the columns present, not from `PRAGMA user_version` alone |
-| The manifest declares no network permission | `app/android/src/main/AndroidManifest.xml` has no `INTERNET` — nothing leaves the device by default |
+| Only one outbound call, and it is optional | `app/android/src/main/AndroidManifest.xml` declares `INTERNET` for one GET to a public rate feed (`AndroidRateSource`); no trip data is sent, and every failure falls back to the last known rate |
 | Startup cannot be blocked by background work | every step in `AppModel.start()` is guarded on its own |
 | The trip card holds the trip | `Trip`, `TripCard`, `TripShare` — the product screen and where it ends |
 | Cards stack only where they are due | the four tabs are Home/Timeline/Trip/Stats, and the card settles in Nightfall |

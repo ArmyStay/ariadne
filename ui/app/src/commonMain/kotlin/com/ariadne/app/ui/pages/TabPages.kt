@@ -753,9 +753,13 @@ public fun PreferencesPage(
         PrefReadout(Glyph.Ledger, "Reading", "On device only", paper)
         Spacer(Modifier.height(12.dp))
         Body(
-            "Nothing leaves. There is no account to sign into and no server to sign into it " +
-                "from. Photographs are stored in the app's private folder, the record lives in " +
-                "a local database, and there is no network call in the product at all.",
+            // This used to claim "there is no network call in the product at all", which
+            // was not true: the exchange rates are fetched. A privacy paragraph that
+            // overstates is worse than no paragraph, so it says exactly what goes out.
+            "No account, no server, no sync. Photographs are stored in the app's private " +
+                "folder and the record lives in a local database. The one thing that leaves " +
+                "this device is a request for today's exchange rates, and it carries nothing " +
+                "about the trip; the app works without it and keeps the last rate it saw.",
             paper,
             color = paper.inkMid,
             size = 14.sp,
