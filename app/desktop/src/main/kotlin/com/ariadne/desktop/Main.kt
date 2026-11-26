@@ -9,8 +9,6 @@ import androidx.compose.ui.window.application
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.ariadne.app.AppGraph
-import com.ariadne.app.AppReviewManager
-import com.ariadne.app.NoAppReviewManager
 import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
 import com.ariadne.core.time.SystemClock
@@ -104,6 +102,3 @@ private class DesktopServices : PlatformServices {
 
     override fun close() = Unit
 }
-
-/** Desktop: no native review prompt — the feature is wired for the mobile targets. */
-actual fun appReviewManager(): AppReviewManager = NoAppReviewManager

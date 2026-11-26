@@ -37,6 +37,7 @@ public class AppModel(
     private val index: SearchIndex,
     private val files: PhotoFiles? = null,
     private val clipboard: Clipboard? = null,
+    private val reviewManager: AppReviewManager = NoAppReviewManager,
     private val clock: Clock,
     private val scope: CoroutineScope,
     private val newId: () -> String,
@@ -767,7 +768,7 @@ public class AppModel(
         }
         // Ported from the KMP contest starter kit: offer the trusted in-app review
         // after the first confirmed card — best effort, never blocking.
-        runCatching { appReviewManager().requestReview() }
+        runCatching { reviewManager.requestReview() }
     }
 
     public fun rejectCurrentExtractedAmount() {

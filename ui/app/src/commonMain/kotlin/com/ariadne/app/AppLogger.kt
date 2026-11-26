@@ -6,7 +6,7 @@ import kotlin.time.Clock
 
 /** A log sink. Portable from the KMP contest starter kit's logging facade. */
 public interface Logger {
-    public fun initialize(isDebug: Boolean)
+    public fun initialize(isDebug: Boolean = true)
     public fun e(message: String, throwable: Throwable? = null, tag: String? = null)
     public fun d(message: String, throwable: Throwable? = null, tag: String? = null)
     public fun i(message: String, throwable: Throwable? = null, tag: String? = null)
@@ -40,7 +40,7 @@ public object AppLogger : Logger {
     public var sinks: List<Logger> = listOf(NapierLogger)
         private set
 
-    public fun initialize(isDebug: Boolean = true) {
+    override fun initialize(isDebug: Boolean) {
         sinks.forEach { it.initialize(isDebug) }
     }
 
@@ -67,7 +67,7 @@ public class RingLogger(private val maxLines: Int = 256) : Logger {
     override fun initialize(isDebug: Boolean) {
         synchronized(lock) {
             initialized = true
-            log("I", "AppLogger initialized, isDebug=$isDebug")
+            log("I", "AppLogger initialized, isDebug=$isDebug", tag = null)
         }
     }
 

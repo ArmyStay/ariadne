@@ -13,6 +13,3 @@ public interface AppReviewManager {
 public object NoAppReviewManager : AppReviewManager {
     override fun requestReview() = Unit
 }
-
-/** The platform's app-review manager. */
-public expect fun appReviewManager(): AppReviewManager

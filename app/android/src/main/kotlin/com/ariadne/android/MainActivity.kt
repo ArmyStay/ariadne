@@ -21,17 +21,12 @@ import com.google.android.play.core.review.ReviewManagerFactory
 
 class MainActivity : ComponentActivity() {
 
-    companion object {
-        @Volatile internal var current: MainActivity? = null
-    }
-
     private lateinit var graph: AppGraph
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Must be called before super.onCreate(); shows the system splash
         // (the activity theme is @style/Theme.App.Starting) until the app is up.
         installSplashScreen()
-        current = this
         AppLogger.initialize()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -62,26 +57,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         graph.close()
-        current = null
         super.onDestroy()
-    }
-}
-
-/** Android review: Play Core's Review API — the system dialog plus the button. */
-actual fun appReviewManager(): AppReviewManager {
-    val activity = MainActivity.current ?: return com.ariadne.app.NoAppReviewManager
-    val manager = ReviewManagerFactory.create(activity.applicationContext)
-    return object : AppReviewManager {
-        override fun requestReview() {
-            manager.requestReviewFlow().addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    manager.launchReviewFlow(activity, task.result)
-                        .addOnFailureListener { e -> AppLogger.e("InApp review launch failed", e, "AppReviewManager") }
-                } else {
-                    AppLogger.e("InApp review request failed", task.exception, "AppReviewManager")
-                }
-            }
-        }
     }
 }
 
@@ -102,6 +78,22 @@ private class AndroidServices(
     override fun files(): com.ariadne.app.PhotoFiles = AndroidFiles(activity)
 
     override fun clipboard(): com.ariadne.app.Clipboard = AndroidClipboard(activity)
+
+    override fun reviewManager(): AppReviewManager {
+        val manager = ReviewManagerFactory.create(activity.applicationContext)
+        return object : AppReviewManager {
+            override fun requestReview() {
+                manager.requestReviewFlow().addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        manager.launchReviewFlow(activity, task.result)
+                            .addOnFailureListener { e -> AppLogger.e("InApp review launch failed", e, "AppReviewManager") }
+                    } else {
+                        AppLogger.e("InApp review request failed", task.exception, "AppReviewManager")
+                    }
+                }
+            }
+        }
+    }
 
     override fun close() = Unit
 }

@@ -63,7 +63,7 @@ androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", versi
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
 androidx-core = { module = "androidx.core:core-ktx", version = "1.17.0" }
 androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "androidx-exifinterface" }
-napier = { module = "io.github.aakira.napier:napier", version.ref = "napier" }
+napier = { module = "io.github.aakira:napier", version.ref = "napier" }
 android-inappreview = { module = "com.google.android.play:review", version.ref = "android-inappreview" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "android-splashscreen" }
 androidx-datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastore" }

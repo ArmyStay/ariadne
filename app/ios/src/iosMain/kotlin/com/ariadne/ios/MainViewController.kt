@@ -39,6 +39,10 @@ private class IosServices : PlatformServices {
 
     override fun recognizer(): TextRecognizer = VisionTextRecognizer()
 
+    override fun reviewManager(): AppReviewManager = object : AppReviewManager {
+        override fun requestReview() = SKStoreReviewController.requestReview()
+    }
+
     override fun close() = Unit
 }
 
@@ -72,9 +76,4 @@ private class VisionTextRecognizer : TextRecognizer {
             cont.resume(OcrResult.Failure(t.message ?: "Vision recognition failed"))
         }
     }
-}
-
-/** iOS review: the native system-managed prompt. */
-actual fun appReviewManager(): AppReviewManager = object : AppReviewManager {
-    override fun requestReview() = SKStoreReviewController.requestReview()
 }
