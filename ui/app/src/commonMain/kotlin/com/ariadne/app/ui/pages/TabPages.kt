@@ -5,9 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
@@ -52,6 +55,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -65,7 +70,6 @@ import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.ScrollRail
 import com.ariadne.design.Label
-import com.ariadne.design.LinkAction
 import com.ariadne.design.Motion
 import com.ariadne.design.NavRow
 import com.ariadne.design.Reveal
@@ -76,26 +80,26 @@ import com.ariadne.design.motionSpec
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.Masthead
 import com.ariadne.design.Page
-import com.ariadne.design.PageHeader
 import com.ariadne.design.RailFigure
 import com.ariadne.design.SectionHead
+import com.ariadne.design.GlobeSky
 import com.ariadne.design.Glyph
+import com.ariadne.design.MarkHead
+import com.ariadne.design.StatusTag
 import com.ariadne.design.animatedLong
 import com.ariadne.design.Grid
 import com.ariadne.design.Icon
 import com.ariadne.design.PageAction
 import com.ariadne.design.Paper
-import com.ariadne.design.Panel
 import com.ariadne.design.Pill
 import com.ariadne.design.PillTone
-import com.ariadne.design.Plate
 import com.ariadne.design.QuietAction
-import com.ariadne.design.Subject
 import com.ariadne.design.Tick
 import com.ariadne.design.Title
 import com.ariadne.design.TravelGlobeArtwork
 import com.ariadne.model.Capture
 import com.ariadne.model.CurrencyCode
+import com.ariadne.model.DaySummary
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
 import com.ariadne.model.Settings
@@ -116,6 +120,7 @@ private fun TabPage(
     railDocked: Boolean,
     onToggleRail: () -> Unit,
     rail: (@Composable ColumnScope.() -> Unit)? = null,
+    backdrop: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Page(
@@ -124,6 +129,7 @@ private fun TabPage(
         railDocked = railDocked,
         onToggleRail = onToggleRail,
         rail = rail,
+        backdrop = backdrop,
     ) {
         val scroll = rememberScrollState()
         if (wide) {
@@ -607,138 +613,282 @@ private fun HomeShortcut(
 
 // ── 2. Timeline ─────────────────────────────────────────────────────────────
 
+/**
+ * The journey, and every day in it.
+ *
+ * Three blocks in the order a traveller reads them: *which* trip this is (the
+ * masthead, and the trip's own name under it), what it has cost so far, and what
+ * each day holds.
+ *
+ * The days are a ledger spine, not a list of cards: a hairline down the margin
+ * with a ring for every date, the date set as a printed block, and the state of
+ * the day — `IN THE RECORD`, `SETTLED`, `2 TO SETTLE` — stamped beside it. That
+ * is the one shape that makes a run of dates read as one continuous record; the
+ * same rows stacked as cards read as a feed.
+ *
+ * The globe behind the masthead is the only picture in the book. It is drawn
+ * outside the scroller (see `Page`'s `backdrop`), so it does not slide under the
+ * days as they scroll: a watermark that moves is a banner, one that stays is
+ * paper.
+ */
 @Composable
 public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
     val days = state.dayCards
+    val trip = state.trip
+    val closed = days.count { it.isClosed }
+    // `tripTotalMinor` and every `dayFigures` entry come out of the same pass in
+    // `loadTripDays`, each capture converted at its own pinned rate, so the total
+    // is one currency's money rather than a sum of currencies.
+    val currency = trip?.baseCurrency ?: CurrencyCode.of(state.dayCurrency)
+
     TabPage(
         paper,
         wide,
         railDocked = state.railDocked,
         onToggleRail = { model.toggleRail() },
         rail = {
-            RailFigure("closed", "${days.count { it.isClosed }}", paper, 26.sp)
+            RailFigure("closed", "$closed", paper, 26.sp)
             Spacer(Modifier.height(26.dp))
-            RailFigure("open", "${days.count { !it.isClosed }}", paper, 26.sp)
+            RailFigure("open", "${days.size - closed}", paper, 26.sp)
             Spacer(Modifier.height(26.dp))
             Label("the trip as a run of days", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
+        },
+        backdrop = {
+            // Full width so the wash can be hung off the *page* edge rather than
+            // the text column's, which is the difference between a plate and a
+            // picture dropped into a column.
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
+                GlobeSky(
+                    paper,
+                    Modifier
+                        .offset(x = if (wide) 96.dp else 52.dp, y = if (wide) (-44).dp else (-24).dp)
+                        .width(if (wide) 470.dp else 322.dp)
+                        .height(if (wide) 633.dp else 434.dp),
+                )
+            }
         },
     ) {
         Masthead(
             number = "02",
-            eyebrow = state.trip?.name ?: "Timeline",
+            eyebrow = trip?.name ?: "Timeline",
             title = "Timeline",
             paper = paper,
             wide = wide,
+            // The headline is the page here, so it is set larger than the book's
+            // display scale and left upright: an italic headline over a
+            // watercolour reads as a magazine cover, and this is a ledger.
+            titleSize = if (wide) 76.sp else 50.sp,
             lede = "The journey and every day in it.",
-            trailing = { PageAction("Record", paper, { model.go(Route.Record(state.today)) }) },
+            trailing = {
+                QuietAction("Record", paper, { model.go(Route.Record(state.today)) }, color = paper.ink)
+            },
         )
 
-        Spacer(Modifier.height(10.dp))
-
-        state.trip?.let { trip ->
-            SectionHead("I", "the journey", paper)
-            Title(trip.name, paper, size = 23.sp)
-            Spacer(Modifier.height(5.dp))
-            Label(
-                listOfNotNull(trip.place, "${trip.startDate.iso} — ${trip.endDate.iso}").joinToString(" · "),
-                paper,
-                color = paper.inkFaint,
-                size = 10.sp,
-            )
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                Column {
-                    Label(if (trip.isClosed) "trip total" else "spent so far", paper, color = paper.inkFaint)
-                    Spacer(Modifier.height(4.dp))
-                    Numeral(
-                        Money.ofMinor(state.tripTotalMinor).formatWithSymbol(trip.baseCurrency),
-                        paper,
-                        size = 22.sp,
-                        weight = FontWeight.Medium,
-                    )
-                }
-                Label("${days.count { it.isClosed }} of ${days.size} days closed", paper, color = paper.inkSoft)
-            }
-            trip.budgetMinor?.let { budgetMinor ->
-                Spacer(Modifier.height(8.dp))
-                Label("budget ${Money.ofMinor(budgetMinor).formatWithSymbol(trip.baseCurrency)}", paper, color = paper.inkFaint)
-            }
-            Spacer(Modifier.height(14.dp))
-            Rule(paper)
-            Spacer(Modifier.height(10.dp))
-            SectionHead("II", "the days", paper)
-        }
-
-        if (days.isEmpty()) {
+        if (days.isEmpty() || trip == null) {
+            Spacer(Modifier.height(18.dp))
             Body("A trip has no days until it has dates.", paper, color = paper.inkSoft, size = 16.sp)
             Spacer(Modifier.height(22.dp))
             Action("Start a trip", paper, { model.startEmptyTrip() }, accent = true)
+            Spacer(Modifier.height(120.dp))
             return@TabPage
         }
 
+        // ── the journey ──────────────────────────────────────────────────────
+        MarkHead("The journey", paper)
+        Spacer(Modifier.height(2.dp))
+        Title(
+            trip.name,
+            paper,
+            size = if (wide) 46.sp else 34.sp,
+            lineHeight = if (wide) 48.sp else 36.sp,
+        )
+        Spacer(Modifier.height(10.dp))
+        Label(
+            // Where the trip is, if it was named, then the dates. Repeating the
+            // headline above would be a line that says nothing twice.
+            listOfNotNull(
+                trip.place ?: trip.name,
+                "${trip.startDate.iso} — ${trip.endDate.iso}",
+            ).joinToString(" · "),
+            paper,
+            color = paper.inkFaint,
+            size = 9.sp,
+            tracking = 1.3.sp,
+        )
+
+        Spacer(Modifier.height(28.dp))
+
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                // A closed trip has no "so far" left in it: the figure is final,
+                // and the label says so rather than pretending the trip is moving.
+                Label(
+                    if (trip.isClosed) "Trip total" else "Spent so far",
+                    paper,
+                    color = paper.inkFaint,
+                    size = 9.sp,
+                    tracking = 0.4.sp,
+                )
+                Spacer(Modifier.height(6.dp))
+                Numeral(
+                    Money.ofMinor(state.tripTotalMinor).formatWithSymbol(currency),
+                    paper,
+                    size = if (wide) 44.sp else 33.sp,
+                    serif = true,
+                )
+                trip.budgetMinor?.let { budget ->
+                    Spacer(Modifier.height(6.dp))
+                    Label(
+                        "budget ${Money.ofMinor(budget).formatWithSymbol(currency)}",
+                        paper,
+                        color = paper.inkFaint,
+                        size = 9.sp,
+                        tracking = 0.4.sp,
+                    )
+                }
+            }
+            Label(
+                "$closed of ${days.size} days closed",
+                paper,
+                color = paper.inkSoft,
+                size = 9.sp,
+                tracking = 1.3.sp,
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+        Rule(paper, color = paper.edgeStrong)
+
+        // ── the days ─────────────────────────────────────────────────────────
+        MarkHead("The days", paper)
+
         days.forEach { card ->
-            // Every day, loaded in one pass — never "no photographs" for a day the
-            // app simply has not looked at.
+            // Every day, loaded in one pass — never "no photographs" for a day
+            // the app has simply not looked at.
             val captures = state.dayCapturesAll[card.localDate.iso].orEmpty()
             val minor = state.dayFigures[card.localDate.iso] ?: 0L
-            val figure = if (captures.isEmpty()) "—" else {
-                Money.ofMinor(minor).formatWithSymbol(CurrencyCode.of(state.dayCurrency))
-            }
-            DayPlate(
+            TimelineDayRow(
                 day = card.localDate,
                 closed = card.isClosed,
-                selected = card.localDate == state.today,
-                captures = captures,
-                figure = figure,
+                pending = DaySummary.of(captures).pending,
+                kept = captures.size,
+                figure = if (captures.isEmpty()) null else {
+                    Money.ofMinor(minor).formatWithSymbol(currency)
+                },
                 paper = paper,
-                hourOf = model::hourOf,
             ) { model.openRecord(card.localDate) }
         }
 
-        Spacer(Modifier.height(96.dp))
+        Spacer(Modifier.height(120.dp))
     }
 }
 
+/**
+ * One day of the journey.
+ *
+ * A ring on the spine, the date as a printed block (number, month, weekday), the
+ * day's state stamped beside it, and one line saying what was kept. The whole row
+ * is the tap target, and it carries a description of all four facts, because a
+ * screen reader gets nothing from a hairline.
+ */
+@Composable
+private fun TimelineDayRow(
+    day: LocalDay,
+    closed: Boolean,
+    pending: Int,
+    kept: Int,
+    figure: String?,
+    paper: Paper,
+    onClick: () -> Unit,
+) {
+    val word = when {
+        closed -> "In the record"
+        pending == 0 -> "Settled"
+        else -> "$pending to settle"
+    }
+    val line = when {
+        kept == 0 -> "Nothing kept"
+        figure != null -> "$kept kept · $figure"
+        else -> "$kept kept"
+    }
+    val spoken = "${day.iso}, ${word.lowercase()}, ${line.lowercase()}"
+
+    Row(
+        // The row's height comes from its tallest *content* — the date block —
+        // and the spine and the rule between the columns fill it. A minimum on
+        // the date block, not a fixed height on the row: at 200% text the row
+        // grows and the spine grows with it instead of the date clipping.
+        Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .rowTap(onClick)
+            .semantics(mergeDescendants = true) { contentDescription = spoken },
+        verticalAlignment = Alignment.Top,
+    ) {
+        // The spine: a hairline down the margin with a ring for each day. The ring
+        // is filled with the page, so the line reads as passing behind it.
+        Box(Modifier.width(22.dp).fillMaxHeight()) {
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .width(Bone.Hairline)
+                    .fillMaxHeight()
+                    .background(paper.edgeStrong),
+            )
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 17.dp)
+                    .size(7.dp)
+                    .background(paper.bg, CircleShape)
+                    .border(Bone.Hairline, paper.edgeStrong, CircleShape),
+            )
+        }
+
+        Column(
+            Modifier
+                .widthIn(min = 52.dp)
+                .heightIn(min = 84.dp)
+                .padding(start = 6.dp, top = 8.dp, bottom = 14.dp),
+        ) {
+            Numeral(day.iso.takeLast(2), paper, size = 30.sp, serif = true)
+            Spacer(Modifier.height(4.dp))
+            Label(localMonth(day), paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
+            Label(weekdayName(day), paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
+        }
+
+        // The rule between the date and the day's content: the same upright
+        // hairline the section head uses, run the height of the row.
+        Box(Modifier.width(Bone.Hairline).fillMaxHeight().background(paper.edge))
+
+        Column(Modifier.weight(1f).fillMaxHeight()) {
+            Row(Modifier.weight(1f)) {
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .padding(start = 16.dp, top = 14.dp, bottom = 14.dp),
+                ) {
+                    StatusTag(word, paper)
+                    Spacer(Modifier.height(10.dp))
+                    Label(line, paper, color = paper.inkMid, size = 10.sp, tracking = 1.5.sp)
+                }
+                Box(
+                    Modifier.fillMaxHeight().padding(end = 2.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Glyph.Chevron, paper, size = 14.dp, color = paper.inkFaint)
+                }
+            }
+            Rule(paper, color = paper.edge)
+        }
+    }
+}
+
+/** "Nov" from a local day, for the date block on the timeline. */
 private fun localMonth(day: LocalDay): String = listOf(
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 )[(day.month - 1).coerceIn(0, 11)]
-
-@Composable
-private fun DayRow(
-    day: LocalDay,
-    closed: Boolean,
-    selected: Boolean,
-    paper: Paper,
-    onClick: () -> Unit,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .pointerInput(day) { detectTapGestures(onTap = { onClick() }) }
-            .padding(vertical = 15.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // The date, as a small printed block.
-        Column(Modifier.width(52.dp)) {
-            Numeral(day.iso.takeLast(2), paper, size = 22.sp, weight = androidx.compose.ui.text.font.FontWeight.Medium)
-            Label(localMonth(day), paper, color = paper.inkFaint, size = 9.sp)
-        }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Title(day.iso, paper, size = 17.sp, color = if (selected) paper.ink else paper.inkMid)
-            Spacer(Modifier.height(3.dp))
-            Label(
-                if (closed) "In the record" else "Still open",
-                paper,
-                color = paper.inkFaint,
-                tracking = 1.2.sp,
-            )
-        }
-        Pill(if (closed) "Closed" else "Open", paper, if (closed) PillTone.Ink else PillTone.Quiet)
-    }
-    Rule(paper)
-}
 
 // ── 3. Stats ────────────────────────────────────────────────────────────────
 

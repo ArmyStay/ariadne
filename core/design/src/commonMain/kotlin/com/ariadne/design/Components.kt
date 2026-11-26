@@ -197,16 +197,27 @@ public fun Numeral(
     modifier: Modifier = Modifier,
     align: TextAlign = TextAlign.Start,
     maxLines: Int = 1,
+    serif: Boolean = false,
 ) {
     Text(
         text = text,
         style = TextStyle(
-            fontFamily = Bone.Mono,
+            // The ledger's figures are the grotesque, tabular, so a column of
+            // amounts lines up digit for digit. A *headline* figure — the day's
+            // total under its date, the sum at the top of a page — is set in the
+            // serif instead, because at 32px and above it is read as a headline
+            // and a column of them never has to align with anything.
+            fontFamily = if (serif) Bone.Serif else Bone.Mono,
             fontSize = size,
             lineHeight = size * 1.1f,
-            fontWeight = weight,
+            fontWeight = if (serif) FontWeight.Normal else weight,
             fontFeatureSettings = "tnum",
-            letterSpacing = if (size.value >= 34f) Optical.numeralTracking else (-0.2).sp,
+            letterSpacing = when {
+                serif && size.value >= 34f -> Optical.displayTracking
+                serif -> Optical.titleTracking
+                size.value >= 34f -> Optical.numeralTracking
+                else -> (-0.2).sp
+            },
         ),
         color = color,
         textAlign = align,
@@ -508,6 +519,40 @@ public fun Pill(
 }
 
 public enum class PillTone { Quiet, Blue, Ink }
+
+/**
+ * A status word in a wash: "SETTLED", "IN THE RECORD", "2 TO SETTLE".
+ *
+ * [Pill] is a ruled tag — a rectangle with an edge, which is what a printed index
+ * puts beside a comma. This is the other mark: the state a row *wears*, set in a
+ * soft rounded wash with no edge at all, so it reads as a stamp under a date
+ * rather than as something to press. It is the only rounded rectangle in the
+ * book, and it exists for this one job.
+ */
+@Composable
+public fun StatusTag(
+    text: String,
+    paper: Paper,
+    tone: PillTone = PillTone.Blue,
+) {
+    val bg = when (tone) {
+        PillTone.Quiet -> paper.sunk
+        PillTone.Blue -> paper.blueWash
+        PillTone.Ink -> paper.ink
+    }
+    val fg = when (tone) {
+        PillTone.Quiet -> paper.inkSoft
+        PillTone.Blue -> paper.blue
+        PillTone.Ink -> paper.onBlue
+    }
+    Box(
+        Modifier
+            .background(bg, shape(7.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+    ) {
+        Label(text, paper, color = fg, size = 9.sp, tracking = 1.4.sp)
+    }
+}
 
 /** A row of a matrix: a name on the left, a figure on the right, hairline under. */
 @Composable
