@@ -23,7 +23,7 @@ public value class CurrencyCode private constructor(public val code: String) {
             "CLP", "COP", "PEN", "AED", "SAR", "QAR", "ILS", "EGP", "MAD", "KES",
             "TZS", "UGX", "RWF", "GHS", "NGN", "LKR", "NPR", "BDT", "PKR", "MMK",
             "KHR", "LAK", "MNT", "KZT", "UZS", "GEL", "AMD", "ISK", "KWD", "BHD",
-            "OMR", "JOD", "TND", "DZD",
+            "OMR", "JOD", "TND", "DZD", "PYG", "XOF", "XAF",
         )
 
         /** Three-decimal currencies. Everything else is two, except [zeroScale]. */

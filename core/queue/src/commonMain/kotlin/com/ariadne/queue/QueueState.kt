@@ -34,7 +34,12 @@ public sealed interface QueueEvent {
     /** The day was closed, locking the capture into the record. */
     public data object Archived : QueueEvent
 
-    /** Long-press unlock of a closed day. */
+    /**
+     * A closed day reopened from the record.
+     *
+     * There is no long-press gesture anywhere in the app: copy used to promise
+     * one, and the copy was wrong, not the state machine.
+     */
     public data object Unlocked : QueueEvent
 
     /** Backoff elapsed; the capture re-enters the outbox at the head. */

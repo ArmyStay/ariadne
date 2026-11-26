@@ -118,6 +118,10 @@ public class AppModel(
                 fx = FxTable(fxRates)
             }.onFailure(::report)
             runCatching { settings = store.settings() }.onFailure(::report)
+            // The stock the book is printed on comes from the store, not from a
+            // default: a person who chose night paper gets it back before the
+            // first page is drawn, so the app never flashes white at launch.
+            _state.value = _state.value.copy(theme = settings.theme)
             runCatching { outbox.resume() }.onFailure(::report)
             runCatching { extraction.drain() }.onFailure(::report)
             val trips = runCatching { store.trips() }.getOrElse {
@@ -126,17 +130,23 @@ public class AppModel(
             }
             val active = trips.firstOrNull { !it.isClosed }
             if (active == null) {
-                // No trip, no record. The front door is the form, not a manifesto:
-                // a first-run visitor should be able to create a trip in one screen.
                 val today = clock.today()
+                val draft = TripDraft(
+                    startIso = today.iso,
+                    endIso = today.plusDays(6).iso,
+                    currency = settings.baseCurrency.code,
+                )
+                // No open trip. If the device has never held one, the first run
+                // opens on the title page, which states the inversion in four
+                // sentences and offers two ways in: the demo roll (a trip with
+                // photographs already in it) or a blank form with the dates
+                // already filled. If every trip on disk is closed, the register
+                // is the right page - it is where those trips are still readable.
                 _state.value = _state.value.copy(
-                    route = Route.NewTrip,
+                    route = startRoute(hasAnyTrip = trips.isNotEmpty(), hasOpenTrip = false),
+                    trips = trips,
                     today = today,
-                    draft = TripDraft(
-                        startIso = today.iso,
-                        endIso = today.plusDays(6).iso,
-                        currency = settings.baseCurrency.code,
-                    ),
+                    draft = draft,
                 )
             } else {
                 runCatching { bindTrip(active) }.onFailure { error ->
@@ -174,6 +184,23 @@ public class AppModel(
         onStartedAction = action
     }
 
+    /**
+     * Choose the stock: light paper, night paper, or whatever the device asks for.
+     *
+     * The palette has existed in `:core:design` since the beginning and no target
+     * ever selected it, so Preferences had to say "light paper only". This is the
+     * switch it was missing. It is written to the store immediately: a paper
+     * choice that resets when the app closes is a bug, not a preference.
+     */
+    public fun setTheme(theme: Settings.Theme) {
+        if (settings.theme == theme && _state.value.theme == theme) return
+        settings = settings.copy(theme = theme)
+        _state.value = _state.value.copy(theme = theme)
+        scope.launch {
+            runCatching { store.saveSettings(settings) }.onFailure(::report)
+        }
+    }
+
     public suspend fun bindTrip(trip: Trip) {
         val day = clock.today().coerceInto(trip)
         val cards = store.dayCards(trip.id)
@@ -182,7 +209,9 @@ public class AppModel(
         val register = runCatching { store.trips() }.getOrDefault(_state.value.trips)
         _state.value = _state.value.copy(
             trip = trip,
-            activeTripId = trip.id,
+            // A closed trip can be opened and read, but it is not the journey a
+            // new photograph belongs to, so it is not marked active.
+            activeTripId = trip.id.takeIf { !trip.isClosed },
             trips = register,
             today = day,
             dayCards = cards,
@@ -260,6 +289,8 @@ public class AppModel(
      */
     public fun capturePhoto(bytes: ByteArray, downscaleAdjusted: Boolean = true) {
         val trip = _state.value.trip ?: return
+        // A closed trip is a finished record, not a destination for new paper.
+        if (trip.isClosed) return
         val day = clock.today().coerceInto(trip)
         scope.launch {
             val id = newId()
@@ -335,8 +366,14 @@ public class AppModel(
         scope.launch {
             store.closeTrip(trip.id, clock.nowMillis())
             val closed = store.trip(trip.id) ?: trip
+            // Closing ends the trip as a *capture target*: nothing is active any
+            // more, so the shutter cannot file a photograph into a journey that is
+            // finished, and the register stops marking it as the open one. The
+            // closed trip stays bound so its card can be read.
             _state.value = _state.value.copy(
                 trip = closed,
+                activeTripId = null,
+                trips = runCatching { store.trips() }.getOrDefault(_state.value.trips),
                 route = Route.TripCard(trip.id),
             )
         }
@@ -372,6 +409,9 @@ public class AppModel(
             index.rebuild(emptyList())
             _state.value = AppUiState(
                 route = Route.NewTrip,
+                // Deleting a trip must not reprint the book: the stock is a
+                // preference of the person, not of the record.
+                theme = settings.theme,
                 today = clock.today(),
                 draft = TripDraft(
                     startIso = clock.today().iso,
@@ -433,6 +473,14 @@ public class AppModel(
     }
 
     // -- the new-trip page ------------------------------------------------
+
+    /**
+     * The hour a capture happened, in the device's zone, for the timeline rail.
+     *
+     * Asked of the clock rather than computed here: the view has a millis and no
+     * zone, and a rail that reads UTC is wrong in every zone but one.
+     */
+    public fun hourOf(millis: Long): Int = clock.hourOf(millis)
 
     public fun startNewTrip() {
         val today = clock.today()
@@ -870,6 +918,9 @@ public class AppModel(
     /** "Close the day": one locked card, idempotent, available from anywhere in the stack. */
     public fun closeDay(day: LocalDay? = null) {
         val trip = _state.value.trip ?: return
+        // Same rule as the shutter: a closed trip cannot be closed again, and its
+        // days may not be re-filed into a finished record.
+        if (trip.isClosed) return
         scope.launch {
             val target = day ?: (_state.value.route as? Route.Nightfall)?.day ?: clock.today()
             store.capturesForDay(trip.id, target).forEach { capture ->
@@ -895,11 +946,19 @@ public class AppModel(
      * the stored value: a field you did not touch must not overwrite what the
      * extraction found.
      */
-    public fun openDetail(captureId: String) {
+    /**
+     * Open one photograph.
+     *
+     * [from] is where Back goes: the day's record, or the search that found it.
+     * Search state is not cleared on the way in, so returning lands on the same
+     * list with the same query.
+     */
+    public fun openDetail(captureId: String, from: DetailOrigin = DetailOrigin.Record) {
         scope.launch {
             val capture = store.findById(captureId) ?: return@launch
             _state.value = _state.value.copy(
                 route = Route.Detail(captureId),
+                detailOrigin = from,
                 detail = capture,
                 detailAmount = amountBuffer(capture),
                 detailMerchant = capture.merchant ?: "",
@@ -979,6 +1038,16 @@ public class AppModel(
         )
     }
 
+    /** Leave the detail page for wherever it was opened from. */
+    public fun closeDetail() {
+        when (_state.value.detailOrigin) {
+            DetailOrigin.Search -> _state.value = _state.value.copy(route = Route.Search)
+            // openRecord refreshes the day and its cards, so the record shows the
+            // edit that was just made.
+            DetailOrigin.Record -> openRecord(_state.value.detail?.localDate)
+        }
+    }
+
     /**
      * Saves and steps back. An empty amount field clears the figure rather than
      * writing a zero: "I did not record this" and "this cost nothing" are
@@ -986,6 +1055,10 @@ public class AppModel(
      */
     public fun saveDetail(keepWithoutAmount: Boolean = false) {
         val capture = _state.value.detail ?: return
+        // A closed trip is a finished record. Its photographs are readable and its
+        // card is still yours, but nothing can be filed against it - including an
+        // edit that would move its totals.
+        if (_state.value.trip?.isClosed == true) return
         val currency = capture.currency ?: _state.value.trip?.baseCurrency ?: CurrencyCode.of("INR")
         val parsed = if (keepWithoutAmount) null else Money.parseOrNull(_state.value.detailAmount, currency)
         scope.launch {
@@ -1068,6 +1141,25 @@ public class AppModel(
             val register = runCatching { store.trips() }.getOrDefault(emptyList())
             _state.value = _state.value.copy(trips = register)
         }
+    }
+
+    /**
+     * The shutter, with the one guard the whole closed-trip matrix rests on.
+     *
+     * Every way into the camera goes through this: the bar's shutter, the Record
+     * page's two actions, the shell's keyboard shortcut, the "take another" on a
+     * frame. A closed trip has nothing to add, so the guard lives here rather than
+     * in five pages that each have to remember it.
+     */
+    public fun openCapture() {
+        val trip = _state.value.trip ?: return
+        if (trip.isClosed) {
+            // Not an error: the trip is finished, and Home already explains that
+            // in a sentence with the card one tap away.
+            _state.value = _state.value.copy(route = Route.Home)
+            return
+        }
+        _state.value = _state.value.copy(route = Route.Capture)
     }
 
     public fun openRecord(day: LocalDay? = null) {

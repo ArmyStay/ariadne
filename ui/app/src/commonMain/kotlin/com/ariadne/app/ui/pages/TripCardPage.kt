@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -22,7 +23,6 @@ import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.app.Route
-import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.FigureRow
@@ -53,22 +53,42 @@ public fun TripCardPage(state: AppUiState, model: AppModel, paper: Paper, wide: 
     val trip = state.trip ?: return
     val closed = state.dayCards.count { it.isClosed }
 
-    // The card is a printed object on darker stock, so it keeps its own ground.
-    ScrollingMargin(paper, wide, margin = if (wide) 96.dp else 20.dp, vertical = 28.dp) { _ ->
+    // The card is a printed object on its own stock: the keepsake ground is a
+    // warmer paper than the rest of the book, and the card itself is the one
+    // raised sheet on it. Before this the token existed and nothing used it, so
+    // the "kept" page looked exactly like every other page.
+    ScrollingMargin(
+        paper,
+        wide,
+        margin = if (wide) 96.dp else 20.dp,
+        vertical = 28.dp,
+        ground = paper.tripGround,
+    ) { _ ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             QuietAction("Back to the record", paper, { model.go(Route.Record(state.today)) })
             // Share copies the card as text, built from the same state the page is
             // showing, so the shared numbers cannot disagree with the printed ones.
+            //
+            // It is the page's one blue action, and the only one: the same act used
+            // to appear twice, as an ink corner and again as a blue bar at the foot,
+            // which made a keepsake look like a dialog with two buttons.
             Row(
-                Modifier.androidTap { model.copyCardToClipboard() },
+                Modifier
+                    .heightIn(min = 44.dp)
+                    .androidTap { model.copyCardToClipboard() },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Glyph.Share, paper, size = 14.dp, color = paper.inkFaint)
+                Icon(
+                    if (state.cardCopied) Glyph.Done else Glyph.Share,
+                    paper,
+                    size = 14.dp,
+                    color = if (state.cardCopied) paper.inkMid else paper.blue,
+                )
                 Spacer(Modifier.width(7.dp))
                 Label(
-                    if (state.cardCopied) "Copied" else "Share",
+                    if (state.cardCopied) "Copied" else "Share the card",
                     paper,
-                    color = if (state.cardCopied) paper.blue else paper.inkFaint,
+                    color = if (state.cardCopied) paper.inkMid else paper.blue,
                     size = 10.sp,
                     tracking = 1.5.sp,
                 )
@@ -81,7 +101,7 @@ public fun TripCardPage(state: AppUiState, model: AppModel, paper: Paper, wide: 
         Column(
             Modifier
                 .fillMaxWidth()
-                .background(paper.bg)
+                .background(paper.raised)
                 .border(Bone.Hairline, paper.edge)
                 .padding(horizontal = if (wide) 56.dp else 26.dp, vertical = 40.dp),
         ) {
@@ -154,8 +174,6 @@ public fun TripCardPage(state: AppUiState, model: AppModel, paper: Paper, wide: 
         }
 
         Spacer(Modifier.height(22.dp))
-        Action("Copy as text", paper, { model.copyCardToClipboard() })
-        Spacer(Modifier.height(8.dp))
         QuietAction("Back to the trip", paper, { model.go(Route.Trip) })
     }
 }

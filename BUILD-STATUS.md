@@ -1,8 +1,109 @@
 # Build status
 
-Last updated: 2026-11-24 (workspace edits: desktop OCR bound via the Tesseract CLI in `app/desktop`, tab bar now Home/Timeline/Trip/Stats replacing Prefs, contrast pass in `Bone.kt`, six curated hero shots in the README, docs/DESIGN.md + docs/ESSAY.md fixes; Gradle/device verification pending).
+Last updated: 2026-11-26 (second review pass: night paper, currency catalogue, one-blue audit, Android photo picker, IME insets, token fixes, 200% stills; earlier edits: desktop OCR bound via the Tesseract CLI in `app/desktop`, tab bar now Home/Timeline/Trip/Stats replacing Prefs, contrast pass in `Bone.kt`, six curated hero shots in the README, docs/DESIGN.md + docs/ESSAY.md fixes; Gradle/device verification pending).
 
 > Note: Checks listed below were recorded in prior sessions and were not re-run in this session after the latest source edits.
+
+## Review pass (2026-11-26): flow, authority and components
+
+`docs/UI-AND-FLOW.md` was reviewed against a stranger's reading of the repo. This
+pass turns the review's findings into code, not a report. **None of it has been
+compiled in this environment** — there is no JDK, no Gradle and no `kotlinc` in
+the sandbox, so `tools/verify-ui.sh`, `tools/flow-check.sh` and the real targets
+are all unrun, and every claim below is a reading of the source rather than a
+green check.
+
+What changed:
+
+- **Home means one thing.** The Home tab routes to `Route.Home` (today, plate 01).
+  The register is a stacked page with a `HOME` page action, plate `none`.
+- **First run opens the title page.** `AppModel.start()` routes to `Onboarding`
+  when the register is empty and to `Trips` when every trip on disk is closed.
+  This supersedes "the front door is creating a trip" in the Flow pass below:
+  Onboarding's *Begin empty* goes to the same `NewTrip` draft path, one tap away.
+- **A closed trip is not a capture target.** `closeTripIntoCard` clears
+  `activeTripId`, `capturePhoto` refuses a closed trip, `bindTrip` does not mark
+  one active, and Home, Capture, the record and the trip page each say so instead
+  of offering a shutter that would do nothing.
+- **One keypad, one measured rule.** `RuledKeypad` and `MeasuredRule` moved to
+  `:core:design`; both pages use them, rows have minimum rather than fixed
+  heights, and chip tap targets are 44dp inside their printed look.
+- **Smaller corrections.** Search results open the photograph; the library link
+  opens the picker directly and appears only where a picker is bound; Detail's
+  currency chips include the trip's own codes; Preferences' numerals run I–IV;
+  the long-press promise is gone from copy;
+  `CLOSE TODAY` is disabled on a filed day as well as an empty stack; plate
+  numbers no longer collide (`01`–`09` are the trip's pages).
+
+`docs/UI-AND-FLOW.md` carries the full inventory, and Appendix C maps each review
+item to its status and to the pages that changed.
+
+## Second review pass (2026-11-26): the backlog the first pass left
+
+The first pass shipped the flow and authority fixes and listed what it had not
+done. This pass does that list, except the two items that cannot be written
+honestly without a compiler for their target.
+
+**Night paper.** `Settings.Theme` already existed in the model and the palette
+already had a night half; nothing selected either. Now the choice is stored with
+the settings, loaded before the first frame, offered in Preferences as three
+chips (Light / System / Night), and resolved once in `AriadneApp`, where `System`
+asks the platform. Every token swaps, including the kept card's warmer stock.
+
+**A currency catalogue.** `CurrencyCatalog` holds all sixty-seven codes
+`CurrencyCode` already scales, each with a name and a sign, searchable by code or
+name. New trip and Preferences choose from it; Detail's four chips are its
+shortlist. This replaces a three-letter box on New trip that accepted `ABC` and a
+six-code row on Preferences that could not reach most trips. `PYG`, `XOF` and
+`XAF` were scaled but not "known"; they are now.
+
+**One blue action, audited.** A design rule that is only prose erodes. Every
+surface now gets an `AccentBudget`; an accented, enabled `Action` claims it; a
+second claim on the same surface is recorded, and the stills harness fails if the
+audit is not empty after rendering every page. This is not a type — that would
+need a page DSL — but it is a gate.
+
+**Tokens that lied.** `InkMid` and `InkSoft` were the same colour (`#475569`);
+`InkMid` is now `#334155`, because it is the tone a quiet *control* uses. `TripGround`
+existed unused; the trip card is now printed on it, with the card raised on top.
+
+**Keyboard and text size.** `imePadding()` and the system bars are applied once at
+the root, so no page has to know the keyboard is open. The tab bar's height
+follows the font scale instead of being fixed. Three stills are defined at
+`fontScale = 2` (`02-home-200`, `05-nightfall-200`, `02d-prefs-200`).
+
+**Android has a photo picker.** `PickVisualMedia`: the system picker, no storage
+permission, bytes bounded to 1600px and re-encoded exactly as the camera bounds
+them. It is bound in `MainActivity` beside the camera. `tools/entrycheck/stubs/android`
+grew the launcher generics, `PickVisualMedia`, `Uri`, `ContentResolver.openInputStream`
+and `BitmapFactory.decodeStream` so the entry-point gate can still compile the module.
+
+### What is verified, and what is not
+
+Verified in this environment: the currency catalogue and its search (compiled with
+the real Kotlin compiler against `CurrencyCode`, and exercised with 21 assertions
+covering catalogue completeness, name coverage, search order, case handling,
+shortlist stability and the zero/three-decimal currencies). The Android picker was
+compiled against the repo's own Android stubs plus minimal Compose/coroutines
+stubs, so its Kotlin type-checks — but not against the real androidx API.
+
+Verified in the third pass: the startup rule. `startRoute(hasAnyTrip, hasOpenTrip)`
+was compiled against `:core:model`'s sources with the real Kotlin compiler and
+executed (all three cases: onboarding / home / register) — it is the one place the
+P0-1 finding lived. The currency harness from the previous pass still passes.
+
+Not verified: every Compose file in this pass, the shared UI build
+(`tools/verify-ui.sh`), the flow walk (`tools/flow-check.sh`), the entry-point gate
+(`tools/entry-check.sh`), all four targets, and every still. The only renders in the
+repository now live under `docs/shots/archive-2026-11-26-pre-third-review/` and are
+labelled as pre-review; `docs/shots/` holds no current render. The harness lists 44
+frames — fifteen at 200% text, two in landscape, two closed-trip states — and none
+has been rendered here, because there is no Compose runtime in this environment.
+
+Not written: the web and iOS pickers. The browser needs typed file-input interop
+and iOS needs a `PHPickerViewController` delegate; neither can be compiled here,
+and unchecked platform interop is more likely to break those two builds than to
+help them. Android's implementation is the pattern to copy.
 
 ## Build log round (2026-11-24): the iOS X64 failure + warning cleanup
 
@@ -43,7 +144,7 @@ reduced to the remaining-obsolete-API items.
 | --- | --- | --- |
 | Shared UI compiles | `tools/verify-ui.sh …` | **0 errors** |
 | Domain logic | `tools/test-domain.sh` | **OK (70 tests)** |
-| Real UI renders | `tools/run-preview.sh --shots docs/shots` | **21 frames, PNG** |
+| Real UI renders | `tools/run-preview.sh --shots docs/shots` | last run produced 21 frames; the harness now lists **44** (not re-run) |
 | Real UI window | `tools/run-preview.sh` | launches under Xvfb |
 | SQLDelight codegen | `tools/store-check.sh` | generates from `Ariadne.sq`, `verifyMigrations` on |
 | three real database shapes open correctly | `tools/store-check.sh` | **ok**: baseline, interim, fresh |
@@ -59,9 +160,11 @@ the five stacked pages, the tab bar with its notch, and `AppModel`, `Route`,
 `AppGraph`, `AriadneApp` — against real Compose jars with the real Compose
 compiler plugin, no Gradle.
 
-The screenshots in `docs/shots/` are produced by `ImageComposeScene` rendering
-that same `AriadneApp`, so the layout, type scale and spacing on screen are the
-ones the four app targets compile.
+The screenshots are produced by `ImageComposeScene` rendering that same
+`AriadneApp`, so the layout, type scale and spacing on screen are the ones the four
+app targets compile. Everything rendered before 2026-11-26 has been moved to
+`docs/shots/archive-2026-11-26-pre-third-review/` and is **not evidence** for the
+current design; the README there says what each frame predates.
 
 ## Not yet verified in this environment
 

@@ -34,7 +34,12 @@ import com.ariadne.design.Masthead
 import com.ariadne.design.Motion
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
+import com.ariadne.design.PageAction
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import com.ariadne.design.ScrollRail
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
@@ -65,14 +70,17 @@ public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             .background(paper.bg)
             .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
     ) {
+        // No plate number: the register is the shelf the plates sit on, not one
+        // of them. 01..09 belong to the pages of the trip itself.
         Masthead(
-            number = "02",
+            number = "",
             eyebrow = "The register",
             title = "Trips",
             paper = paper,
             italic = true,
             wide = wide,
             lede = "Every journey this device holds. One of them is open.",
+            trailing = { PageAction("Home", paper, { model.go(Route.Home) }) },
         )
 
         Spacer(Modifier.height(10.dp))
@@ -154,7 +162,7 @@ private fun ShelfFigure(label: String, value: String, paper: Paper) {
     Column {
         Numeral(value, paper, color = paper.inkSoft, size = 26.sp, weight = FontWeight.Light)
         Spacer(Modifier.height(3.dp))
-        Label(label, paper, color = paper.inkGhost, size = 9.sp, tracking = 1.4.sp)
+        Label(label, paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
     }
 }
 
@@ -192,10 +200,22 @@ private fun TripEntry(
     onOpen: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth()) {
+        // The whole row is the target, and the whole row is one accessibility
+        // node: name, dates and state in one sentence, so a screen reader does not
+        // have to assemble a trip out of four labels.
+        val state = when {
+            trip.isClosed -> "closed"
+            active -> "open, the one photographs go into"
+            else -> "open"
+        }
         Row(
             Modifier
                 .fillMaxWidth()
                 .androidTap { onOpen() }
+                .semantics {
+                    contentDescription = "${trip.name}, ${trip.dates()}, $state"
+                    role = Role.Button
+                }
                 .padding(vertical = 16.dp),
             verticalAlignment = Alignment.Top,
         ) {
@@ -251,7 +271,15 @@ private fun TripEntry(
                     // The one blue thing on this page.
                     Tick(paper, width = 22.dp, color = paper.blue)
                 } else {
-                    Label("closed", paper, color = paper.inkGhost, size = 8.sp, tracking = 1.2.sp)
+                    // An open trip that is simply not the active one is not
+                    // "closed"; only a closed trip says so.
+                    Label(
+                        if (trip.isClosed) "closed" else "open",
+                        paper,
+                        color = paper.inkFaint,
+                        size = 8.sp,
+                        tracking = 1.2.sp,
+                    )
                 }
             }
         }

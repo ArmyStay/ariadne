@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -25,9 +26,11 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -62,23 +65,54 @@ public enum class Tab(public val label: String) {
 @Composable
 public fun TabBar(
     paper: Paper,
-    selected: Tab,
+    /**
+     * The destination being shown, or null on a page that is stacked on top of a
+     * tab. The register and Preferences are stacked from Home: they keep the bar
+     * (it is how you get back to the rest of the app) but no destination is
+     * selected, because none of them is where the person is.
+     */
+    selected: Tab?,
     onSelect: (Tab) -> Unit,
     onCapture: () -> Unit,
     modifier: Modifier = Modifier,
     waiting: Int = 0,
+    /** Read by a screen reader as the description of the bar itself. */
+    barDescription: String? = null,
+    /**
+     * Whether a photograph can be taken at all.
+     *
+     * False when no trip is open — a closed trip is a finished record, and the
+     * shutter is the one control that would quietly break that. The plate stays
+     * where it is (the bar's shape depends on it) but stops being a target, and
+     * the screen reader says why.
+     */
+    captureEnabled: Boolean = true,
 ) {
-    val barHeight = 74.dp
+    // The bar grows with the system font instead of clipping its labels: at 200%
+    // text a fixed 74dp bar would cut the words in half. Capped at 1.6x, because
+    // past that the bar is eating the page it belongs to.
+    val fontScale = LocalDensity.current.fontScale.coerceIn(1f, 1.6f)
+    val barHeight = (74f * fontScale).dp
     val shutter = 62.dp
-    Box(modifier.fillMaxWidth()) {
+    val described = barDescription
+    Box(
+        modifier
+            .fillMaxWidth()
+            .then(
+                if (described != null) {
+                    Modifier.semantics { contentDescription = described }
+                } else {
+                    Modifier
+                }
+            ),
+    ) {
         // The bar surface and its notch. The dip is a pair of cubic curves rather
         // than a circular bite: a bite reads as a hole, whereas a curve reads as
         // the bar bending around the shutter, which is what the reference does.
         Canvas(
             Modifier
                 .fillMaxWidth()
-                .height(barHeight + 18.dp)
-                .semantics { contentDescription = "Ariadne bottom bar" },
+                .height(barHeight + 18.dp),
         ) {
             val barTop = 18.dp.toPx()
             val cx = size.width / 2f
@@ -136,28 +170,38 @@ public fun TabBar(
                 .size(shutter)
                 .background(paper.isNight.let { if (it) paper.raised else paper.bg }, CircleShape)
                 .padding(5.dp)
-                .background(paper.blue, CircleShape)
+                // A closed trip keeps the disc's place and loses its colour: the
+                // bar should not look like it is offering something it refuses.
+                .background(if (captureEnabled) paper.blue else paper.edge, CircleShape)
                 .border(Bone.Hairline, paper.bluePressed.copy(alpha = 0.35f), CircleShape)
-                .semantics {
-                    contentDescription = if (waiting > 0) {
-                        "Capture a photograph. $waiting waiting for tonight."
-                    } else {
-                        "Capture a photograph"
+                // One node, one sentence. The count badge is a child of this
+                // plate, so without clearing the subtree a screen reader would
+                // announce the number twice.
+                .clearAndSetSemantics {
+                    contentDescription = when {
+                        !captureEnabled -> "A closed trip takes no photographs. See the card instead."
+                        waiting > 0 -> "Capture a photograph. $waiting waiting for tonight."
+                        else -> "Capture a photograph"
                     }
-                    role = Role.Button
+                    if (captureEnabled) role = Role.Button
                 }
-                .pointerInput(waiting) { detectTapGestures(onTap = { onCapture() }) },
+                .pointerInput(waiting, captureEnabled) {
+                    if (captureEnabled) detectTapGestures(onTap = { onCapture() })
+                },
             contentAlignment = Alignment.Center,
         ) {
-            ApertureGlyph(paper.onBlue)
+            ApertureGlyph(if (captureEnabled) paper.onBlue else paper.inkFaint)
             if (waiting > 0) {
                 // The count, seated at the edge of the plate: a numeral, not a dot.
+                // A pill rather than a fixed 17dp disc: at 200% text, or with a
+                // two-digit stack, a disc clips the number it exists to show.
                 Box(
                     Modifier
                         .align(Alignment.TopEnd)
                         .offset(x = 1.dp, y = 1.dp)
-                        .size(17.dp)
-                        .background(paper.ink, CircleShape),
+                        .defaultMinSize(minWidth = 17.dp, minHeight = 17.dp)
+                        .background(paper.ink, CircleShape)
+                        .padding(horizontal = 4.dp, vertical = 1.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Label("$waiting", paper, color = paper.onBlue, size = 8.sp, tracking = 0.4.sp)
@@ -171,7 +215,7 @@ public fun TabBar(
 @Composable
 private fun TabItem(
     tab: Tab,
-    selected: Tab,
+    selected: Tab?,
     paper: Paper,
     waiting: Int,
     modifier: Modifier,

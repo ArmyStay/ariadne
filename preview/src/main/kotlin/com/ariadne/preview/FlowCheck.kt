@@ -6,6 +6,8 @@ import com.ariadne.app.Route
 import com.ariadne.app.TripDraft
 import com.ariadne.core.time.SystemClock
 import com.ariadne.extract.OcrResult
+import com.ariadne.model.CurrencyCatalog
+import com.ariadne.model.Settings
 import com.ariadne.extract.TextRecognizer
 import com.ariadne.store.InMemoryStore
 
@@ -39,12 +41,16 @@ fun main() {
     val graph = AppGraph(services, SystemClock())
     val model = graph.model
 
-    // ---- first run: no trip, so the front door is the form -----------------
+    // ---- first run: no trip, so the title page states the thesis ----------
     model.start()
     settle()
-    check("first run opens the new-trip form", model.state.value.route == Route.NewTrip)
+    check("first run opens the title page", model.state.value.route == Route.Onboarding)
     check("the form is pre-filled with today", model.state.value.draft.startIso.isNotEmpty())
     check("no trip exists yet", model.state.value.trip == null)
+
+    model.startNewTrip()
+    settle()
+    check("begin empty opens the new-trip form", model.state.value.route == Route.NewTrip)
 
     // ---- a rejected draft says which field is wrong ------------------------
     model.editDraft(name = "")
@@ -144,6 +150,21 @@ fun main() {
     settleCheck()
     check("editing the fence reaches the store", graph.store.tripSnapshot(live.id)?.budgetMinor == 900_000L)
 
+    // ---- the stock the book is printed on ---------------------------------
+    // Night paper has existed in the palette since the first commit and had no
+    // switch; these two checks are the switch, from the outside.
+    model.setTheme(Settings.Theme.DARK)
+    settle()
+    check("night paper is in state", model.state.value.theme == Settings.Theme.DARK)
+    check("night paper is written to the settings", graph.store.settingsSnapshot().theme == Settings.Theme.DARK)
+    model.setTheme(Settings.Theme.LIGHT)
+    settle()
+    check("light paper is written back", graph.store.settingsSnapshot().theme == Settings.Theme.LIGHT)
+    check(
+        "the catalogue knows the currency the trip is in",
+        CurrencyCatalog.search("thb").firstOrNull()?.code == "THB",
+    )
+
     // Closing into a card must not destroy anything.
     val beforeClose = graph.store.tripSnapshot(live.id)?.closedAt
     model.closeTripIntoCard()
@@ -152,6 +173,25 @@ fun main() {
     check("closing marks the trip closed", graph.store.tripSnapshot(live.id)?.closedAt != null)
     check("closing was not already done", beforeClose == null)
     check("closing keeps the captures", graph.store.capturesSnapshot(live.id).size >= 5)
+    check("closing clears the active trip", model.state.value.activeTripId == null)
+
+    // A closed trip is a finished record: the shutter must not file into it.
+    val capturesAfterClose = graph.store.capturesSnapshot(live.id).size
+    model.capturePhoto(byteArrayOf(9, 9, 9))
+    settle()
+    check("a closed trip takes no more photographs", model.state.value.route is Route.TripCard)
+    check("nothing was added to a closed trip", graph.store.capturesSnapshot(live.id).size == capturesAfterClose)
+
+    // Not one door, all of them. `openCapture` is what the bar's shutter, the
+    // Record page, the frame's "take another" and the keyboard shortcut all call,
+    // so the guard cannot be bypassed by taking a different route into the camera.
+    model.openCapture()
+    settle()
+    check("the shutter entry point refuses a closed trip", model.state.value.route == Route.Home)
+    check(
+        "the refused entry filed nothing",
+        graph.store.capturesSnapshot(live.id).size == capturesAfterClose,
+    )
 
     // The shared card must state the same numbers as the record.
     val cardText = model.tripCardText()
@@ -234,6 +274,8 @@ fun main() {
         SystemClock(),
     )
     refusing.model.start()
+    settle()
+    refusing.model.startNewTrip()
     settle()
     refusing.model.editDraft(name = "A trip that will not save", startIso = "2026-12-01", endIso = "2026-12-06")
     refusing.model.commitDraft()
@@ -320,6 +362,9 @@ private class RecordingFiles : com.ariadne.app.PhotoFiles {
 
 private fun com.ariadne.store.Store.allRatesSnapshot() =
     kotlinx.coroutines.runBlocking { allRates() }
+
+private fun com.ariadne.store.Store.settingsSnapshot(): com.ariadne.model.Settings =
+    kotlinx.coroutines.runBlocking { settings() }
 
 private fun com.ariadne.store.Store.tripsSnapshot(): List<com.ariadne.model.Trip> =
     kotlinx.coroutines.runBlocking { trips() }

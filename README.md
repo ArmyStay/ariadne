@@ -49,14 +49,24 @@ bucket of features.
 
 Real frames, rendered from the shared Compose UI by `tools/run-preview.sh --shots` — not mockups.
 
+> **These four frames are pre-third-review.** They were rendered from the build
+> before the register bar, the closed-trip matrix, the square plate and the 44dp
+> targets, so they show a design that no longer exists. They live in
+> [`docs/shots/archive-2026-11-26-pre-third-review/`](docs/shots/archive-2026-11-26-pre-third-review/)
+> with a note saying exactly what they predate. `docs/shots/` has no current
+> render until the harness is run against this build; until then no screenshot in
+> this repository is offered as evidence for a change.
+
 <p align="center">
-  <img src="docs/shots/02-home.png" width="220" alt="Home, tab bar Home/Timeline/Trip/Stats" />
-  <img src="docs/shots/04-capture.png" width="220" alt="Shutter — capture page" />
-  <img src="docs/shots/05-nightfall.png" width="220" alt="Nightfall — card stack, confirm with one tap" />
-  <img src="docs/shots/07-trip-card.png" width="220" alt="The trip card — copy-text, share link" />
+  <img src="docs/shots/archive-2026-11-26-pre-third-review/02-home.png" width="220" alt="Home, tab bar Home/Timeline/Trip/Stats (pre-review)" />
+  <img src="docs/shots/archive-2026-11-26-pre-third-review/04-capture.png" width="220" alt="Shutter — capture page (pre-review)" />
+  <img src="docs/shots/archive-2026-11-26-pre-third-review/05-nightfall.png" width="220" alt="Nightfall — card stack, confirm with one tap (pre-review)" />
+  <img src="docs/shots/archive-2026-11-26-pre-third-review/07-trip-card.png" width="220" alt="The trip card — copy-text, share link (pre-review)" />
 </p>
 
-The frames are real renders. If you want more — light-mode, night-mode, the other pages — the same tool regenerates them: `./tools/run-preview.sh --shots docs/shots` puts them in [`docs/shots/`](docs/shots/) (27 and counting). The shots are the app's proof: they were rendered, not composed.
+The shot list is now **44 frames**, fifteen of them at 200% system text and two in
+landscape, plus the two closed-trip states. `./tools/run-preview.sh --shots docs/shots`
+renders them; the harness fails the run if any surface claims the blue twice.
 
 ## How to run it — and a way to try ideas fast
 
@@ -69,7 +79,7 @@ Open the app in a window — a desktop window, that is:
 Or render every page to PNG — your eyes should remember this, and then search and see:
 
 ```bash
-./tools/run-preview.sh --shots          # all 27 frames, into docs/shots/
+./tools/run-preview.sh --shots          # all 44 frames, into docs/shots/
 ```
 
 New page? `./tools/run-preview.sh --shots --open Settings` — and then, right there, the page you chose, in real Compose UI with real state, debugger or screenshot tool on hand. Bigger reads: `./tools/test-domain.sh` is the 70. `./tools/store-check.sh` is the migration story, so you find out where it broke before someone else does.
@@ -92,7 +102,7 @@ Real targets (need a JDK + an Android SDK/Xcode):
 ./gradlew jvmTest                       # the shared suites
 ```
 
-A quick way to start playing with new ideas: run `./tools/run-preview.sh --shots --open Settings` and step the pages around with a debugger — real Compose, real state, no emulator needed. Or `./tools/run-preview.sh --night` for the dark variant.
+A quick way to start playing with new ideas: run `./tools/run-preview.sh --shots --open Settings` and step the pages around with a debugger — real Compose, real state, no emulator needed. Or `./tools/run-preview.sh --night` for the dark variant — which is also a real preference in the app now: **Preferences → Paper → Night**.
 
 ## Status, honestly
 

@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.unit.dp
@@ -32,7 +34,6 @@ import com.ariadne.app.ui.pages.NewTripPage
 import com.ariadne.app.ui.pages.HomePage
 import com.ariadne.app.ui.pages.NightfallPage
 import com.ariadne.app.ui.pages.OnboardingPage
-import com.ariadne.app.ui.pages.PrefsPage
 import com.ariadne.app.ui.pages.RecordPage
 import com.ariadne.app.ui.pages.SearchPage
 import com.ariadne.app.ui.pages.StatsPage
@@ -40,10 +41,15 @@ import com.ariadne.app.ui.pages.TimelinePage
 import com.ariadne.app.ui.pages.TripCardPage
 import com.ariadne.app.ui.pages.TripsPage
 import com.ariadne.app.ui.pages.TripPage
+import com.ariadne.design.LocalAccentBudget
 import com.ariadne.design.LocalMotionPreference
+import com.ariadne.design.LocalSurfaceId
+import com.ariadne.design.rememberAccentBudget
 import com.ariadne.design.Motion
 import com.ariadne.design.MotionPreference
 import com.ariadne.design.Paper
+import com.ariadne.model.Settings
+import androidx.compose.foundation.isSystemInDarkTheme
 
 /**
  * The app: four tab destinations, five pages that stack on top of them, one state
@@ -61,13 +67,26 @@ import com.ariadne.design.Paper
 public fun AriadneApp(
     model: AppModel,
     wide: Boolean,
-    dark: Boolean = false,
+    /**
+     * Force a stock, for previews and stills. Null — the normal case — means
+     * "ask the preference, and if it says system, ask the device".
+     */
+    dark: Boolean? = null,
     reducedMotion: Boolean = false,
     onShutter: () -> Unit = { model.capturePlaceholder() },
 ) {
     LaunchedEffect(Unit) { model.start() }
     val state by model.state.collectAsState()
-    val paper = if (dark) Paper.Night else Paper.Light
+    // Night paper is the same design on dark stock, not a second theme: the
+    // palette has lived in :core:design from the start, and this is the one place
+    // that decides which half of it the app is printed on.
+    val systemDark = isSystemInDarkTheme()
+    val night = dark ?: when (state.theme) {
+        Settings.Theme.LIGHT -> false
+        Settings.Theme.DARK -> true
+        Settings.Theme.SYSTEM -> systemDark
+    }
+    val paper = if (night) Paper.Night else Paper.Light
     val route = state.route
 
     CompositionLocalProvider(LocalMotionPreference provides MotionPreference(reducedMotion)) {
@@ -75,7 +94,16 @@ public fun AriadneApp(
             Modifier
                 .fillMaxSize()
                 .background(paper.bg)
+                // Bars and the keyboard, at the one place that owns the frame:
+                // a page should never have to know whether the IME is open. The
+                // insets are consumed here so a page's own bottom action cannot be
+                // covered by a keyboard it cannot see.
                 .windowInsetsPadding(WindowInsets.systemBars)
+                // Consumed, then the keyboard is added on top of what is left.
+                // Padding both in full would leave a dead band as tall as the
+                // navigation bar between the last action and the keyboard.
+                .consumeWindowInsets(WindowInsets.systemBars)
+                .imePadding()
                 .onPreviewKeyEvent { event -> handleKey(event, model, route) },
         ) {
             Column(Modifier.fillMaxSize()) {
@@ -95,7 +123,15 @@ public fun AriadneApp(
                         val drift = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(Motion.Drift) }
                         androidx.compose.runtime.LaunchedEffect(target) { drift.animateTo(0f, spec) }
                         Box(Modifier.offset(x = drift.value.dp)) {
-                            Destination(target, state, model, paper, wide, onShutter)
+                            // Each surface gets its own budget for the one blue
+                            // action. Keyed by route: a page turn must not charge
+                            // the outgoing page's blue to the incoming one.
+                            CompositionLocalProvider(
+                                LocalAccentBudget provides rememberAccentBudget(target),
+                                LocalSurfaceId provides target,
+                            ) {
+                                Destination(target, state, model, paper, wide, onShutter)
+                            }
                         }
                     }
                 }
@@ -104,9 +140,14 @@ public fun AriadneApp(
                     TabBar(
                         paper = paper,
                         selected = route.tab(),
+                        // A stacked page is announced as stacked from Home rather
+                        // than as Home: a screen reader should hear where the bar
+                        // is, not be told the person is on a tab they are not on.
+                        barDescription = route.stackedFrom(),
                         onSelect = { tab -> model.go(tab.route()) },
-                        onCapture = { model.go(Route.Capture) },
+                        onCapture = { model.openCapture() },
                         waiting = state.stack.size,
+                        captureEnabled = state.trip?.isClosed == false,
                     )
                 }
             }
@@ -134,7 +175,7 @@ private fun Destination(
         Route.Home -> HomePage(state, model, paper, wide)
         Route.Timeline -> TimelinePage(state, model, paper, wide)
         Route.Stats -> StatsPage(state, model, paper, wide)
-        Route.Prefs -> PrefsPage(state, model, paper, wide, state.failureNote)
+        Route.Preferences -> PreferencesPage(state, model, paper, wide, state.failureNote)
 
         Route.Trip -> TripPage(state, model, paper, wide)
 
@@ -169,27 +210,47 @@ private fun Destination(
         // existed, which left no way to see the others or start a new one.
         Route.Trips -> TripsPage(state, model, paper, wide)
 
-        Route.Settings -> PrefsPage(state, model, paper, wide, state.failureNote)
+        // Retired name: a route restored from an older build lands on the same
+        // page rather than on a second copy of it.
+        Route.Settings -> PreferencesPage(state, model, paper, wide, state.failureNote)
     }
 }
 
-/** Which tab the current route belongs to. */
-private fun Route.tab(): Tab = when (this) {
-    Route.Trips -> Tab.Home
+/**
+ * Which tab the current route belongs to — or none.
+ *
+ * The register and Preferences are *stacked* pages: they belong to the Home
+ * family but they are not the Home tab, and marking Home selected while someone
+ * is reading the register told them they were somewhere they were not. They get
+ * a visible bar, no selected destination, and a page action back to Home.
+ */
+private fun Route.tab(): Tab? = when (this) {
+    Route.Trips -> null
+    Route.Preferences, Route.Settings -> null
     Route.Trip, is Route.TripCard -> Tab.Trip
-    Route.Timeline, is Route.Record, is Route.Detail -> Tab.Timeline
+    // Detail is a sheet with a keypad pinned to its foot, not a destination: its
+    // bar is hidden (see `showsTabBar`), so there is no tab to mark either way.
+    is Route.Detail -> null
+    Route.Timeline, is Route.Record -> Tab.Timeline
     Route.Stats -> Tab.Stats
-    // The settings corner is no longer a tab; it resolves to the register behind
-    // it, the same shell the Home tab shows.
-    Route.Prefs, Route.Settings -> Tab.Home
-    else -> Tab.Home
+    Route.Home, Route.Onboarding, Route.NewTrip, Route.Capture, is Route.Frame,
+    is Route.Nightfall, Route.Search -> Tab.Home
 }
 
 private fun Tab.route(): Route = when (this) {
-    Tab.Home -> Route.Trips
+    // Home is today's page, not the register. The register is one row down the
+    // index, and pressing Home returns from wherever you wandered to today.
+    Tab.Home -> Route.Home
     Tab.Timeline -> Route.Timeline
     Tab.Stats -> Route.Stats
     Tab.Trip -> Route.Trip
+}
+
+/** How a stacked page describes the bar it is showing, if it shows one. */
+private fun Route.stackedFrom(): String? = when (this) {
+    Route.Trips -> "Trips register, stacked from Home"
+    Route.Preferences, Route.Settings -> "Preferences, stacked from Home"
+    else -> null
 }
 
 /**

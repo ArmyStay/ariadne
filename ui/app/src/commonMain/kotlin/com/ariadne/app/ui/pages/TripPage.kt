@@ -31,6 +31,7 @@ import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.Masthead
+import com.ariadne.design.MeasuredRule
 import com.ariadne.design.PageAction
 import com.ariadne.design.ScrollingMargin
 import com.ariadne.design.Paper
@@ -120,7 +121,7 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         Spacer(Modifier.height(10.dp))
         Title("$closed of ${state.dayCards.size} days closed", paper, size = 22.sp)
         Spacer(Modifier.height(8.dp))
-        ProgressRule(closed, state.dayCards.size, paper)
+        MeasuredRule(closed, state.dayCards.size, paper)
 
         Spacer(Modifier.height(26.dp))
         Label("So far", paper, color = paper.inkFaint)
@@ -153,7 +154,12 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         )
 
         Spacer(Modifier.height(30.dp))
-        Action("Close the trip into a card", paper, { model.closeTripIntoCard() }, accent = true)
+        if (trip.isClosed) {
+            // A closed trip is not closed twice: the card already exists.
+            Action("See the card", paper, { model.go(Route.TripCard(trip.id)) }, accent = true)
+        } else {
+            Action("Close the trip into a card", paper, { model.closeTripIntoCard() }, accent = true)
+        }
         Spacer(Modifier.height(12.dp))
         QuietAction("Every day of it", paper, { model.go(Route.Record(state.today)) }, color = paper.inkMid)
     }
@@ -165,36 +171,6 @@ private fun DateBlock(label: String, value: String, paper: Paper, alignEnd: Bool
         Label(label, paper, color = paper.inkFaint)
         Spacer(Modifier.height(7.dp))
         Numeral(value, paper, size = 14.sp)
-    }
-}
-
-/** A measured rule: the closed portion drawn solid, the rest as ticks. */
-@Composable
-private fun ProgressRule(done: Int, total: Int, paper: Paper) {
-    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(10.dp)) {
-        val fraction = if (total == 0) 0f else done.toFloat() / total.toFloat()
-        drawLine(
-            color = paper.ink,
-            start = androidx.compose.ui.geometry.Offset(0f, size.height / 2),
-            end = androidx.compose.ui.geometry.Offset(size.width * fraction, size.height / 2),
-            strokeWidth = 3f,
-        )
-        drawLine(
-            color = paper.edge,
-            start = androidx.compose.ui.geometry.Offset(size.width * fraction, size.height / 2),
-            end = androidx.compose.ui.geometry.Offset(size.width, size.height / 2),
-            strokeWidth = 1f,
-        )
-        var x = 0f
-        while (x <= size.width) {
-            drawLine(
-                color = paper.edge,
-                start = androidx.compose.ui.geometry.Offset(x, size.height / 2 - 3f),
-                end = androidx.compose.ui.geometry.Offset(x, size.height / 2 + 3f),
-                strokeWidth = 1f,
-            )
-            x += 24f
-        }
     }
 }
 

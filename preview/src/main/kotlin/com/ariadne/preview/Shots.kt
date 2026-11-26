@@ -9,6 +9,8 @@ import com.ariadne.app.PlatformServices
 import com.ariadne.app.Route
 import com.ariadne.app.ui.AriadneApp
 import com.ariadne.core.time.SystemClock
+import com.ariadne.design.AccentAudit
+import com.ariadne.model.Settings
 import com.ariadne.extract.OcrResult
 import com.ariadne.extract.TextRecognizer
 import com.ariadne.store.InMemoryStore
@@ -34,7 +36,10 @@ fun main(args: Array<String>) {
         val w: Int,
         val h: Int,
         val seed: Boolean = true,
-        val night: Boolean = false,
+        /** Which stock to print on. Night is the same design, not a second one. */
+        val theme: Settings.Theme = Settings.Theme.LIGHT,
+        /** System text size. 2f is the setting an accessibility check uses. */
+        val fontScale: Float = 1f,
         val route: (AppModel) -> Unit = {},
         val settle: Int = 0,
         /** How far down the page to scroll before the still is taken. */
@@ -70,7 +75,7 @@ fun main(args: Array<String>) {
                 if (m.state.value.stack.isNotEmpty()) m.confirmCurrent() else m.go(Route.Stats)
             },
         ),
-        Shot("02d-prefs", 440, 900, route = { it.go(Route.Prefs) }),
+        Shot("02d-prefs", 440, 900, route = { it.go(Route.Preferences) }),
         Shot("03-trip", 440, 900, route = { it.go(Route.Trip) }),
         Shot("04-capture", 440, 900, route = { it.go(Route.Capture) }),
         // The frame just taken, held up with its two ways out.
@@ -103,13 +108,83 @@ fun main(args: Array<String>) {
         Shot("06b-detail-desktop", 1200, 800, route = { it.openDetailFirst() }, settle = 1),
         Shot("07-trip-card", 440, 1000, route = { it.go(Route.TripCard("0")) }),
         Shot("08-search", 440, 900, route = { it.go(Route.Search) }),
-        Shot("10-night", 440, 900, night = true, route = { it.go(Route.Home) }),
+        // Night paper, now reachable from Preferences instead of only from a still.
+        Shot("10-night", 440, 900, theme = Settings.Theme.DARK, route = { it.go(Route.Home) }),
+        Shot(
+            "10-night-card",
+            440,
+            900,
+            theme = Settings.Theme.DARK,
+            route = { it.go(Route.TripCard("0")) },
+        ),
+        // Twice the system text size. These exist so the claim "the layout grows
+        // rather than clips" can be checked by looking at a file.
+        Shot("02-home-200", 440, 900, fontScale = 2f, route = { it.go(Route.Home) }),
+        Shot("05-nightfall-200", 440, 900, fontScale = 2f, route = { it.openNightfall(null) }),
+        Shot("02d-prefs-200", 440, 900, fontScale = 2f, route = { it.go(Route.Preferences) }),
+        // The rest of the 200% audit. Every surface the review asked about gets a
+        // still at twice the system text size, because "it reflows" is a claim a
+        // person should be able to check by opening a file, and the register, the
+        // record, the detail sheet, the card and the triage page all grew new
+        // rows since the last render.
+        Shot("01-onboarding-200", 440, 900, seed = false, fontScale = 2f),
+        Shot("01-new-trip-200", 440, 900, seed = false, fontScale = 2f, route = { it.startNewTrip() }),
+        Shot("02a-trips-200", 440, 900, fontScale = 2f, route = { it.go(Route.Trips) }),
+        Shot("02b-timeline-200", 440, 900, fontScale = 2f, route = { it.go(Route.Timeline) }),
+        Shot("03-trip-200", 440, 900, fontScale = 2f, route = { it.go(Route.Trip) }),
+        Shot("04-capture-200", 440, 900, fontScale = 2f, route = { it.go(Route.Capture) }),
+        Shot("06-record-200", 440, 900, fontScale = 2f, route = { it.openRecord(null) }, settle = 1),
+        Shot("06b-detail-200", 440, 900, fontScale = 2f, route = { it.openDetailFirst() }, settle = 1),
+        Shot("07-trip-card-200", 440, 1000, fontScale = 2f, route = { it.go(Route.TripCard("0")) }),
+        Shot("08-search-200", 440, 900, fontScale = 2f, route = { it.go(Route.Search) }),
+        // Landscape at 200%: the shortest viewport the app has to survive, with
+        // the tallest type. The bar, the pinned keypad and the bottom action all
+        // have to stay reachable here or the audit's claim is only true in portrait.
+        Shot("06b-detail-200-landscape", 900, 440, fontScale = 2f, route = { it.openDetailFirst() }, settle = 1),
+        Shot("02a-trips-200-landscape", 900, 440, fontScale = 2f, route = { it.go(Route.Trips) }),
+        // The closed-trip matrix, drawn: a finished trip's Home and its shutter.
+        // Both are states the third review said had never been rendered.
+        Shot(
+            "02e-home-closed", 440, 900, settle = 3,
+            route = { m ->
+                if (m.state.value.trip?.isClosed == true) m.go(Route.Home) else m.closeTripIntoCard()
+            },
+        ),
+        Shot(
+            "04-capture-closed", 440, 900, settle = 3,
+            route = { m ->
+                if (m.state.value.trip?.isClosed == true) m.go(Route.Capture) else m.closeTripIntoCard()
+            },
+        ),
     )
 
+    AccentAudit.clear()
     shots.forEach { shot ->
-        render(outDir, shot.name, shot.w, shot.h, shot.seed, shot.settle, shot.night, shot.scrollTo, shot.route)
+        render(
+            outDir,
+            shot.name,
+            shot.w,
+            shot.h,
+            shot.seed,
+            shot.settle,
+            shot.theme,
+            shot.fontScale,
+            shot.scrollTo,
+            shot.route,
+        )
     }
     println("rendered ${shots.size} pages into ${outDir.absolutePath}")
+
+    // The one-blue rule, checked against every surface that was just drawn. A
+    // design rule that is only written down is a rule that erodes; this makes the
+    // stills pass fail instead.
+    if (AccentAudit.violations.isNotEmpty()) {
+        println()
+        println("two blue actions on one surface:")
+        AccentAudit.violations.forEach { println("  $it") }
+        kotlin.system.exitProcess(1)
+    }
+    println("one blue action per surface: clean")
 }
 
 private fun render(
@@ -119,7 +194,8 @@ private fun render(
     height: Int,
     seed: Boolean,
     settle: Int,
-    night: Boolean,
+    theme: Settings.Theme,
+    fontScale: Float,
     scrollTo: Float,
     route: (AppModel) -> Unit,
 ) {
@@ -127,6 +203,11 @@ private fun render(
     val model = graph.model
     model.start()
     settleBlocking(120)
+    // Wait for the preference to reach the store: `AriadneApp` calls start() from
+    // a LaunchedEffect, which reloads settings, and a still taken before that
+    // write lands would be printed on yesterday's paper.
+    model.setTheme(theme)
+    settleBlocking(150)
     if (seed) {
         // Creating a trip is asynchronous by design, so the route is posted only
         // once the store has actually accepted it.
@@ -139,8 +220,8 @@ private fun render(
     val scene = ImageComposeScene(
         width = width,
         height = height,
-        density = Density(1f),
-        content = { PreviewRoot(model, wide = width > 900, night = night) },
+        density = Density(1f, fontScale),
+        content = { PreviewRoot(model, wide = width > 900) },
     )
     scene.render()
     settleBlocking(120)
@@ -193,8 +274,10 @@ private fun AppModel.openDetailFirst() {
 private fun settleBlocking(millis: Long) = Thread.sleep(millis)
 
 @Composable
-private fun PreviewRoot(model: AppModel, wide: Boolean, night: Boolean) {
-    AriadneApp(model = model, wide = wide, dark = night)
+private fun PreviewRoot(model: AppModel, wide: Boolean) {
+    // No `dark` override: the shot sets the model's preference, exactly as a person
+    // would, so the stills prove the preference works rather than the parameter.
+    AriadneApp(model = model, wide = wide)
 }
 
 private class ShotServices : PlatformServices {

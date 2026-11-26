@@ -262,7 +262,7 @@ private fun ImageProxy.toJpeg(rotation: Int, maxEdge: Int = 1600): ByteArray? {
     return out.toByteArray()
 }
 
-private fun scaleDown(bitmap: Bitmap, maxEdge: Int): Bitmap {
+internal fun scaleDown(bitmap: Bitmap, maxEdge: Int): Bitmap {
     val longEdge = maxOf(bitmap.width, bitmap.height)
     if (longEdge <= maxEdge) return bitmap
     val ratio = maxEdge.toFloat() / longEdge
