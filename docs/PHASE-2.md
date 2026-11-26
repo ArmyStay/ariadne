@@ -98,13 +98,55 @@ summary** — what the day came to, how many photographs, how many confirmed, ho
 kept without an amount, how many still open — and then the one action, "Close the
 day". The plate number is gone and the header is the day and its figure.
 
+## Commit 2 — the capture sheet, and one tap saved
+
+The shutter used to open a page that was not an editor: a held-up photograph with
+two buttons, one of which ("Fill it in now") opened the editor. So the amount — the
+only thing anybody came to type — was two taps and a page transition away from the
+shutter, and the photograph got smaller at every step.
+
+Now the shutter opens the sheet. `FramePage` is rewritten as that sheet:
+
+- The photograph fills the page behind a `Paper.scrim` veil; the sheet rises over the
+  bottom two thirds on paper, with a hairline top edge rather than a shadow.
+- The amount, keypad, currency chips, category chips, where and remember-it-by are
+  **on the sheet**. Save is one tap. "Add the amount later" is the sheet's own button,
+  not a page you have to find, and it is the primary action when nothing has been
+  typed (labelled "Add the amount later", because a Save that saves nothing is a lie).
+- `capturePhoto` now loads the editor's state as it opens the sheet, so the field is
+  live on the first tap. Extraction still arrives later and is offered as a
+  suggestion — "Found ₹450 on it. yes / no" — and `acceptDetailSuggestion()` is the
+  one call that takes it, never a pre-filled field.
+- Wide windows get a spread instead: print on the left, the same fields on the right.
+
+**Why the sheet is hand-built.** A Material `ModalBottomSheet` would bring its own
+surface, elevation, shape and drag handle into a design that uses none of those
+things, and its behaviour (partial expansion, nested scroll arbitration) is exactly
+the kind of thing that cannot be checked in this environment. The sheet here is a
+`Column` with a paper ground, a hairline edge and its own scroll — the same parts as
+every other page — and the bar that looks like a handle is drawn, not draggable,
+because a handle that promises dragging without dragging is worse than a rule.
+
+`DetailPage`'s `LineField`, `CategoryChips` and `CurrencyChip` became `internal` so
+the sheet uses the same controls instead of copies. `Paper` gained `scrim`.
+
+### Flow checks added
+
+`preview/FlowCheck.kt` now asserts the two things this commit changed, and the stack
+contract from commit 1:
+
+- the shutter lands on the sheet with the amount field live and empty;
+- "add the amount later" returns to Today and deletes nothing;
+- a day opens over the tab that asked for it, Back returns to that tab, Back again
+  returns to the tab before it, and a third Back is refused without moving the app.
+
+These compile and run only with Gradle against the real modules; that has not been
+possible here (see the note at the top).
+
 ## Not yet in this commit
 
 Still to come in Phase 2 (next commits):
 
-- **The capture sheet**: shutter → sheet over the captured photo with keypad, currency
-  chips, category chips, note, Save / "Add amount later", replacing both `CapturePage`
-  and `FramePage`. OCR suggestions as chips, never auto-committed.
 - **Multi-select library import** into the "needs an amount" tray.
 - **Trip**: budget editing, per-currency subtotals, trip switcher.
 - **Stats**: category breakdown as a bar, daily spend against the daily budget, top

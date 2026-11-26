@@ -99,6 +99,16 @@ public object Bone {
     public val NightBlueWash: Color = Color(0xFF1A2436)
     public val NightBlueEdge: Color = Color(0xFF2E4470)
 
+    /**
+     * The veil over a photograph when a sheet rises in front of it.
+     *
+     * It is not a black wash: a neutral black over this warm paper turns the
+     * picture grey. It is ink at low opacity, so the print behind a sheet dims
+     * without losing its own colour.
+     */
+    public val Scrim: Color = Color(0x2E0F172A)
+    public val NightScrim: Color = Color(0x4D000000)
+
     // ── rules & rhythm ───────────────────────────────────────────────────────
     public val Hairline: Dp = 1.dp
     public val Margin: Dp = 24.dp
@@ -230,6 +240,9 @@ public data class Paper(
 
     /** A rule meant to be barely there: table rows, plate ground. */
     public val hairline: Color get() = if (isNight) Bone.NightEdge else Bone.Edge
+
+    /** What a sheet puts between itself and the photograph behind it. */
+    public val scrim: Color get() = if (isNight) Bone.NightScrim else Bone.Scrim
 
     public companion object {
         public val Light: Paper = Paper(isNight = false)

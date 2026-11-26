@@ -389,7 +389,7 @@ private fun Fields(
 }
 
 @Composable
-private fun LineField(
+internal fun LineField(
     label: String,
     value: String,
     placeholder: String,
@@ -437,7 +437,7 @@ private fun LineField(
 }
 
 @Composable
-private fun CategoryChips(
+internal fun CategoryChips(
     selected: Category?,
     paper: Paper,
     enabled: Boolean = true,
@@ -489,7 +489,7 @@ private fun CategoryChips(
 }
 
 @Composable
-private fun CurrencyChip(
+internal fun CurrencyChip(
     code: String,
     paper: Paper,
     selected: Boolean,

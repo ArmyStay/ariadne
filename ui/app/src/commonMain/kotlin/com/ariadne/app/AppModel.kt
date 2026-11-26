@@ -377,7 +377,20 @@ public class AppModel(
             // A photograph taken abroad is the moment a rate first matters. Policy
             // decides whether this is actually a request; a cached rate is enough.
             runCatching { refreshRates() }.onFailure(::report)
-            _state.value = _state.value.copy(route = Route.Frame(id))
+            // The sheet over the photograph is the editor, so it opens with the
+            // editor's state already loaded: the shutter gets out of the way and
+            // the amount field is live on the same tap. Nothing is pre-filled from
+            // extraction - a suggestion is offered as a chip, never typed in.
+            val saved = store.findById(id)
+            _state.value = _state.value.copy(
+                route = Route.Frame(id),
+                detail = saved,
+                detailOrigin = DetailOrigin.Record,
+                detailAmount = "",
+                detailMerchant = saved?.merchant ?: "",
+                detailNote = "",
+                detailCategory = saved?.category,
+            )
         }
     }
 
@@ -1097,6 +1110,20 @@ public class AppModel(
 
     public fun clearDetailAmountDigit() {
         _state.value = _state.value.copy(detailAmount = _state.value.detailAmount.dropLast(1))
+    }
+
+    /**
+     * "Yes, that is the figure": the extracted amount becomes the typed amount and
+     * is saved. One call, because it is one decision by the person, not two.
+     */
+    public fun acceptDetailSuggestion() {
+        val capture = _state.value.detail ?: return
+        val minor = capture.amountMinor ?: return
+        val currency = capture.currency ?: _state.value.trip?.baseCurrency ?: CurrencyCode.of("INR")
+        _state.value = _state.value.copy(
+            detailAmount = Money.ofMinor(minor).format(currency, grouping = false),
+        )
+        saveDetail()
     }
 
     public fun rejectDetailExtractedAmount() {
