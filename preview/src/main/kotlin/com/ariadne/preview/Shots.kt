@@ -60,6 +60,9 @@ fun main(args: Array<String>) {
         // Part-scrolled, so the still shows the scroll rail half way down and not
         // only in the state where it is easy to draw.
         Shot("02-today-scrolled", 440, 900, route = { it.go(Route.Home) }, scrollTo = 0.55f),
+        // The foot of the landing page: the day feed and the strip that holds the
+        // trips, the search and the settings.
+        Shot("02-today-foot", 440, 900, route = { it.go(Route.Home) }, scrollTo = 1f),
         Shot("03-days-scrolled", 440, 900, route = { it.go(Route.Days) }, scrollTo = 0.4f),
         Shot("06-record-scrolled", 440, 900, route = { it.openRecord(null) }, settle = 1, scrollTo = 0.6f),
         Shot("03-days", 440, 900, route = { it.go(Route.Days) }),
