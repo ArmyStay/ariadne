@@ -7,9 +7,11 @@ labels, pills, placeholders, empty states and notes — read out of `ui/app` and
 and a sequence of redesign passes. That file described a landing page, a bar and a set of
 routes that are not in the code.
 
-**Audited at** `c168fe6` (merge of PR #10), 2026-11-27. **Second revision:** every
-surface now lists its blocks in order, with the exact words on every label, button, pill,
-placeholder, empty state and note, and the control each one calls.
+**Audited at** `8185219` (merge of PR #11), 2026-11-27. **Second revision:** every
+surface lists its blocks in order, with the exact words on every label, button, pill,
+placeholder, empty state and note, and the control each one calls. **Third revision
+(phase 8):** the timeline was rebuilt to the journey reference — globe backdrop,
+`MARKHEAD` sections, a ledger spine of days — and §5.4 was rewritten to match.
 
 **What it is not.** Not a roadmap, not a changelog, and not a claim that any of this has
 been looked at on a screen. No screenshot in this repository was produced by this build:
@@ -211,7 +213,7 @@ AMOUNT**; **CLOSE THE DAY** → the summary → **BACK TO THE DAY**.
 
 ### 3.4 Reading the record
 
-`Days` → a `DayPlate` per day → `Record(day)`: receipt lines → `Detail`; **CLOSE DAY**;
+`Days` → a day row on the timeline spine → `Record(day)`: receipt lines → `Detail`; **CLOSE DAY**;
 **SEARCH**; **TRIP**.
 
 ### 3.5 The card
@@ -339,24 +341,68 @@ record and the card stay exactly as they were."* → **SEE THE CARD** → **THE 
 
 ### 5.4 Timeline — `TimelinePage` in `TabPages.kt`, Days tab
 
-**Header.** `Masthead(02, eyebrow = trip name \| "Timeline", title = "Timeline", lede = "Each day, and the hours it was spent in.", trailing = PageAction("Record") → Record(today))`.
+The page is built on the reference: a watercolour globe hung off the top-right corner,
+a masthead set over it, then **THE JOURNEY** and **THE DAYS** as two bar-marked
+sections. It is the one tab with a picture on it.
 
-**Rail.** `closed N`, `open N`, `the trip as a run of days`.
+**Backdrop.** `GlobeSky` (`core/design/.../Sky.kt`, the asset
+`core/design/src/commonMain/composeResources/drawable/globe_hero.png`) — the earth's limb
+with a plane crossing it, keyed to transparency so it sits on the paper with no edge.
+Size 322×434 dp on a phone, 470×633 wide; offset `x = +52 dp` (`+96` wide) and
+`y = −24 dp` (`−44` wide), so it bleeds off the page edge. It is drawn by `Page`'s
+`backdrop` slot — behind the content and *outside* the scroller, so it stays put while
+the days move — carries `contentDescription = null`, and prints at 18 % on night stock.
+It cannot be tapped.
 
-**Body.** One `DayPlate` per day of the trip — every day, empty ones included — each
-tap opening `openRecord(day)`:
+**Header.** `Masthead(number = "02", eyebrow = trip name \| "Timeline",
+title = "Timeline", titleSize = 50 sp (76 wide), lede = "The journey and every day in
+it.", trailing = QuietAction("Record") → Record(today), color = paper.ink)`. Upright, not
+italic. On screen:
 
-- spine: the day number (30sp numeral), the month (`Jan`…), the weekday (`Mon`…);
-- the state word, right-aligned against the day's figure: `in the record` (`inkFaint`)
-  when closed, `settled`, `1 to settle`, or `N to settle` (`paper.blue`);
-- the figure (`₹1,240.00`), shown only when the day has captures;
-- `DayBand` — a 54dp canvas of the 24-hour rail: one mark per capture at its hour
-  (filled ink when confirmed, an outlined blue ring when still open; two captures in one
-  hour stack upward), hour ticks at `00 06 12 18 23`, and the legend `Recorded` /
-  `Still open`;
-- a day with no captures instead draws a hairline and `nothing kept`.
+```
+02 — KOREA                                   RECORD
+                                              ‾‾‾‾‾‾
+Timeline
+The journey and every day in it.
+________________________________________________________________
+```
 
-**Empty.** *"A trip has no days until it has dates."* + **START A TRIP**.
+**Rail (wide only).** `closed N`, `open N`, `the trip as a run of days`.
+
+**I · THE JOURNEY** — `MarkHead("The journey")`: a 2 dp upright ink bar, 12 dp, then the
+tracked label. Under it:
+
+1. the trip's name as a serif `Title`, 34 sp (46 wide) — `Korea`;
+2. `KOREA · 2026-11-27 — 2026-12-03` — name, start, em dash, end, 9 sp tracked,
+   `paper.inkFaint`;
+3. **SPENT SO FAR** (9 sp, tracking 0.4) over the trip's total in its base currency, set
+   in the *serif* at 33 sp (44 wide) — `₹0.00`. It is the sum of `state.dayFigures`,
+   which `loadTripDays` converts per capture, so it is one currency's money;
+4. opposite it, on the same baseline: `0 OF 7 DAYS CLOSED`;
+5. a full-width rule in `paper.edgeStrong`.
+
+**II · THE DAYS** — `MarkHead("The days")`, then one row per day of the trip — every
+day, empty ones included — each opening `openRecord(day)`:
+
+- the spine: a hairline down the margin, `paper.edgeStrong`, with a 7 dp ring at each day
+  filled in the page colour so the line reads as passing behind it;
+- the date as a printed block: `27` in the serif at 30 sp, then `NOV`, then `FRI`
+  (9 sp tracked, `paper.inkFaint`);
+- an upright hairline between the date and the content, the height of the row;
+- a `StatusTag` — a rounded wash, `paper.blueWash` behind `paper.blue`: **IN THE RECORD**
+  (closed), **SETTLED**, or **N TO SETTLE**;
+- one line under it — **NOTHING KEPT**, or `3 KEPT · ₹1,240.00` (10 sp, tracking 1.5,
+  `paper.inkMid`);
+- a chevron at the row's centre in `paper.inkFaint`, and a hairline under the content
+  only (not under the date);
+- the whole row is one tap target (`Modifier.rowTap`) and one TalkBack node, described as
+  `2026-11-27, in the record, nothing kept`.
+
+The row's minimum height is 84 dp and it grows with the text: the spine and the column
+rule fill whatever height the date block takes.
+
+**Empty.** *"A trip has no days until it has dates."* + **START A TRIP**
+(`startEmptyTrip()`), with the globe and masthead still drawn behind it.
 
 ### 5.5 Record — `RecordPage.kt`, stacked over Days
 
@@ -678,7 +724,8 @@ name, else `Receipt · 21:09`, else `Receipt`. Never a raw OCR line, never "Unti
 `TUESDAY 11 NOVEMBER` in the sheet's head; `11/11/2025` in the sheet's date field;
 times as 24-hour `HH:MM`.
 
-**Empty states (verbatim).** `No trips yet.` · `nothing kept` (a day on the timeline) ·
+**Empty states (verbatim).** `No trips yet.` · `Nothing kept` (a day on the timeline, and the line under an
+empty day in the record) ·
 `Nothing kept on this day. An empty day is still part of the trip — it is the one you
 spent walking.` · `Nothing by that name.` · `Nothing has been tallied yet. The figures
 appear here the first time you finish a photograph at nightfall.` · `Nothing tallied yet.
@@ -776,6 +823,12 @@ photographs per capture; crop or rotate; a "More" tab; an in-app settings icon o
 3. **Home's rail and the Today badge count different scopes** — `stack.size` (the opened
    day) versus `tripPending` (every pending capture in the trip). They disagree on a trip
    with older unsettled days. Recorded, not fixed.
+4. ~~**The timeline printed every day's figure in the opened day's currency.**~~ **Fixed
+   in phase 8.** `dayFigures` is already in the trip's base currency (`loadTripDays`
+   converts each capture at its own pinned rate) but the plate formatted it with
+   `state.dayCurrency`, so a THB day in an INR trip could print a baht number with a
+   rupee sign. The rebuilt page formats with `trip.baseCurrency`, and the trip total is
+   simply the sum of that map.
 
 ---
 
