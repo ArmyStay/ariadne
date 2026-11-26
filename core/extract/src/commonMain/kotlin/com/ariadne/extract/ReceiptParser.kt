@@ -2,6 +2,7 @@ package com.ariadne.extract
 
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.LocalDay
+import com.ariadne.model.MerchantName
 
 /**
  * Pure-Kotlin receipt reader: OCR lines in, [ExtractionOutcome] out.
@@ -215,10 +216,14 @@ public class ReceiptParser(
             // A line that is mostly digits is a receipt number, not a shopfront.
             val digits = line.count { it.isDigit() }
             if (digits > line.length / 3) continue
-            return line.trim().trimStart('-', '*', '#', '.').trim()
-                .replace(Regex("\\s+"), " ")
-                .take(48)
-                .ifEmpty { null }
+            // A line that reads like a menu bar is a photographed screen, not a
+            // shop. "ction View Go Run Terminal Help" was accepted here before this
+            // check existed, and the record carried it as a title. The vocabulary
+            // lives in `:core:model` so the UI applies the same rule to a name a
+            // person typed, and so both can be tested without OCR.
+            // `continue`, not `return null`: the first line of a photographed
+            // screen is chrome, and the shop's name may be the line below it.
+            MerchantName.clean(line)?.let { return it }
         }
         return null
     }

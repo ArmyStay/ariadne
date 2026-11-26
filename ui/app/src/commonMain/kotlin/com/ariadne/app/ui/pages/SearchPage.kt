@@ -188,7 +188,7 @@ private fun SearchRow(capture: Capture, paper: Paper, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Title(capture.merchant ?: "Untitled", paper, size = 16.sp)
+            Title(model.titleOf(capture), paper, size = 16.sp)
             Spacer(Modifier.height(3.dp))
             Label(capture.localDate.iso, paper, color = paper.inkFaint)
         }

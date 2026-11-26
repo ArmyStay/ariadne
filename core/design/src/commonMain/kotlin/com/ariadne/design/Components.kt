@@ -211,6 +211,13 @@ public fun Numeral(
         color = color,
         textAlign = align,
         maxLines = maxLines,
+        softWrap = false,
+        // Never ellipsised. A numeral is an amount, and "₹7,395.00 L…" is not an
+        // amount — it is a number with its meaning cut off. The layout around a
+        // numeral is what has to make room; when it cannot, drawing the figure
+        // past its box is a visible mistake that gets fixed, where an ellipsis is
+        // an invisible one that ships.
+        overflow = TextOverflow.Visible,
         modifier = modifier,
     )
 }

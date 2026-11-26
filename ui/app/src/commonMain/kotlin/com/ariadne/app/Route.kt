@@ -4,9 +4,11 @@ import com.ariadne.model.Capture
 import com.ariadne.model.Category
 import com.ariadne.model.CategoryTotal
 import com.ariadne.model.DayCard
+import com.ariadne.model.DaySummary
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Settings
 import com.ariadne.model.Trip
+import com.ariadne.model.entryStatus
 
 /** Every surface in the app. There are six, and none of them is a spreadsheet. */
 /**
@@ -168,6 +170,18 @@ public data class AppUiState(
     public val dayTotalMinor: Long = 0,
     public val dayCurrency: String = "INR",
     public val perCurrency: Map<String, Long> = emptyMap(),
+    /**
+     * Money on this day that has no rate, in its own currency.
+     *
+     * It is not in [dayTotalMinor] — that is the whole point. The day total used to
+     * add unconverted minor units to base ones, which is how THB 2,555 and INR 50
+     * became "₹2,605". These figures are named on screen instead.
+     */
+    public val dayUnconverted: Map<String, Long> = emptyMap(),
+    /** The day each foreign rate was true, for "≈ at 20 Nov". */
+    public val dayRateDates: Map<String, String> = emptyMap(),
+    /** The same, for the whole trip. */
+    public val tripUnconverted: Map<String, Long> = emptyMap(),
     /** The capture open in the detail page, when one is. */
     public val detail: Capture? = null,
     /** Where the detail page was opened from, so Back can return there. */
@@ -235,4 +249,23 @@ public data class AppUiState(
 ) {
     public val current: Capture? get() = stack.getOrNull(stackIndex)
     public val remaining: Int get() = (stack.size - stackIndex).coerceAtLeast(0)
+
+    /**
+     * Every capture in the trip that still needs something: an amount, or a
+     * confirmation that it has none. One list, computed from the entry state and
+     * nothing else, so no two pages can disagree about whether the trip is done.
+     *
+     * The Home page's "all settled" pill used to read `stack.isEmpty()` — the
+     * pending stack of whichever day happened to be loaded last. Visit another day
+     * and Home claimed the trip was settled while the timeline still showed an open
+     * card. This is that bug, fixed at the source rather than in the label.
+     */
+    public val tripPending: List<Capture>
+        get() = dayCapturesAll.values.flatten().filter { it.entryStatus.isPending }
+
+    /** True when nothing anywhere in the trip is waiting on the person. */
+    public val tripSettled: Boolean get() = tripPending.isEmpty()
+
+    /** What one day of the trip still owes, read the same way every page reads it. */
+    public fun daySummary(iso: String): DaySummary = DaySummary.of(dayCapturesAll[iso].orEmpty())
 }

@@ -146,7 +146,7 @@ public fun AriadneApp(
                         barDescription = route.stackedFrom(),
                         onSelect = { tab -> model.go(tab.route()) },
                         onCapture = { model.openCapture() },
-                        waiting = state.stack.size,
+                        waiting = state.tripPending.size,
                         captureEnabled = state.trip?.isClosed == false,
                     )
                 }

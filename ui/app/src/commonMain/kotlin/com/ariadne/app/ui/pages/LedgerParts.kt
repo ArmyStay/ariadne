@@ -35,6 +35,7 @@ import com.ariadne.model.Capture
 import com.ariadne.model.Category
 import com.ariadne.model.CategoryTotal
 import com.ariadne.model.CurrencyCode
+import com.ariadne.model.DaySummary
 import com.ariadne.model.Money
 import com.ariadne.model.isoWeekday
 import kotlin.math.abs
@@ -169,7 +170,7 @@ internal fun Breakdown(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Title(
-                            row.category?.label ?: "Not said",
+                            row.category?.label ?: "Uncategorised",
                             paper,
                             size = 17.sp,
                             italic = row.category == null,
@@ -269,6 +270,7 @@ internal fun DayPlate(
     hourOf: (Long) -> Int,
     onClick: () -> Unit,
 ) {
+    val summary = DaySummary.of(captures)
     Row(
         Modifier
             .fillMaxWidth()
@@ -296,7 +298,14 @@ internal fun DayPlate(
         Column(Modifier.weight(1f)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Label(
-                    if (closed) "in the record" else "still open",
+                    // "Still open" was a page-level guess. The day now says what it
+                    // actually owes, counted by the same rule Home counts with.
+                    when {
+                        closed -> "in the record"
+                        summary.isSettled -> "settled"
+                        summary.pending == 1 -> "1 to settle"
+                        else -> "${summary.pending} to settle"
+                    },
                     paper,
                     color = if (closed) paper.inkFaint else paper.blue,
                     tracking = 1.3.sp,
@@ -331,3 +340,56 @@ private fun weekdayName(day: com.ariadne.model.LocalDay): String = listOf(
 
 /** Every category, whether or not it has anything in it. */
 internal fun Category.all(): List<Category> = Category.entries.toList()
+
+/**
+ * What a converted figure is worth trusting, printed under it.
+ *
+ * The brief asks for two marks wherever money has been converted: an "≈" on the
+ * figure, and the date of the rate behind it. This is that sentence — and it
+ * carries the third fact the old app hid, which is money it could *not* convert.
+ * "฿2,555.00 not counted" is a smaller claim than a wrong total and a truer one.
+ *
+ * Deliberately not a `Row` of tracked capitals in the margin: the sentence has to
+ * survive 200% font sizes, so it is a `Body` that wraps.
+ */
+@Composable
+internal fun ConversionNote(
+    rateDates: Map<String, String>,
+    unconverted: Map<String, Long>,
+    paper: Paper,
+    modifier: Modifier = Modifier,
+) {
+    if (rateDates.isEmpty() && unconverted.isEmpty()) return
+    Column(modifier.fillMaxWidth()) {
+        if (rateDates.isNotEmpty()) {
+            val days = rateDates.values.distinct().sorted()
+            Body(
+                if (days.size == 1) "≈ converted at the rate for ${spokenDay(days.first())}" else
+                    "≈ converted at the rates in force ${spokenDay(days.first())} – ${spokenDay(days.last())}",
+                paper,
+                color = paper.inkFaint,
+                size = 12.sp,
+            )
+        }
+        unconverted.forEach { (code, minor) ->
+            val currency = CurrencyCode.parseOrNull(code)
+            if (currency != null) {
+                Spacer(Modifier.height(4.dp))
+                Body(
+                    // The money is named in its own currency and never added to the
+                    // total above it. That addition was the ₹2,605 bug.
+                    "${Money.ofMinor(minor).formatWithSymbol(currency)} not counted — no ${currency.code} rate yet",
+                    paper,
+                    color = paper.inkFaint,
+                    size = 12.sp,
+                )
+            }
+        }
+    }
+}
+
+/** "20 Nov" from an ISO day, for a sentence rather than a column. */
+internal fun spokenDay(iso: String): String {
+    val day = com.ariadne.model.LocalDay.parseOrNull(iso) ?: return iso
+    return "${day.day} ${localMonthName(day)}"
+}

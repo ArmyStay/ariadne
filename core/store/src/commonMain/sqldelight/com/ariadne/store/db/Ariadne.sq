@@ -87,6 +87,16 @@ UPDATE capture
 SET amountMinor = ?, currency = ?, merchant = ?, markedNoAmount = ?, confirmedAt = ?
 WHERE id = ?;
 
+recordCaptureRate:
+-- The rate a confirmed amount was converted at, pinned to the row.
+--
+-- Kept as its own statement rather than a parameter of the one above, because a
+-- rate is only meaningful once an amount exists: extraction writes an amount it
+-- read, a person confirms it, and only then is there anything to convert. Writing
+-- it here also means a capture confirmed years ago keeps the rate it was
+-- confirmed at, whatever the table says today.
+UPDATE capture SET rateScaled = ?, rateDate = ? WHERE id = ?;
+
 updateCaptureRetry:
 UPDATE capture SET failedAttempts = ?, retryNotBefore = ? WHERE id = ?;
 

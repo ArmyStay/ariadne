@@ -33,6 +33,9 @@ dependencies {
     implementation(project(":core:time"))
     implementation(project(":core:extract"))
     implementation(project(":core:design"))
+    // The rate-source contract: this module supplies the transport, :core:fx owns
+    // the policy and parsing.
+    implementation(project(":core:fx"))
     implementation(libs.sqldelight.android)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core)

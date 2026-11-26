@@ -236,7 +236,9 @@ private fun Photograph(
         Box(Modifier.fillMaxWidth().aspectRatio(1f).border(Bone.Hairline, paper.edge)) {
             PhotoPreview(
                 photoPath = photoPath,
-                caption = merchant ?: "Photograph",
+                // The same name the row and the search result carry, so a screen
+                // reader describes one photograph one way throughout.
+                caption = com.ariadne.model.MerchantName.receiptTitle(merchant),
                 paper = paper,
                 modifier = Modifier.fillMaxSize(),
             )

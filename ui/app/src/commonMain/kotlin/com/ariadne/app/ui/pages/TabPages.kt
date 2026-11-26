@@ -78,6 +78,7 @@ import com.ariadne.model.Capture
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
+import com.ariadne.model.DaySummary
 import com.ariadne.model.Settings
 import com.ariadne.model.dayRange
 import com.ariadne.model.symbol
@@ -158,7 +159,7 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 Spacer(Modifier.height(4.dp))
                 Label("closed ${state.dayCards.count { it.isClosed }}", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
                 Spacer(Modifier.height(26.dp))
-                RailFigure("waiting", "${state.stack.size}", paper, 26.sp)
+                RailFigure("waiting", "${DaySummary.of(state.dayCaptures).pending}", paper, 26.sp)
                 Spacer(Modifier.height(4.dp))
                 Label("photographs", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
             }
@@ -225,6 +226,13 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         // this large does not need a box; the box was only ever decoration.
         Spacer(Modifier.height(26.dp))
         Row(verticalAlignment = Alignment.Bottom) {
+            // The "≈" hangs beside the symbol, on the same line, when any part of
+            // this figure came from a conversion — the figure is an approximation
+            // and says so where the number is, not in a footnote.
+            if (state.dayRateDates.isNotEmpty()) {
+                Numeral("≈", paper, color = paper.inkFaint, size = 22.sp)
+                Spacer(Modifier.width(4.dp))
+            }
             Numeral(
                 CurrencyCode.of(state.dayCurrency).symbol(),
                 paper,
@@ -239,13 +247,20 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 weight = FontWeight.Medium,
             )
         }
+        Spacer(Modifier.height(8.dp))
+        ConversionNote(state.dayRateDates, state.dayUnconverted, paper)
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Label("finished today", paper, color = paper.inkSoft)
+            // Counted from the entry state of the day this row is about, which is
+            // the same count the timeline prints for that day. The pill used to read
+            // the pending stack instead, so it could say "all settled" over a day
+            // the timeline was calling open.
+            val waiting = DaySummary.of(state.dayCaptures).pending
             Pill(
-                if (state.stack.isEmpty()) "all settled" else "${state.stack.size} waiting",
+                if (waiting == 0) "all settled" else "$waiting waiting",
                 paper,
-                if (state.stack.isEmpty()) PillTone.Quiet else PillTone.Blue,
+                if (waiting == 0) PillTone.Quiet else PillTone.Blue,
             )
         }
 
@@ -513,6 +528,10 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         // The qualifier belongs to the figure, not to the note three sections
         // below it: a total is read before anything under it.
         Label("finished photographs only", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.3.sp)
+        // Money that could not be converted is named here, under the figure it is
+        // missing from, rather than folded into it.
+        Spacer(Modifier.height(6.dp))
+        ConversionNote(emptyMap(), state.tripUnconverted, paper)
         Spacer(Modifier.height(14.dp))
 
         // The fence, if one was set. Over budget is stated plainly and in the same
@@ -520,32 +539,44 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         val budget = state.trip?.budgetMinor
         if (budget != null) {
             val remaining = budget - tripTotal
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Label("against a budget of", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
-                Spacer(Modifier.width(8.dp))
-                Label(
-                    Money.ofMinor(budget).formatWithSymbol(base),
-                    paper,
-                    color = paper.inkSoft,
-                    size = 10.sp,
-                    tracking = 1.2.sp,
-                )
-                Spacer(Modifier.weight(1f))
-                Label(
-                    if (remaining >= 0) "left" else "over",
-                    paper,
-                    color = paper.inkFaint,
-                    size = 9.sp,
-                    tracking = 1.4.sp,
-                )
-                Spacer(Modifier.width(8.dp))
-                Numeral(
-                    Money.ofMinor(if (remaining >= 0) remaining else -remaining).format(base),
-                    paper,
-                    size = 15.sp,
-                    weight = FontWeight.Medium,
-                    color = if (remaining >= 0) paper.ink else paper.blue,
-                )
+            // Two columns, not five siblings in one row.
+            //
+            // This used to be a `Row` of labels with a weighted spacer between them,
+            // and at a large font the spacer collapsed to nothing: the budget and the
+            // remaining figure came out as "₹10,000.00LEFT". Splitting the row into
+            // a side that may shrink and a side that may not, with a real 12dp gap
+            // between them, means the words wrap and the money never moves.
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                Column(Modifier.weight(1f)) {
+                    Label("budget", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
+                    Spacer(Modifier.height(3.dp))
+                    // Money inside a shrinkable column: it stays on one line and is
+                    // the last thing to give up space.
+                    Numeral(
+                        Money.ofMinor(budget).formatWithSymbol(base),
+                        paper,
+                        size = 13.sp,
+                        color = paper.inkSoft,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Label(
+                        if (remaining >= 0) "left" else "over",
+                        paper,
+                        color = paper.inkFaint,
+                        size = 9.sp,
+                        tracking = 1.4.sp,
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Numeral(
+                        Money.ofMinor(if (remaining >= 0) remaining else -remaining).formatWithSymbol(base),
+                        paper,
+                        size = 15.sp,
+                        weight = FontWeight.Medium,
+                        color = if (remaining >= 0) paper.ink else paper.blue,
+                    )
+                }
             }
             Spacer(Modifier.height(10.dp))
         }

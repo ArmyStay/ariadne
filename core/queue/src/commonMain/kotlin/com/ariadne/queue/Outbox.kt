@@ -149,6 +149,17 @@ public interface CaptureRepository {
         note: String?,
     )
 
+    /**
+     * Pins the rate an amount was confirmed at to the capture.
+     *
+     * The default body is deliberate: a repository that does not persist rates —
+     * the in-memory double in a test that only exercises the queue — keeps
+     * compiling and keeps working, and the real store writes the two columns. A
+     * rate is not the record the way the amount is; losing it must never lose the
+     * photograph.
+     */
+    public suspend fun recordRate(id: String, rateScaled: Long?, rateDate: String?) {}
+
     /** Category totals for the trip, largest first, with an uncategorised row. */
     public suspend fun categoryTotals(tripId: String): List<com.ariadne.model.CategoryTotal>
 }
@@ -182,6 +193,15 @@ public class InMemoryCaptureRepository(
                 merchant = merchant,
                 markedNoAmount = markedNoAmount,
                 confirmedAt = confirmedAt,
+            )
+        }
+    }
+
+    override suspend fun recordRate(id: String, rateScaled: Long?, rateDate: String?) {
+        items[id]?.let {
+            items[id] = it.copy(
+                rateScaled = rateScaled,
+                rateDate = rateDate?.let { com.ariadne.model.LocalDay.parseOrNull(it) },
             )
         }
     }

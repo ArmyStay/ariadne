@@ -83,7 +83,7 @@ public fun FramePage(
         ) {
             PhotoPreview(
                 photoPath = capture?.photoPath.orEmpty(),
-                caption = capture?.merchant ?: "just taken",
+                caption = capture?.let { model.titleOf(it) } ?: "just taken",
                 paper = paper,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -92,7 +92,7 @@ public fun FramePage(
         Spacer(Modifier.height(16.dp))
 
         Title(
-            capture?.merchant ?: "Kept",
+            capture?.let { model.titleOf(it) } ?: "Kept",
             paper,
             size = if (wide) 30.sp else 26.sp,
             italic = true,
@@ -138,7 +138,7 @@ public fun FramePage(
 
         Spacer(Modifier.height(18.dp))
         Label(
-            "${state.stack.size} waiting to be finished",
+            "${state.tripPending.size} waiting to be finished",
             paper,
             color = paper.inkFaint,
             size = 9.sp,

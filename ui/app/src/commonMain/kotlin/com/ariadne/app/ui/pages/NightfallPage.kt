@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
@@ -144,24 +142,21 @@ public fun NightfallPage(
             // keypad is pinned to the bottom edge so a number is always one tap
             // away, and the ritual never needs a scroll to finish a card.
             Column(Modifier.fillMaxWidth().weight(1f)) {
-                // Only the plate scrolls. The merchant, the amount and both
-                // decisions are pinned, because a ritual you have to scroll to
-                // finish is not a ritual, it is a form.
-                Column(
-                    Modifier.fillMaxWidth().weight(1f)
-                        .verticalScroll(rememberScrollState()),
-                ) {
+                // The photograph is the thing being read, so it does not scroll.
+                //
+                // It used to live in a scrolling column above a pinned keypad, and
+                // the moment the amount was typed the receipt it came from was
+                // gone — the one screen where you need to look at the paper showed
+                // a keypad and a number with nothing behind them. Now the plate
+                // takes whatever space the pinned parts below do not need, and at
+                // 200% text it gets smaller instead of leaving the screen.
+                Box(Modifier.fillMaxWidth().weight(1f)) {
                     // The same plate as everywhere else: 1:1. A 16:9 crop here
                     // made the triage card look like a different app.
-                    PhotographOf(
-                        capture,
-                        paper,
-                        Modifier.fillMaxWidth().aspectRatio(1f),
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    Header(state, model, paper, capture)
-                    Spacer(Modifier.height(10.dp))
+                    PhotographOf(capture, paper, Modifier.fillMaxSize())
                 }
+                Spacer(Modifier.height(12.dp))
+                Header(state, model, paper, capture)
                 Spacer(Modifier.height(10.dp))
                 Amount(typed, state.dayCurrency, paper)
                 Spacer(Modifier.height(12.dp))
@@ -212,7 +207,7 @@ private fun Header(state: AppUiState, model: AppModel, paper: Paper, capture: Ca
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Title(capture.merchant ?: "Untitled", paper, size = 24.sp)
+                Title(model.titleOf(capture), paper, size = 24.sp)
                 Spacer(Modifier.height(6.dp))
                 Label(
                     when {
@@ -423,7 +418,7 @@ private fun PhotographOf(capture: Capture, paper: Paper, modifier: Modifier) {
     Box(modifier.border(Bone.Hairline, paper.edge)) {
         PhotoPreview(
             photoPath = capture.photoPath,
-            caption = capture.merchant ?: "Photograph",
+            caption = com.ariadne.model.MerchantName.receiptTitle(capture.merchant),
             paper = paper,
             modifier = Modifier.fillMaxSize(),
         )

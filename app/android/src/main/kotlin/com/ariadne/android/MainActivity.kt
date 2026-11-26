@@ -80,6 +80,9 @@ private class AndroidServices(
 
     override fun recognizer(): TextRecognizer = MlKitTextRecognizer(activity.applicationContext)
 
+    // The only outbound request in the app: exchange rates. See AndroidRateSource.
+    override fun rateSource(): com.ariadne.fx.RateSource = AndroidRateSource()
+
     override fun files(): com.ariadne.app.PhotoFiles = AndroidFiles(activity)
 
     override fun clipboard(): com.ariadne.app.Clipboard = AndroidClipboard(activity)

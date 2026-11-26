@@ -109,7 +109,7 @@ class FxTest {
             capture("b", 11_500, thb),
             capture("c", 12_000, inr),
         )
-        val tally = Tally(table, inr).total(captures, day)
+        val tally = Tally(table, inr).total(captures)
         assertEquals(2, tally.perCurrency.size)
         assertTrue(tally.isMultiCurrency)
         // 68.25 + 120.00 (INR) + 303.60 (THB converted) = 491.85
@@ -119,7 +119,7 @@ class FxTest {
     @Test
     fun tally_counts_captures_with_no_amount_without_treating_them_as_zero_rupees() {
         val noAmount = capture("d", null, null)
-        val tally = Tally(table, inr).total(listOf(capture("a", 100, inr), noAmount), day)
+        val tally = Tally(table, inr).total(listOf(capture("a", 100, inr), noAmount))
         assertEquals(1, tally.noAmountCount)
         assertEquals(100L, tally.baseTotal.minorUnits)
     }
@@ -129,7 +129,6 @@ class FxTest {
         // Acceptance criterion 7, expressed as a unit test.
         val tally = Tally(table, inr).total(
             listOf(capture("chai", 4_000, inr), capture("kiosk", 8_000, thb)),
-            day,
         )
         assertTrue(tally.isMultiCurrency)
         assertTrue(tally.baseTotal.minorUnits > 0)

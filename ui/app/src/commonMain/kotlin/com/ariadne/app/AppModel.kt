@@ -10,6 +10,7 @@ import com.ariadne.model.CaptureState
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
+import com.ariadne.model.MerchantName
 import com.ariadne.model.Settings
 import com.ariadne.model.Trip
 import com.ariadne.model.dayRange
@@ -41,6 +42,8 @@ public class AppModel(
     private val clock: Clock,
     private val scope: CoroutineScope,
     private val newId: () -> String,
+    /** Where rates come from. Null on a platform with no network, or in a test. */
+    private val rateSource: com.ariadne.fx.RateSource? = null,
 ) {
     private val _state = MutableStateFlow(AppUiState())
     public val state: StateFlow<AppUiState> = _state.asStateFlow()
@@ -96,6 +99,48 @@ public class AppModel(
             }
             if (day != null) runCatching { refreshDay(day) }
             runCatching { loadTripDays(trip) }
+        }
+    }
+
+    // -- rates -------------------------------------------------------------
+
+    /**
+     * Fetches the rates this trip needs, when they are worth fetching.
+     *
+     * Three rules, each of which used to be missing:
+     *
+     *  - one request covers every foreign currency the trip has used;
+     *  - a rate younger than [com.ariadne.fx.RatePolicy.MAX_AGE_DAYS] is not
+     *    re-fetched, so opening the app five times a day is not five requests;
+     *  - a failure changes nothing. The table keeps the last known rate, the
+     *    amounts keep converting at it, and the UI prints its date.
+     *
+     * [force] exists for the one deliberate case: the person taps "Update rates".
+     */
+    public fun refreshRates(force: Boolean = false) {
+        val source = rateSource ?: return
+        val trip = _state.value.trip ?: return
+        val base = trip.baseCurrency
+        val quotes = currenciesInUse().mapNotNull { CurrencyCode.parseOrNull(it) }
+        scope.launch {
+            val today = clock.today()
+            val known = runCatching { store.allRates() }.getOrDefault(emptyList())
+            val newest = known.filter { it.base == base }
+                .groupBy { it.quote }
+                .mapValues { (_, rows) -> rows.maxByOrNull { LocalDay.toEpochDay(it.date) }?.date }
+            if (!force && !com.ariadne.fx.RatePolicy.shouldFetch(newest, quotes, today)) return@launch
+            val url = com.ariadne.fx.Frankfurter.url(base, quotes) ?: return@launch
+            val body = runCatching { source.get(url) }.getOrNull() ?: return@launch
+            val parsed = com.ariadne.fx.Frankfurter.parse(body, base) ?: return@launch
+            runCatching {
+                parsed.rates.forEach { store.upsertRate(it) }
+                fxRates = store.allRates()
+                fx = FxTable(fxRates)
+            }.onFailure(::report)
+            // New rates change the figures on every page that converts, so the day
+            // and the whole trip are re-read rather than left stale behind them.
+            _state.value.today?.let { refreshDay(it) }
+            loadTripDays(trip)
         }
     }
 
@@ -166,6 +211,9 @@ public class AppModel(
                     )
                 }
             }
+            // Rates last, and off the launch path: the app is on screen before the
+            // first request goes out, and a slow or missing network cannot delay it.
+            runCatching { refreshRates() }.onFailure(::report)
             onStartedAction?.invoke()
         }
     }
@@ -316,6 +364,9 @@ public class AppModel(
             // Extraction picks it up on the next drain; the shutter is already back.
             extraction.drain()
             refreshDay(day)
+            // A photograph taken abroad is the moment a rate first matters. Policy
+            // decides whether this is actually a request; a cached rate is enough.
+            runCatching { refreshRates() }.onFailure(::report)
             _state.value = _state.value.copy(route = Route.Frame(id))
         }
     }
@@ -481,6 +532,23 @@ public class AppModel(
      * zone, and a rail that reads UTC is wrong in every zone but one.
      */
     public fun hourOf(millis: Long): Int = clock.hourOf(millis)
+
+    /**
+     * "21:09" — the time a photograph was taken, in the device's own zone.
+     *
+     * Used for the fallback title, which is the only place the clock reaches copy:
+     * a receipt the recogniser could not name is "Receipt · 21:09" rather than a
+     * guessed merchant or the word "Untitled".
+     */
+    public fun clockTimeOf(millis: Long): String {
+        val hour = clock.hourOf(millis).coerceIn(0, 23).toString().padStart(2, '0')
+        val minute = clock.minuteOf(millis).coerceIn(0, 59).toString().padStart(2, '0')
+        return "$hour:$minute"
+    }
+
+    /** What a capture is called on every page that shows it. */
+    public fun titleOf(capture: Capture): String =
+        MerchantName.receiptTitle(capture.merchant, clockTimeOf(capture.createdAt))
 
     public fun startNewTrip() {
         val today = clock.today()
@@ -712,6 +780,8 @@ public class AppModel(
             _state.value = _state.value.copy(trip = updated)
             _state.value.today?.let { refreshDay(it) }
             loadTripDays(updated)
+            // A new base currency means the cached rates are for the wrong base.
+            refreshRates(force = true)
         }
     }
 
@@ -785,6 +855,32 @@ public class AppModel(
     public fun previous() = selectStackIndex((_state.value.stackIndex - 1).coerceAtLeast(0))
 
     /**
+     * Pins the rate a confirmed amount was converted at to the capture row.
+     *
+     * Called from every door that confirms a figure — the stack, "confirm all
+     * ready", the detail page. One helper, because the ₹2,605 bug was three pages
+     * converting the same captures at three different dates: the day being read,
+     * the trip's first capture, and the trip's start date.
+     *
+     * The rate is looked up on the capture's own day, so a receipt photographed in
+     * Bangkok is converted at Bangkok's rate for that day, and is never revisited
+     * when the rate table moves. No rate available is recorded as such: the amount
+     * stays, and the total names it as unconverted instead of quietly pretending.
+     */
+    private suspend fun pinRate(capture: Capture, amountMinor: Long?, currency: CurrencyCode) {
+        val trip = _state.value.trip ?: return
+        if (amountMinor == null || currency == trip.baseCurrency) {
+            // Nothing to convert: clear any stale snapshot so a currency edit
+            // cannot leave an old rate attached to a rupee amount.
+            store.recordRate(capture.id, null, null)
+            return
+        }
+        val day = capture.localDate
+        val rate = fx.rateOrNull(currency, trip.baseCurrency, day)
+        store.recordRate(capture.id, rate, if (rate == null) null else day.iso)
+    }
+
+    /**
      * Confirm the card on screen. Two taps from card open at most: the amount is
      * pre-filled when extraction was confident, so Confirm alone is often enough.
      */
@@ -802,6 +898,7 @@ public class AppModel(
                 markedNoAmount = noAmount,
                 confirmedAt = clock.nowMillis(),
             )
+            pinRate(capture, parsed?.minorUnits, currency)
             outbox.apply(capture.id, if (noAmount) QueueEvent.MarkedNoAmount else QueueEvent.AmountEntered)
             outbox.apply(capture.id, QueueEvent.Confirmed)
             val day = capture.localDate
@@ -895,6 +992,7 @@ public class AppModel(
                     markedNoAmount = false,
                     confirmedAt = clock.nowMillis(),
                 )
+                pinRate(capture, capture.amountMinor, currency)
                 when (capture.state) {
                     CaptureState.NEEDS_CONFIRMATION -> Unit
                     CaptureState.NEEDS_AMOUNT, CaptureState.FAILED -> outbox.apply(capture.id, QueueEvent.AmountEntered)
@@ -1070,6 +1168,9 @@ public class AppModel(
                 category = _state.value.detailCategory?.name,
                 note = _state.value.detailNote.trim().ifBlank { null },
             )
+            // Same rule as the stack: the figure someone just saved is converted at
+            // the rate of that capture's day, and pinned there.
+            pinRate(capture, parsed?.minorUnits, currency)
             if (parsed != null || keepWithoutAmount) {
                 // A figure entered here is a decided figure, so the card leaves the
                 // Nightfall stack through the same door the ritual uses.
@@ -1188,12 +1289,19 @@ public class AppModel(
         val byDay = all.groupBy { it.localDate.iso }
         val figures = byDay.mapValues { (_, captures) ->
             Tally(fx, trip.baseCurrency)
-                .total(captures.filter { it.state == CaptureState.CONFIRMED || it.state == CaptureState.ARCHIVED }, captures.first().localDate)
+                // No date argument: each capture converts at its own pinned rate,
+                // or at the rate table for its own day. Passing the first capture's
+                // day here is what made the timeline disagree with the day page.
+                .total(captures.filter { it.state == CaptureState.CONFIRMED || it.state == CaptureState.ARCHIVED })
                 .baseTotal.minorUnits
         }
+        val tripTally = Tally(fx, trip.baseCurrency).total(all.filter {
+            it.state == CaptureState.CONFIRMED || it.state == CaptureState.ARCHIVED
+        })
         _state.value = _state.value.copy(
             dayCapturesAll = byDay.mapKeys { it.key },
             dayFigures = figures,
+            tripUnconverted = tripTally.unconverted.mapKeys { it.key.code }.mapValues { it.value },
         )
     }
 
@@ -1209,7 +1317,6 @@ public class AppModel(
         }
         val tally = Tally(fx, trip.baseCurrency).total(
             captures.filter { it.state == CaptureState.CONFIRMED || it.state == CaptureState.ARCHIVED },
-            day,
         )
         val indexNow = _state.value.stackIndex.coerceIn(0, (stack.size - 1).coerceAtLeast(0))
         _state.value = _state.value.copy(
@@ -1220,7 +1327,16 @@ public class AppModel(
             dayTotalMinor = tally.baseTotal.minorUnits,
             dayCurrency = trip.baseCurrency.code,
             perCurrency = tally.perCurrency.mapKeys { it.key.code }.mapValues { it.value },
-            categoryTotals = store.categoryTotals(trip.id),
+            dayUnconverted = tally.unconverted.mapKeys { it.key.code }.mapValues { it.value },
+            dayRateDates = tally.rateDates.mapKeys { it.key.code }.mapValues { it.value.iso },
+            // Aggregated here, from the same finished captures the trip total is
+            // computed from, and not by a SQL GROUP BY that returned one row per
+            // currency. Stats and Home now add up the same money or neither does.
+            categoryTotals = com.ariadne.fx.CategoryTotals.of(
+                captures = store.confirmedForTrip(trip.id),
+                fx = fx,
+                baseCurrency = trip.baseCurrency,
+            ),
         )
         loadTripDays(trip)
         _state.value = _state.value.copy(

@@ -1,6 +1,7 @@
 package com.ariadne.store
 
 import app.cash.sqldelight.db.SqlDriver
+import com.ariadne.fx.CategoryTotals
 import com.ariadne.fx.FxTable
 import com.ariadne.model.Capture
 import com.ariadne.model.Category
@@ -147,6 +148,11 @@ public class AriadneStore(
             confirmedAt = confirmedAt,
             id = id,
         )
+        bump()
+    }
+
+    override suspend fun recordRate(id: String, rateScaled: Long?, rateDate: String?): Unit = withContext(io) {
+        q.recordCaptureRate(rateScaled, rateDate, id)
         bump()
     }
 
@@ -299,6 +305,8 @@ public class AriadneStore(
         markedNoAmount = row.markedNoAmount != 0L,
         category = Category.ofOrNull(row.category),
         note = row.note,
+        rateScaled = row.rateScaled,
+        rateDate = LocalDay.parseOrNull(row.rateDate),
     )
 
     override suspend fun updateDetail(
@@ -321,51 +329,22 @@ public class AriadneStore(
     }
 
     /**
-     * Category totals, converted into the trip's base currency through the same
-     * FX table the ledger uses — so the breakdown and the total can never tell two
-     * different stories. Captures with no category come back as one row with a
-     * null category rather than being dropped: an uncategorised rupee is still a
-     * rupee you spent.
+     * Category totals, aggregated by the same rules the ledger uses.
+     *
+     * This used to be a `GROUP BY category, currency` in SQL, which was wrong twice:
+     * the same category came back once per currency (two "Uncategorised" rows for
+     * one trip), and each row was converted at the *trip's start date* while the day
+     * pages converted at the capture's own day. Stats and Home therefore disagreed
+     * about the same money.
+     *
+     * The aggregation now lives in `:core:fx` as [CategoryTotals], over the same
+     * captures the trip total is computed from, so there is one answer and not two.
+     * The store's job is to hand over the finished rows, which is what it does here.
      */
     override suspend fun categoryTotals(tripId: String): List<CategoryTotal> = withContext(io) {
         val trip = trip(tripId) ?: return@withContext emptyList()
-        val rates = allRates()
-        val rows = q.selectCategoryTotals(tripId).executeAsList().mapNotNull { row ->
-            val category = Category.ofOrNull(row.category) ?: return@mapNotNull null
-            val minor = row.minor?.toLong() ?: return@mapNotNull null
-            val currency = CurrencyCode.parseOrNull(row.currency) ?: trip.baseCurrency
-            CategoryTotal(
-                category = category,
-                captures = (row.captures ?: 0L).toInt(),
-                baseMinor = toBase(minor, currency, trip.baseCurrency, trip.startDate, rates),
-            )
-        }
-        val out = rows.toMutableList()
-        q.selectUncategorisedTotal(tripId).executeAsList().forEach { loose ->
-            val currency = CurrencyCode.parseOrNull(loose.currency) ?: trip.baseCurrency
-            out += CategoryTotal(
-                category = null,
-                captures = (loose.captures ?: 0L).toInt(),
-                baseMinor = toBase(loose.minor?.toLong() ?: 0L, currency, trip.baseCurrency, trip.startDate, rates),
-            )
-        }
-        out.sortedByDescending { it.baseMinor }
+        val finished = q.selectConfirmedForTrip(tripId).executeAsList().map(::toCapture)
+        CategoryTotals.of(finished, FxTable(allRates()), trip.baseCurrency)
     }
 
-    /** Converts minor units at the stored scaled rate, rounding once, HALF_UP. */
-    /**
-     * Converts one currency's minor units into the trip's base currency.
-     *
-     * Delegates to [FxTable], which is the app's single rounding site; this class
-     * must not grow a second one. `date` is the capture's own day so a rate
-     * entered later never rewrites a figure that was already closed — the amount
-     * was true on the day it was spent.
-     */
-    private fun toBase(
-        minor: Long,
-        from: CurrencyCode,
-        to: CurrencyCode,
-        date: LocalDay,
-        rates: List<Rate>,
-    ): Long = FxTable(rates).convert(Money.ofMinor(minor), from, to, date).amount.minorUnits
 }

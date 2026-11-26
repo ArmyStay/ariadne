@@ -88,26 +88,42 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 trip.budgetMinor?.let { budget ->
                     val spent = state.categoryTotals.sumOf { it.baseMinor }
                     val left = budget - spent
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Glyph.Budget, paper, size = 15.dp, color = paper.inkFaint)
-                        Spacer(Modifier.width(9.dp))
-                        Label("fence", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
-                        Spacer(Modifier.width(8.dp))
-                        Numeral(
-                            Money.ofMinor(budget).formatWithSymbol(trip.baseCurrency),
-                            paper,
-                            size = 13.sp,
-                            color = paper.inkSoft,
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Label(
-                            if (left >= 0) "${Money.ofMinor(left).formatWithSymbol(trip.baseCurrency)} left"
-                            else "${Money.ofMinor(-left).formatWithSymbol(trip.baseCurrency)} over",
-                            paper,
-                            color = paper.inkFaint,
-                            size = 9.sp,
-                            tracking = 1.2.sp,
-                        )
+                    // Money never goes through `Label`: that composable ellipsises,
+                    // and "₹7,395.00 L…" is a number with its meaning cut off. The
+                    // two sides are columns so the words can wrap and the figures
+                    // cannot move, with a real gap between them.
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                        Column(Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Glyph.Budget, paper, size = 15.dp, color = paper.inkFaint)
+                                Spacer(Modifier.width(9.dp))
+                                Label("budget", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
+                            }
+                            Spacer(Modifier.height(3.dp))
+                            Numeral(
+                                Money.ofMinor(budget).formatWithSymbol(trip.baseCurrency),
+                                paper,
+                                size = 13.sp,
+                                color = paper.inkSoft,
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(horizontalAlignment = Alignment.End) {
+                            Label(
+                                if (left >= 0) "left" else "over",
+                                paper,
+                                color = paper.inkFaint,
+                                size = 9.sp,
+                                tracking = 1.4.sp,
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            Numeral(
+                                Money.ofMinor(if (left >= 0) left else -left).formatWithSymbol(trip.baseCurrency),
+                                paper,
+                                size = 15.sp,
+                                color = if (left >= 0) paper.ink else paper.blue,
+                            )
+                        }
                     }
                 }
             }
