@@ -128,6 +128,10 @@ public data class Capture(
 ) {
     public val hasAmount: Boolean get() = amountMinor != null && currency != null
 
+    public val hasUnconfirmedAmount: Boolean
+        get() = amountMinor != null &&
+            (state == CaptureState.NEEDS_AMOUNT || state == CaptureState.NEEDS_CONFIRMATION)
+
     public fun amount(): Money? = amountMinor?.let(Money::ofMinor)
 }
 

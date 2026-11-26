@@ -6,6 +6,7 @@ This guide covers how to complete the recogniser work with **real receipt photos
 > - **Merge conflict markers:** none found by `rg` search for `^(<<<<<<<|=======|>>>>>>>)` in this workspace.
 > - **Real receipt photos:** not included/producible automatically here. Files named `synthetic-receipt.png` under `recogniser-fixtures/*/` are **placeholders** and must be replaced with real, redacted receipt photos you capture/scan.
 > - **Platform recogniser tests:** Android instrumented harness added; desktop JVM fixture test exists (engine/native-dependent). iOS simulator/device tests require macOS/Xcode (not possible without a Mac). Wasm/browser OCR is optional and needs a host-page `tesseract.js` hook to validate end-to-end in-browser.
+> - **Latest Android device run:** `:app:android:connectedDebugAndroidTest` built and ran on the connected CPH2629 (Android 16) successfully; the recogniser fixture test was **skipped** because no image had a matching `.expected.txt` or `.meta.json`. This was not an OCR pass.
 
 ---
 
@@ -59,7 +60,8 @@ If you want samples shown in docs/README, copy **redacted** images to `docs/` (o
 
 ### Prerequisites
 - JDK 17+ (as required by project)
-- Android SDK + platform tools installed
+- Android SDK (API 37 platform/build tools for the project’s current `compileSdk`) + **Platform-Tools** installed
+- SDK location configured for Gradle: set `ANDROID_HOME`/`ANDROID_SDK_ROOT` **or** create `local.properties` in the repo root with `sdk.dir=C:\\Path\\To\\Android\\Sdk` (use escaped backslashes or forward slashes)
 - **Either** a physical Android phone **or** an Android emulator
 - For validating bundled ML Kit (no Play Services runtime model download), prefer a **Play-Services-less emulator image/device** when possible
 
@@ -69,30 +71,38 @@ If you want samples shown in docs/README, copy **redacted** images to `docs/` (o
 3. Mirror the same files into **instrumented test assets** so they are packaged on-device:
    - `app/android/src/androidTest/assets/recogniser-fixtures/android/`
 4. Remove/replace `synthetic-receipt.png` placeholders in both locations once real fixtures exist.
+   The current placeholder image and expected text have different base names, so they are intentionally not treated as a fixture. For example, add `cafe-01.jpg` and `cafe-01.expected.txt` to both locations.
 
 ### B. Run on a physical Android phone (recommended)
 1. Enable **Developer options** and **USB debugging** on the phone.
-2. Connect via USB and confirm:
+2. Connect via USB and confirm your device is visible:
    ```powershell
    adb devices
    ```
-3. Build/install and run the Android instrumented recogniser fixture test:
+   If `adb` is not recognized, install **Android SDK Platform-Tools** (Android Studio: *SDK Manager → SDK Tools → Android SDK Platform-Tools*, or download the standalone Platform-Tools zip), add the `platform-tools` folder to your `PATH`, restart the terminal, then run `adb devices` again. On the phone, accept the **“Allow USB debugging?”** prompt for this computer (and ensure the USB mode allows data/ADB).
+3. Build/install and run the Android instrumented tests:
    ```powershell
-   .\gradlew.bat :app:android:connectedDebugAndroidTest --tests com.ariadne.android.AndroidReceiptFixtureInstrumentedTest
+   .\gradlew.bat :app:android:connectedDebugAndroidTest
    ```
-   (If needed, use `:app:android:connectedAndroidTest` to run all instrumented tests.)
-4. The test exercises **bytes/photo file → `MlKitTextRecognizer` → `ReceiptParser`** with fuzzy/normalised checks based on provided expected files.
+   The `connectedDebugAndroidTest` task runs all instrumented tests in the app module. It does not accept Gradle’s JVM `--tests` option; the test-class project-property form was also rejected by this project’s Gradle invocation, so use the unfiltered task.
+4. The fixture test exercises **image file → `MlKitTextRecognizer` → `ReceiptParser`** with fuzzy/normalised checks based on matching expected files. Synthetic images without a matching `.expected.txt` or `.meta.json` are ignored; if no matching image fixtures are packaged, the fixture test is skipped. On a phone without Google Play Services, this validates bundled ML Kit behavior as long as dependencies remain bundled-only.
+5. Gradle may remove the app/test APKs after the connected test task finishes. To keep the app installed for a manual smoke test, install it separately after testing:
+   ```powershell
+   .\gradlew.bat :app:android:installDebug
+   adb shell monkey -p com.ariadne.app 1
+   ```
+   The test runner package is temporary; the `installDebug` task installs the regular app APK.
 
 ### C. Run on an Android emulator (if no device / for CI-like checks)
 1. Install Android Studio (SDK Manager + AVD Manager) or command-line tools.
 2. Create an AVD. To check bundled behavior without Play Services, choose a system image **without Google Play** (e.g. “Google APIs”/AOSP image as available for your target; exact naming varies by SDK). Start the emulator.
-3. Confirm it’s connected:
+3. Confirm it’s connected (requires `adb` / Platform-Tools on PATH):
    ```powershell
    adb devices
    ```
-4. Run the same Gradle task:
+4. Run all connected instrumented tests:
    ```powershell
-   .\gradlew.bat :app:android:connectedDebugAndroidTest --tests com.ariadne.android.AndroidReceiptFixtureInstrumentedTest
+   .\gradlew.bat :app:android:connectedDebugAndroidTest
    ```
 
 ### D. What to verify (Android OCR behaviour)
@@ -105,8 +115,9 @@ If you want samples shown in docs/README, copy **redacted** images to `docs/` (o
 ### E. App-level manual smoke test (phone/emulator)
 ```powershell
 .\gradlew.bat :app:android:installDebug
+adb shell monkey -p com.ariadne.app 1
 ```
-Then open Ariadne, capture/import a real receipt, confirm extraction completes or fails gracefully, and that Nightfall/edit flows remain usable.
+If Ariadne disappears after `connectedDebugAndroidTest`, that is test-task cleanup rather than an app crash; run `installDebug` again after the test. Then open Ariadne, capture/import a real receipt, confirm extraction completes or fails gracefully, and that Nightfall/edit flows remain usable.
 
 ---
 

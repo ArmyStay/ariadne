@@ -36,8 +36,6 @@ import com.ariadne.design.Masthead
 import com.ariadne.design.PageAction
 import com.ariadne.design.ScrollingMargin
 import com.ariadne.design.Paper
-import com.ariadne.design.Plate
-import com.ariadne.design.Subject
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
 import com.ariadne.design.Title
@@ -212,7 +210,12 @@ private fun ReceiptLine(capture: Capture, index: Int, paper: Paper, onClick: () 
                 .aspectRatio(1f)
                 .border(Bone.Hairline, paper.edge),
         ) {
-            Plate(Subject.forMerchant(capture.merchant), paper, Modifier.fillMaxSize())
+            PhotoPreview(
+                photoPath = capture.photoPath,
+                caption = capture.merchant ?: "Photograph",
+                paper = paper,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {

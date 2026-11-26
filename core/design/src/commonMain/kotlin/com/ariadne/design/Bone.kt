@@ -1,14 +1,22 @@
 package com.ariadne.design
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ariadne.core.design.generated.resources.Res
+import ariadne.core.design.generated.resources.instrument_serif_italic
+import ariadne.core.design.generated.resources.instrument_serif_regular
+import ariadne.core.design.generated.resources.inter_tight_light
+import ariadne.core.design.generated.resources.inter_tight_medium
+import ariadne.core.design.generated.resources.inter_tight_regular
+import ariadne.core.design.generated.resources.inter_tight_semibold
+import org.jetbrains.compose.resources.Font
 
 /**
  * Ariadne's design language: Ink.
@@ -104,31 +112,26 @@ public object Bone {
      * set at 44px and tracked to -0.9 it reads like a masthead, which is the
      * whole difference between a template and a book.
      */
-    public val Serif: FontFamily by lazy {
-        FontFamily(
-            Font("fonts/InstrumentSerif-Regular.ttf", FontWeight.Normal, FontStyle.Normal),
-            Font("fonts/InstrumentSerif-Italic.ttf", FontWeight.Normal, FontStyle.Italic),
+    public val Serif: FontFamily
+        @Composable get() = FontFamily(
+            Font(Res.font.instrument_serif_regular, FontWeight.Normal, FontStyle.Normal),
+            Font(Res.font.instrument_serif_italic, FontWeight.Normal, FontStyle.Italic),
         )
-    }
 
     /**
      * UI grotesque: Inter Tight.
      *
-     * Bound at four real weights. It used to be bound once at Normal, which meant
-     * every `fontWeight = Medium` or `SemiBold` in the app silently resolved to
-     * 400 — the whole product rendered in one weight, which is exactly what makes
-     * generated UI look generated. Static instances are used rather than the
+     * Bound at four real weights. Static instances are used rather than the
      * variable font because Compose resolves a weight from the family, and a
      * single-font family cannot.
      */
-    public val Sans: FontFamily by lazy {
-        FontFamily(
-            Font("fonts/InterTight-Light.ttf", FontWeight.Light),
-            Font("fonts/InterTight-Regular.ttf", FontWeight.Normal),
-            Font("fonts/InterTight-Medium.ttf", FontWeight.Medium),
-            Font("fonts/InterTight-SemiBold.ttf", FontWeight.SemiBold),
+    public val Sans: FontFamily
+        @Composable get() = FontFamily(
+            Font(Res.font.inter_tight_light, FontWeight.Light),
+            Font(Res.font.inter_tight_regular, FontWeight.Normal),
+            Font(Res.font.inter_tight_medium, FontWeight.Medium),
+            Font(Res.font.inter_tight_semibold, FontWeight.SemiBold),
         )
-    }
 
     /**
      * Numbers: Inter Tight with tabular figures on.
@@ -138,7 +141,8 @@ public object Bone {
      * apart because they are set far larger than everything around them. What
      * matters is that the digits are tabular, so a column of amounts aligns.
      */
-    public val Mono: FontFamily get() = Sans
+    public val Mono: FontFamily
+        @Composable get() = Sans
 
     public val display: TextUnit = 44.sp
     public val title: TextUnit = 30.sp

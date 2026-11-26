@@ -11,6 +11,7 @@ import com.ariadne.app.AppGraph
 import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
 import com.ariadne.app.ui.pages.LocalCamera
+import com.ariadne.app.ui.pages.LocalPhotoImageRenderer
 import com.ariadne.core.time.SystemClock
 import com.ariadne.extract.TextRecognizer
 
@@ -26,7 +27,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             // The one place a camera is attached to the shared UI. Every other
             // target leaves the local empty and gets the ruled plate.
-            CompositionLocalProvider(LocalCamera provides camera) {
+            CompositionLocalProvider(
+                LocalCamera provides camera,
+                LocalPhotoImageRenderer provides AndroidPhotoImageRenderer,
+            ) {
                 AriadneApp(model = graph.model, wide = false, reducedMotion = reducedMotion())
             }
         }

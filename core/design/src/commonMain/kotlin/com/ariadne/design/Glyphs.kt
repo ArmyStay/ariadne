@@ -62,6 +62,8 @@ public enum class Glyph {
     Share,
     /** A return arrow: back. */
     Back,
+    /** A key-shaped arrow with a cross: remove the previous character. */
+    Backspace,
     /** A check: settled. */
     Done,
     /** A disc, half filled: the light/dark choice. */
@@ -257,6 +259,12 @@ private fun DrawScope.drawGlyph(glyph: Glyph, color: Color, stroke: Float) {
         Glyph.Back -> {
             line(0.80f, 0.50f, 0.22f, 0.50f)
             path(false, 0.42f, 0.30f, 0.22f, 0.50f, 0.42f, 0.70f)
+        }
+
+        Glyph.Backspace -> {
+            path(true, 0.88f, 0.20f, 0.44f, 0.20f, 0.14f, 0.50f, 0.44f, 0.80f, 0.88f, 0.80f)
+            line(0.54f, 0.38f, 0.74f, 0.62f)
+            line(0.74f, 0.38f, 0.54f, 0.62f)
         }
 
         Glyph.Done -> {

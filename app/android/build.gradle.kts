@@ -28,6 +28,10 @@ android {
 dependencies {
     implementation(project(":ui:app"))
     implementation(project(":core:store"))
+    implementation(project(":core:model"))
+    implementation(project(":core:time"))
+    implementation(project(":core:extract"))
+    implementation(project(":core:design"))
     implementation(libs.sqldelight.android)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core)
@@ -46,6 +50,7 @@ dependencies {
     implementation(libs.mlkit.text.recognition.korean)
     implementation(libs.mlkit.text.recognition.chinese)
     implementation(compose.runtime)
+    implementation(compose.foundation)
     implementation(compose.ui)
 
     androidTestImplementation(project(":core:extract"))
