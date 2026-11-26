@@ -197,13 +197,57 @@ their current pickers offer.
 - New stills in the manifest: `04-sheet`, `04-sheet-desktop`, `03-trip-desktop`,
   `02c-stats-desktop`.
 
+## Commit 4 — Preferences, and undo
+
+### Preferences
+
+`PreferencesPage.kt`, on the tab shell, and `TabPages.kt` is deleted with it — every
+destination now has its own file. The numbered sections ("I — the record", "II — the
+exchange", …) and the plate number are gone, replaced by five named blocks: **money**
+(the two currencies), **paper** (three chips, because "System" is a real third
+answer and a switch has two), **the exchange** (one line per currency, in the
+"1 THB = 2.5 INR" form a traveller can check against a board), **this device**
+(nothing leaves; the last failure if there was one), and **this trip** (its page,
+its card, the two-tap deletion).
+
+The rule for the whole page: a row that cannot be changed says so in a note and has
+nothing to tap. The old page had read-outs styled exactly like controls, which is
+how a page teaches someone that tapping does nothing.
+
+### Undo
+
+`saveDetail` now takes a **pre-image** of the row before it writes — amount,
+currency, merchant, category, note, the pinned rate and the queue state — and offers
+it back as "Saved · Undo" in a new `NoticeBar` at the foot of the page.
+`undoLastEdit()` restores every one of those columns, re-pins the rate, puts the
+queue state back, and then re-derives the day and the index from the store rather
+than patching the UI's copy. Restoring only the amount would have been the easy
+version and the wrong one: the figure would come back with no rate pinned to it and
+its total would start moving with tomorrow's rate.
+
+The offer expires after nine seconds, and closing the notice drops the offer with
+it. The bar is a ruled strip in the app's own language rather than a Material
+`Snackbar` — a dark rounded floating surface with elevation would be a foreign
+object here, and it would cover the navigation bar instead of sitting on the page.
+It is marked as a polite live region, so the offer is announced rather than only
+seen.
+
+`FlowCheck` gains four assertions: the offer appears, and undo restores the figure,
+the merchant and the queue state.
+
+### Not done: delete undo
+
+There is still no undo for deleting a trip, and that is deliberate rather than
+unfinished: the deletion removes the photographs from disk, and an "undo" that
+restored rows pointing at files that are gone would be a lie. It stays a two-tap
+confirmation, and `docs/UI-AND-FLOW.md` says why.
+
 ## Not yet in this commit
 
 Still to come in Phase 2 (next commits):
 
 - **Android multi-select** in the picker (`PickMultipleVisualMedia`).
-- **Preferences**, the last page still built as a long numbered form.
-- **Snackbar undo** for delete and edit, and loading/error states for every list.
+- **Loading and error states** for the lists that do not have one.
 - **Preview definitions** (`@Preview`/`@PreviewParameter`) for each redesigned screen,
   which is what "screenshots" has to mean in an environment that cannot render Compose.
 
