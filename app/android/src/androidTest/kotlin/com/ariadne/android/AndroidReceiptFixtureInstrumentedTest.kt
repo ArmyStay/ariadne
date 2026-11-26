@@ -3,12 +3,12 @@ package com.ariadne.android
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.ariadne.core.model.CurrencyCode
+import com.ariadne.extract.ExtractionOutcome
 import com.ariadne.extract.OcrResult
 import com.ariadne.extract.ReceiptParser
+import com.ariadne.model.CurrencyCode
 import java.io.File
 import kotlin.math.max
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -38,14 +38,21 @@ class AndroidReceiptFixtureInstrumentedTest {
         val targetContext = instrumentation.targetContext
         val assets = testContext.assets
         val entries = assets.list(fixturesDir)?.toList().orEmpty()
+        val imageExtensions = setOf("jpg", "jpeg", "png", "webp")
         val images = entries.filter { name ->
-            name.substringAfterLast('.', "").lowercase() in setOf("jpg", "jpeg", "png", "webp")
+            val extension = name.substringAfterLast('.', "").lowercase()
+            val base = name.substringBeforeLast('.')
+            extension in imageExtensions &&
+                (entries.contains("$base.expected.txt") || entries.contains("$base.meta.json"))
         }.sorted()
 
-        assumeTrue("No Android recogniser fixture images found in androidTest assets/$fixturesDir", images.isNotEmpty())
+        assumeTrue(
+            "No Android fixture images with matching .expected.txt or .meta.json assets found in $fixturesDir",
+            images.isNotEmpty(),
+        )
 
         val recognizer = MlKitTextRecognizer(targetContext)
-        val parser = ReceiptParser()
+        val parser = ReceiptParser(CurrencyCode.of("INR"))
         val failures = mutableListOf<String>()
         var exercised = 0
 
@@ -65,7 +72,7 @@ class AndroidReceiptFixtureInstrumentedTest {
             val lines = when (ocr) {
                 is OcrResult.Text -> ocr.lines
                 is OcrResult.Failure -> {
-                    failures += "$imageName: OCR failed (${ocr.message})"
+                    failures += "$imageName: OCR failed (${ocr.reason})"
                     continue
                 }
             }
@@ -87,7 +94,7 @@ class AndroidReceiptFixtureInstrumentedTest {
         fixtureId: String,
         metaJson: String,
         lines: List<String>,
-        parsed: com.ariadne.extract.ParsedReceipt,
+        parsed: ExtractionOutcome,
         failures: MutableList<String>,
     ) {
         val meta = JSONObject(metaJson)
@@ -105,7 +112,7 @@ class AndroidReceiptFixtureInstrumentedTest {
             if (actualAmount != expectedAmount) failures += "$fixtureId: expected amountMinor=$expectedAmount but was $actualAmount"
         }
         if (meta.has("expectedCurrency")) {
-            val expectedCurrency = CurrencyCode.valueOf(meta.getString("expectedCurrency"))
+            val expectedCurrency = CurrencyCode.of(meta.getString("expectedCurrency"))
             val actualCurrency = currencyOf(parsed)
             if (actualCurrency != expectedCurrency) failures += "$fixtureId: expected currency=$expectedCurrency but was $actualCurrency"
         }
@@ -133,8 +140,10 @@ class AndroidReceiptFixtureInstrumentedTest {
                 }
             }
         }
-        if (meta.optBoolean("expectParsedReceipt", false) && parsed is com.ariadne.extract.ParsedReceipt.Failure) {
-            failures += "$fixtureId: expected parsed receipt but parser returned Failure"
+        if (meta.optBoolean("expectParsedReceipt", false) &&
+            (parsed is ExtractionOutcome.Nothing || parsed is ExtractionOutcome.Failed)
+        ) {
+            failures += "$fixtureId: expected parsed receipt but parser returned ${parsed::class.simpleName}"
         }
     }
 
@@ -142,7 +151,7 @@ class AndroidReceiptFixtureInstrumentedTest {
         fixtureId: String,
         expectedText: String,
         lines: List<String>,
-        parsed: com.ariadne.extract.ParsedReceipt,
+        parsed: ExtractionOutcome,
         failures: MutableList<String>,
     ) {
         val normalizedExpected = normalize(expectedText)
@@ -166,7 +175,6 @@ class AndroidReceiptFixtureInstrumentedTest {
                 failures += "$fixtureId: expected merchant text '$merchantLine' to survive in OCR output"
             }
         }
-        assertNotNull(parsed, "$fixtureId: parser returned null")
     }
 
     private fun readAssetText(assets: android.content.res.AssetManager, path: String): String =
@@ -180,23 +188,11 @@ class AndroidReceiptFixtureInstrumentedTest {
         return out
     }
 
-    private fun amountMinorOf(parsed: com.ariadne.extract.ParsedReceipt): Long? = when (parsed) {
-        is com.ariadne.extract.ParsedReceipt.AmountAndMerchant -> parsed.amountMinor
-        is com.ariadne.extract.ParsedReceipt.AmountOnly -> parsed.amountMinor
-        else -> null
-    }
+    private fun amountMinorOf(parsed: ExtractionOutcome): Long? = parsed.amountMinorOrNull
 
-    private fun currencyOf(parsed: com.ariadne.extract.ParsedReceipt): CurrencyCode? = when (parsed) {
-        is com.ariadne.extract.ParsedReceipt.AmountAndMerchant -> parsed.currency
-        is com.ariadne.extract.ParsedReceipt.AmountOnly -> parsed.currency
-        else -> null
-    }
+    private fun currencyOf(parsed: ExtractionOutcome): CurrencyCode? = parsed.currencyOrNull
 
-    private fun merchantOf(parsed: com.ariadne.extract.ParsedReceipt): String? = when (parsed) {
-        is com.ariadne.extract.ParsedReceipt.AmountAndMerchant -> parsed.merchant
-        is com.ariadne.extract.ParsedReceipt.MerchantOnly -> parsed.merchant
-        else -> null
-    }
+    private fun merchantOf(parsed: ExtractionOutcome): String? = parsed.merchantOrNull
 
     private fun normalize(s: String): String = s.lowercase().replace(Regex("[^a-z0-9]"), "")
 
