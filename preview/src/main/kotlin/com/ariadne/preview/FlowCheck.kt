@@ -89,18 +89,39 @@ fun main() {
     check("over budget reads negative", trip?.remainingAgainstBudget(3_000_000L) == -499_950L)
     check("no budget means no remaining", trip?.copy(budgetMinor = null)?.remainingAgainstBudget(1L) == null)
 
-    // ---- the shutter: a frame, then two ways out --------------------------
-    model.go(Route.Capture)
+    // ---- the shutter opens over the page, and the frame becomes the sheet -
+    //
+    // This is the flow the person actually feels. The shutter used to be a route:
+    // tapping it left the page, and the photograph arrived on a second page. Now
+    // nothing navigates — the camera covers the page, the frame becomes the sheet
+    // over that same page, and putting it away returns exactly where it was.
+    model.go(Route.Home)
+    settle()
+    val shutterWasOver = model.state.value.route
+    model.openCapture()
+    settle()
+    check("the shutter opens without navigating", model.state.value.route == shutterWasOver)
+    check("and the camera is open", model.state.value.shutterOpen)
+    check("Back has something to close", model.state.value.canGoBack)
+
+    model.back()
+    settle()
+    check(
+        "Back with the camera open closes the camera, not the page",
+        model.state.value.route == shutterWasOver && !model.state.value.shutterOpen,
+    )
+
+    model.openCapture()
     settle()
     model.capturePhoto(byteArrayOf(1, 2, 3, 4))
     settle()
 
-    val frameRoute = model.state.value.route
-    check("the shutter holds the frame up", frameRoute is Route.Frame)
-    val captureId = (frameRoute as? Route.Frame)?.captureId
-    check("the frame has an id", captureId != null)
+    val captureId = model.state.value.sheetCaptureId
+    check("the frame becomes the sheet over the same page", captureId != null)
+    check("the camera closes when the frame is kept", !model.state.value.shutterOpen)
+    check("and the page underneath never changed", model.state.value.route == shutterWasOver)
     check("the frame is in the record", graph.store.findCapture(captureId!!) != null)
-    check("the frame waits for nightfall", model.state.value.stack.isNotEmpty())
+    check("the frame waits for the day to be closed", model.state.value.stack.isNotEmpty())
 
     // ---- photo bytes actually reached storage ----------------------------
     val stored = graph.store.findCapture(captureId)
@@ -113,13 +134,14 @@ fun main() {
     // ---- "add the amount later" loses nothing -----------------------------
     check(
         "the sheet opens with the amount field live",
-        model.state.value.route is Route.Frame &&
+        model.state.value.sheetCaptureId == captureId &&
             model.state.value.detail?.id == captureId &&
             model.state.value.detailAmount.isEmpty(),
     )
     model.keepFrameForLater()
     settle()
-    check("adding the amount later returns Home", model.state.value.route == Route.Home)
+    check("adding the amount later closes the sheet", model.state.value.sheetCaptureId == null)
+    check("and leaves the person where they were", model.state.value.route == shutterWasOver)
     check("keeping it does not delete the frame", graph.store.findCapture(captureId) != null)
 
     // ---- the stack: one step in, one step out, and a refusal at a root ---

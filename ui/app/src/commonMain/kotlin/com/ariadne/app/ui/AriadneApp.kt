@@ -41,6 +41,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import com.ariadne.app.AppModel
 import com.ariadne.app.Route
+import com.ariadne.app.ui.pages.CaptureOverlay
 import com.ariadne.app.ui.pages.CapturePage
 import com.ariadne.app.ui.pages.DetailPage
 import com.ariadne.app.ui.pages.FramePage
@@ -146,7 +147,7 @@ public fun AriadneApp(
                 // navigation bar between the last action and the keyboard.
                 .consumeWindowInsets(WindowInsets.systemBars)
                 .imePadding()
-                .onPreviewKeyEvent { event -> handleKey(event, model, route) },
+                .onPreviewKeyEvent { event -> handleKey(event, model, route, state) },
         ) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f)) {
@@ -188,6 +189,24 @@ public fun AriadneApp(
                         onAction = { model.undoLastEdit() },
                         onDismiss = { model.dismissNotice() },
                     )
+                }
+
+                // The camera and the sheet are overlays, not routes: they cover the
+                // page they were raised from, and putting them away returns to it
+                // exactly as it was. The sheet draws after the camera so a capture
+                // never shows the viewfinder for a frame underneath.
+                if (state.shutterOpen) {
+                    CaptureOverlay(
+                        state = state,
+                        model = model,
+                        paper = paper,
+                        wide = wide,
+                        onFrame = { bytes -> if (bytes.isNotEmpty()) model.capturePhoto(bytes) },
+                    )
+                }
+
+                state.sheetCaptureId?.let { id ->
+                    FramePage(state, model, paper, wide, id)
                 }
 
                 if (route.showsTabBar()) {
@@ -297,8 +316,19 @@ private fun Route.showsTabBar(): Boolean = when (this) {
  * Desktop triage, exactly as promised: digits type the amount, Enter confirms,
  * J and K move through the stack, Escape leaves the pager.
  */
-private fun handleKey(event: KeyEvent, model: AppModel, route: Route): Boolean {
+private fun handleKey(
+    event: KeyEvent,
+    model: AppModel,
+    route: Route,
+    state: com.ariadne.app.AppUiState,
+): Boolean {
     if (event.type != KeyEventType.KeyDown) return false
+    // Whatever is open over the page closes first, exactly as Back does. Escape is
+    // the desktop's version of that gesture and should not mean something else.
+    if (event.key == Key.Escape && (state.shutterOpen || state.sheetCaptureId != null)) {
+        model.back()
+        return true
+    }
     if (route !is Route.CloseDay) return false
     return when {
         event.key == Key.Enter || event.key == Key.NumPadEnter -> { model.confirmCurrent(); true }

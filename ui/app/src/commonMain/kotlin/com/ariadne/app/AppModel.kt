@@ -384,14 +384,22 @@ public class AppModel(
             // A batch import files its photographs and leaves the person where they
             // are: the tray they just filled is the answer, not a sheet for the last
             // photograph in the pile.
-            if (!openSheet) return@launch
+            if (!openSheet) {
+                // The camera closes behind a batch too: the tray is the answer.
+                _state.value = _state.value.copy(shutterOpen = false)
+                return@launch
+            }
             // The sheet over the photograph is the editor, so it opens with the
             // editor's state already loaded: the shutter gets out of the way and
             // the amount field is live on the same tap. Nothing is pre-filled from
             // extraction — a suggestion is offered, never typed in.
             val saved = store.findById(id)
+            // The frame becomes the sheet over the page the camera was opened on.
+            // The route is deliberately untouched: nothing navigated, so there is
+            // nothing to navigate back from.
             _state.value = _state.value.copy(
-                route = Route.Frame(id),
+                shutterOpen = false,
+                sheetCaptureId = id,
                 detail = saved,
                 detailOrigin = DetailOrigin.Record,
                 detailAmount = "",
@@ -850,11 +858,20 @@ public class AppModel(
     }
 
     public fun keepFrameForLater() {
+        // "Add the amount later" is not a journey: it closes the sheet and leaves
+        // the person on the page they were on, with their photograph filed.
+        if (_state.value.sheetCaptureId != null) {
+            closeSheet()
+            return
+        }
+        // Reached from the standalone sheet route (an older link, or the whole-page
+        // escape): land on Today, which is where a filed photograph belongs.
         go(Route.Home)
     }
 
-    /** Fill it in now: the detail page is the form, and it is already built. */
+    /** The whole page: the sheet's details, without the sheet. */
     public fun openFrame(captureId: String) {
+        _state.value = _state.value.copy(sheetCaptureId = null)
         openDetail(captureId)
     }
 
@@ -1340,11 +1357,24 @@ public class AppModel(
             val saved = store.findById(capture.id)
             index.rebuild(store.confirmedForTrip(capture.tripId))
             refreshDay(capture.localDate)
-            _state.value = _state.value.copy(
-                route = Route.Record(capture.localDate),
-                detail = saved,
-                detailCategory = saved?.category,
-            )
+            val fromSheet = _state.value.sheetCaptureId != null
+            _state.value = if (fromSheet) {
+                // Filed from the sheet: the sheet closes, the page underneath is the
+                // page it was opened on, and the day's figure has already moved.
+                _state.value.copy(
+                    sheetCaptureId = null,
+                    detail = saved,
+                    detailCategory = saved?.category,
+                )
+            } else {
+                // Filed from the whole page: that page was a destination of its own,
+                // so it leaves for the day it belongs to.
+                _state.value.copy(
+                    route = Route.Record(capture.localDate),
+                    detail = saved,
+                    detailCategory = saved?.category,
+                )
+            }
             lastEdit = before
             say("Saved", "Undo")
         }
@@ -1362,6 +1392,11 @@ public class AppModel(
     public fun go(route: Route) {
         val current = _state.value.route
         if (current == route) return
+        // Moving between pages closes whatever is open over them: an overlay belongs
+        // to the page it was raised from, not to the app.
+        if (_state.value.shutterOpen || _state.value.sheetCaptureId != null) {
+            _state.value = _state.value.copy(shutterOpen = false, sheetCaptureId = null)
+        }
         // "Today" is a promise about a date, not just a page: arriving on it reads
         // the calendar's today, even if the last thing looked at was the 14th.
         if (route == Route.Home) {
@@ -1396,6 +1431,17 @@ public class AppModel(
      */
     public fun back(): Boolean {
         val state = _state.value
+        // Whatever is open over the page is what Back closes first. That is the
+        // platform's own expectation, and it is also the reason the overlays are
+        // state rather than routes: one gesture, one meaning.
+        if (state.sheetCaptureId != null) {
+            closeSheet()
+            return true
+        }
+        if (state.shutterOpen) {
+            closeShutter()
+            return true
+        }
         val target = state.history.lastOrNull() ?: return false
         _state.value = state.copy(route = target, history = state.history.dropLast(1))
         // The place being returned to owns its own figures; re-read them rather
@@ -1456,15 +1502,35 @@ public class AppModel(
      * frame. A closed trip has nothing to add, so the guard lives here rather than
      * in five pages that each have to remember it.
      */
+    /**
+     * The shutter, opened over whatever is showing.
+     *
+     * No navigation happens here, and that is the whole point: the old shutter was a
+     * route, so keeping a receipt cost three screens — the page you were on, the
+     * viewfinder, and the frame. Two of those were the same nothing, and the one you
+     * wanted to come back to had to be rebuilt on the way back.
+     *
+     * With no trip, or a closed one, there is nothing a photograph could belong to,
+     * so the explanation page is still the right answer rather than a camera that
+     * files into nowhere.
+     */
     public fun openCapture() {
-        val trip = _state.value.trip ?: return
-        if (trip.isClosed) {
-            // Not an error: the trip is finished, and Today already explains that
-            // in a sentence with the card one tap away.
-            go(Route.Home)
+        val trip = _state.value.trip
+        if (trip == null || trip.isClosed) {
+            go(Route.Capture)
             return
         }
-        go(Route.Capture)
+        _state.value = _state.value.copy(shutterOpen = true)
+    }
+
+    /** Put the camera away without taking anything. */
+    public fun closeShutter() {
+        _state.value = _state.value.copy(shutterOpen = false)
+    }
+
+    /** Put the sheet away. The photograph stays in the record, where it was filed. */
+    public fun closeSheet() {
+        _state.value = _state.value.copy(sheetCaptureId = null)
     }
 
     /**
