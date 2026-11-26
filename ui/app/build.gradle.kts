@@ -31,7 +31,6 @@ kotlin {
             implementation(project(":core:design"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.napier)
-            implementation(libs.androidx.datastore.preferences.core)
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)

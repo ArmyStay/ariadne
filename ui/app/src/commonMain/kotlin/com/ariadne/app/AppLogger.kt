@@ -2,6 +2,8 @@ package com.ariadne.app
 
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Napier
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlin.time.Clock
 
 /** A log sink. Portable from the KMP contest starter kit's logging facade. */
@@ -38,7 +40,6 @@ public object NapierLogger : Logger {
 /** App-wide logging facade: currently just the Napier sink. */
 public object AppLogger : Logger {
     public var sinks: List<Logger> = listOf(NapierLogger)
-        private set
 
     override fun initialize(isDebug: Boolean) {
         sinks.forEach { it.initialize(isDebug) }
@@ -60,15 +61,14 @@ public object AppLogger : Logger {
 /** In-memory sink: recent log lines, first N, oldest-first, with level. For diagnostics screens. */
 public class RingLogger(private val maxLines: Int = 256) : Logger {
 
-    private val lock = Any()
-    private val lines = ArrayDeque<String>()
-    private var initialized = false
+    private val lines = MutableStateFlow<List<String>>(emptyList())
+
+    init {
+        require(maxLines > 0) { "maxLines must be positive" }
+    }
 
     override fun initialize(isDebug: Boolean) {
-        synchronized(lock) {
-            initialized = true
-            log("I", "AppLogger initialized, isDebug=$isDebug", tag = null)
-        }
+        log("I", "AppLogger initialized, isDebug=$isDebug", tag = null)
     }
 
     override fun e(message: String, throwable: Throwable?, tag: String?) {
@@ -85,19 +85,21 @@ public class RingLogger(private val maxLines: Int = 256) : Logger {
 
     private fun log(level: String, message: String, throwable: Throwable? = null, tag: String?) {
         val stamp = "${Clock.System.now()} $level ${tag ?: ""} ${message.take(200)}"
-        synchronized(lock) {
-            while (lines.size >= maxLines) lines.removeFirst()
-            lines.addLast(stamp)
+        val entries = buildList {
+            add(stamp)
             throwable?.let {
-                lines.addLast("    at ${it::class.simpleName}: ${it.message ?: ""}")
-                lines.addLast("    at ${it::class.qualifiedName}")
+                add("    at ${it::class.simpleName}: ${it.message ?: ""}")
+                add("    at ${it::class.qualifiedName}")
             }
         }
+        lines.update { (it + entries).takeLast(maxLines) }
     }
 
-    public fun snapshot(): List<String> = synchronized(lock) { lines.toList() }
+    public fun snapshot(): List<String> = lines.value
 
-    public fun clear() = synchronized(lock) { lines.clear() }
+    public fun clear() {
+        lines.value = emptyList()
+    }
 }
 
 // (RingLogger is registered as a sink — see AppDiagnostics.kt.)

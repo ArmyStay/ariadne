@@ -10,21 +10,27 @@ class RingLoggerTest {
     fun `snapshot is oldest-first`() {
         val ring = RingLogger(maxLines = 4)
         repeat(4) { i -> ring.i("line $i", tag = "T") }
-        assertEquals(listOf("I T line 0", "I T line 1", "I T line 2", "I T line 3"), ring.snapshot())
+        val expected = listOf("I T line 0", "I T line 1", "I T line 2", "I T line 3")
+        val actual = ring.snapshot()
+        assertEquals(expected.size, actual.size)
+        expected.zip(actual).forEach { (line, entry) -> assertTrue(entry.endsWith(line)) }
     }
 
     @Test
     fun `oldest are dropped beyond the ring size`() {
         val ring = RingLogger(maxLines = 3)
         repeat(5) { i -> ring.d("line $i", tag = "T") }
-        assertEquals(listOf("D T line 2", "D T line 3", "D T line 4"), ring.snapshot())
+        val expected = listOf("D T line 2", "D T line 3", "D T line 4")
+        val actual = ring.snapshot()
+        assertEquals(expected.size, actual.size)
+        expected.zip(actual).forEach { (line, entry) -> assertTrue(entry.endsWith(line)) }
     }
 
     @Test
     fun `app error goes in and clear empties it`() {
         val ring = RingLogger()
         ring.e("boom", null, "AppGraph")
-        assertTrue(ring.snapshot().any { it.startsWith("E AppGraph boom") })
+        assertTrue(ring.snapshot().any { it.endsWith("E AppGraph boom") })
         ring.clear()
         assertTrue(ring.snapshot().isEmpty())
     }

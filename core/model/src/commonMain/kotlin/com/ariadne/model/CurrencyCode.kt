@@ -1,5 +1,7 @@
 package com.ariadne.model
 
+import kotlin.jvm.JvmInline
+
 /**
  * ISO-4217 currency, carried as a value class so a raw [String] can never be
  * mistaken for a currency at a call site.

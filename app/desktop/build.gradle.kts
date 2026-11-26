@@ -20,6 +20,7 @@ kotlin {
                 implementation(project(":core:model"))
                 implementation(libs.sqldelight.jvm)
                 implementation(libs.kotlinx.coroutines.swing)
+                implementation(libs.androidx.datastore.preferences.core)
                 implementation(compose.desktop.currentOs)
                 implementation("net.sourceforge.tess4j:tess4j:5.12.0")
             }

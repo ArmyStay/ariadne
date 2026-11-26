@@ -34,6 +34,7 @@ import com.ariadne.app.ui.pages.NewTripPage
 import com.ariadne.app.ui.pages.HomePage
 import com.ariadne.app.ui.pages.NightfallPage
 import com.ariadne.app.ui.pages.OnboardingPage
+import com.ariadne.app.ui.pages.PreferencesPage
 import com.ariadne.app.ui.pages.RecordPage
 import com.ariadne.app.ui.pages.SearchPage
 import com.ariadne.app.ui.pages.StatsPage

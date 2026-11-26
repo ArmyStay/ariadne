@@ -80,6 +80,7 @@ private class WasmBrowserRecognizer : TextRecognizer {
  * Best-effort JS interop hook. Returns recognized text joined by newlines, or null if not enabled.
  * Host pages can lazy-load tesseract.js and implement this without changing the Wasm bundle.
  */
+@OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
 private fun recognizeInBrowser(imagePath: String): String? = js(
     """(() => {
       try {
@@ -91,4 +92,4 @@ private fun recognizeInBrowser(imagePath: String): String? = js(
         return typeof r === 'string' ? r : null;
       } catch (e) { return null; }
     })()"""
-) as? String
+)
