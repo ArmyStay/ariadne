@@ -9,7 +9,7 @@ layout and platform save/share behavior still need human verification.
 surface lists its blocks in order, with the exact words on every label, button, pill,
 placeholder, empty state and note, and the control each one calls. **Third revision
 (phase 8):** the timeline was rebuilt to the journey reference — globe backdrop,
-`MARKHEAD` sections, a ledger spine of days — and §5.4 was rewritten to match.
+`MarkHead` sections, a ledger spine of days — and §5.4 was rewritten to match.
 
 **What it is not.** Not a roadmap, not a changelog, and not a claim that any of this has
 been looked at on a screen. No screenshot in this repository was produced by this build:
@@ -18,8 +18,8 @@ been looked at on a screen. No screenshot in this repository was produced by thi
 **How strings are quoted here.** Exactly as they appear in the source. Two rules of the
 design system change how they appear on screen and are worth stating once:
 
-- **`Label`, `Action`, `OutlineAction`, `QuietAction`, `PageAction` and `Pill` uppercase
-  their text.** So `Label("finished today")` renders **FINISHED TODAY**, and
+- **`Label`, `Action`, `OutlineAction`, `QuietAction`, `PageAction`, `Pill`, `StatusTag`
+  and `MarkHead` uppercase their text.** So `Label("finished today")` renders **FINISHED TODAY**, and
   `Action("Create a trip")` renders **CREATE A TRIP**. The strings below are quoted in
   source form.
 - **`Title`, `Body`, `Numeral`, `NavRow` and field placeholders do not.** A serif title
