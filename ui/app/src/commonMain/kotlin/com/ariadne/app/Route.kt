@@ -4,11 +4,24 @@ import com.ariadne.model.Capture
 import com.ariadne.model.Category
 import com.ariadne.model.CategoryTotal
 import com.ariadne.model.DayCard
+import com.ariadne.model.DaySummary
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Settings
 import com.ariadne.model.Trip
+import com.ariadne.model.entryStatus
 
 /** Every surface in the app. There are six, and none of them is a spreadsheet. */
+/**
+ * The four places in the bar. Everything else is stacked on top of one of them.
+ *
+ * This exists so navigation can be one rule instead of a per-call-site decision:
+ * moving *between* places starts a fresh stack (Back from Days should not walk you
+ * back through the record you read on the way), while moving *into* a page pushes
+ * the place onto the stack.
+ */
+public fun Route.isDestination(): Boolean =
+    this == Route.Home || this == Route.Days || this == Route.Trip || this == Route.Stats
+
 /**
  * Where a launch lands, decided once, from two facts.
  *
@@ -60,12 +73,12 @@ public sealed interface Route {
      * 4b. The frame just taken, held up.
      *
      * Two ways out and no way to lose it: keep it as it is and finish it later at
-     * Nightfall, or fill it in now — amount, category, what it was for.
+     * a later amount, or fill it in now — amount, category, what it was for.
      */
     public data class Frame(val captureId: String) : Route
 
-    /** 5. Nightfall: the card stack that finishes the day. */
-    public data class Nightfall(val day: LocalDay) : Route
+    /** 5. Closing the day: the cards it still owes, one at a time. */
+    public data class CloseDay(val day: LocalDay) : Route
 
     /** 6. The record: days and their photographs. */
     public data class Record(val day: LocalDay?) : Route
@@ -79,7 +92,7 @@ public sealed interface Route {
      *
      * This is the page the ritual hands you to when a card is worth more than a
      * yes or a no — a receipt from a shop you will want to name again. It is
-     * never required: Nightfall remains two taps end to end, and nothing here is
+     * never required: closing the day remains two taps end to end, and nothing here is
      * mandatory, including the category and the note.
      */
     public data class Detail(val captureId: String) : Route
@@ -100,8 +113,8 @@ public sealed interface Route {
     /** The shelf, with today's figure on it. */
     public data object Home : Route
 
-    /** The trip as a run of days. */
-    public data object Timeline : Route
+    /** The trip as a run of days, with today's week in a strip at the top. */
+    public data object Days : Route
 
     /** What it came to. */
     public data object Stats : Route
@@ -149,8 +162,36 @@ public data class TripDraft(
  */
 public enum class DetailOrigin { Record, Search }
 
+/**
+ * A line at the foot of the page that says what just happened.
+ *
+ * It exists for the one thing a ledger of photographs cannot do silently: taking a
+ * correction back. An edit overwrites a figure the person may have read a hundred
+ * times; without a way to undo it, the only safe edit is no edit. [actionLabel] is
+ * null for notices that are statements rather than offers.
+ *
+ * [id] changes on every notice so the UI can key on it and a screen reader
+ * announces a new line rather than a changed one.
+ */
+public data class Notice(
+    public val text: String,
+    public val actionLabel: String? = null,
+    public val id: Long = 0,
+)
+
 public data class AppUiState(
     public val route: Route = Route.Onboarding,
+    /**
+     * Where Back goes, oldest first.
+     *
+     * The app used to have no stack at all: every route was a single value, Back
+     * was whatever the platform did with it (usually nothing), and a page stacked
+     * on a page had to remember for itself where it came from — which is why the
+     * detail page carried a `detailOrigin` enum and Back from search could land on
+     * a record nobody had opened. One list, pushed by [AppModel.go] and popped by
+     * [AppModel.back], is the whole mechanism.
+     */
+    public val history: List<Route> = emptyList(),
     /**
      * Which stock the book is printed on: light paper, night paper, or whatever
      * the device is currently asking for. Loaded from the store at start and
@@ -168,6 +209,18 @@ public data class AppUiState(
     public val dayTotalMinor: Long = 0,
     public val dayCurrency: String = "INR",
     public val perCurrency: Map<String, Long> = emptyMap(),
+    /**
+     * Money on this day that has no rate, in its own currency.
+     *
+     * It is not in [dayTotalMinor] — that is the whole point. The day total used to
+     * add unconverted minor units to base ones, which is how THB 2,555 and INR 50
+     * became "₹2,605". These figures are named on screen instead.
+     */
+    public val dayUnconverted: Map<String, Long> = emptyMap(),
+    /** The day each foreign rate was true, for "≈ at 20 Nov". */
+    public val dayRateDates: Map<String, String> = emptyMap(),
+    /** The same, for the whole trip. */
+    public val tripUnconverted: Map<String, Long> = emptyMap(),
     /** The capture open in the detail page, when one is. */
     public val detail: Capture? = null,
     /** Where the detail page was opened from, so Back can return there. */
@@ -232,7 +285,32 @@ public data class AppUiState(
      * down somewhere a person can find rather than only in a console.
      */
     public val failureNote: String? = null,
+
+    /** The last thing that happened, if it is still worth saying. */
+    public val notice: Notice? = null,
 ) {
     public val current: Capture? get() = stack.getOrNull(stackIndex)
     public val remaining: Int get() = (stack.size - stackIndex).coerceAtLeast(0)
+
+    /**
+     * Every capture in the trip that still needs something: an amount, or a
+     * confirmation that it has none. One list, computed from the entry state and
+     * nothing else, so no two pages can disagree about whether the trip is done.
+     *
+     * The Home page's "all settled" pill used to read `stack.isEmpty()` — the
+     * pending stack of whichever day happened to be loaded last. Visit another day
+     * and Home claimed the trip was settled while the timeline still showed an open
+     * card. This is that bug, fixed at the source rather than in the label.
+     */
+    public val tripPending: List<Capture>
+        get() = dayCapturesAll.values.flatten().filter { it.entryStatus.isPending }
+
+    /** True when nothing anywhere in the trip is waiting on the person. */
+    public val tripSettled: Boolean get() = tripPending.isEmpty()
+
+    /** What one day of the trip still owes, read the same way every page reads it. */
+    public fun daySummary(iso: String): DaySummary = DaySummary.of(dayCapturesAll[iso].orEmpty())
+
+    /** True when Back has somewhere to go inside the app. */
+    public val canGoBack: Boolean get() = history.isNotEmpty()
 }

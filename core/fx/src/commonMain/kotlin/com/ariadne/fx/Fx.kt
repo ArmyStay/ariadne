@@ -43,10 +43,23 @@ public class FxTable(private val rates: List<Rate>) {
         if (from == to) return Conversion(amount, from, to, applied = false)
         val rate = rateOrNull(from, to, date)
             ?: return Conversion(amount, from, to, applied = false)
+        return convertAt(amount, from, to, rate)
+    }
+
+    /**
+     * Converts [amount] at a rate the caller already holds.
+     *
+     * This is what a confirmed capture uses: the rate is read from the row, not
+     * looked up again, so the figure that was confirmed is the figure that is
+     * totalled — today, tomorrow, and after the next rate refresh.
+     */
+    public fun convertAt(amount: Money, from: CurrencyCode, to: CurrencyCode, rateScaled: Long): Conversion {
+        if (from == to) return Conversion(amount, from, to, applied = false)
+        if (rateScaled <= 0L) return Conversion(amount, from, to, applied = false)
         val target = to.scale
         val source = from.scale
         // Work in a single wide integer: minor units × rate, then rescale.
-        val numerator = amount.minorUnits * rate
+        val numerator = amount.minorUnits * rateScaled
         val denominator = SCALE
         var result = numerator / denominator
         val remainder = numerator % denominator
@@ -110,16 +123,32 @@ public data class Conversion(
     public val applied: Boolean,
 )
 
-/** Totals for a set of confirmed captures, per currency and in the base currency. */
+/**
+ * Totals for a set of confirmed captures, per currency and in the base currency.
+ *
+ * The rule this class exists to enforce: **nothing enters the base total without
+ * a rate**. Before this, a capture whose rate was missing had its own minor units
+ * added to the base figure anyway, so THB 2,555 + INR 50 printed as "₹2,605" —
+ * two different currencies added as if they were the same one. Money that cannot
+ * be converted is now held aside in [TallyResult.unconverted] and named on screen
+ * rather than silently folded into a number that is not true.
+ *
+ * Each capture converts at *its own* rate: the snapshot written when the amount
+ * was confirmed, or, for rows that predate the snapshot, the rate table on the
+ * capture's own day. It used to be three different dates depending on the page.
+ */
 public class Tally(
     private val fx: FxTable,
     private val baseCurrency: CurrencyCode,
 ) {
-    public fun total(captures: List<com.ariadne.model.Capture>, date: LocalDay): TallyResult {
+    public fun total(captures: List<com.ariadne.model.Capture>): TallyResult {
         var base = 0L
+        var converted = 0
         val perCurrency = mutableMapOf<CurrencyCode, Long>()
+        val unconverted = mutableMapOf<CurrencyCode, Long>()
+        val rateDates = mutableMapOf<CurrencyCode, LocalDay>()
         var noAmountCount = 0
-        var unconverted = 0
+        var unconvertedCount = 0
         for (capture in captures) {
             val raw = capture.amountMinor
             val code = capture.currency
@@ -128,16 +157,43 @@ public class Tally(
                 continue
             }
             perCurrency[code] = (perCurrency[code] ?: 0L) + raw
-            val conversion = fx.convert(Money.ofMinor(raw), code, baseCurrency, date)
-            if (!conversion.applied && code != baseCurrency) unconverted++
+            val amount = Money.ofMinor(raw)
+            if (code == baseCurrency) {
+                base += raw
+                converted++
+                continue
+            }
+            val snapshot = capture.rateScaled
+            val conversion = if (snapshot != null) {
+                fx.convertAt(amount, code, baseCurrency, snapshot)
+            } else {
+                fx.convert(amount, code, baseCurrency, capture.localDate)
+            }
+            if (!conversion.applied) {
+                // Held aside, never added. This is the ₹2,605 bug.
+                unconverted[code] = (unconverted[code] ?: 0L) + raw
+                unconvertedCount++
+                continue
+            }
             base += conversion.amount.minorUnits
+            converted++
+            val rateDay = capture.rateDate ?: capture.localDate
+            val existing = rateDates[code]
+            // The oldest day wins: the label reads "at <day>", and a rate that was
+            // true earlier is true for the figure it converted.
+            if (existing == null || LocalDay.toEpochDay(rateDay) < LocalDay.toEpochDay(existing)) {
+                rateDates[code] = rateDay
+            }
         }
         return TallyResult(
             baseTotal = Money.ofMinor(base),
             baseCurrency = baseCurrency,
             perCurrency = perCurrency,
             noAmountCount = noAmountCount,
-            unconvertedCount = unconverted,
+            unconvertedCount = unconvertedCount,
+            unconverted = unconverted,
+            convertedCount = converted,
+            rateDates = rateDates,
         )
     }
 }
@@ -147,8 +203,21 @@ public data class TallyResult(
     public val baseCurrency: CurrencyCode,
     public val perCurrency: Map<CurrencyCode, Long>,
     public val noAmountCount: Int,
+    /** How many captures had an amount but no usable rate — none of them counted. */
     public val unconvertedCount: Int,
+    /** The money that could not be converted, in its own currency, so it can be named. */
+    public val unconverted: Map<CurrencyCode, Long> = emptyMap(),
+    public val convertedCount: Int = 0,
+    /** The day each foreign currency's rate was true, for "≈ at 20 Nov". */
+    public val rateDates: Map<CurrencyCode, LocalDay> = emptyMap(),
 ) {
     /** Two currencies or more — the state the first 30 seconds must reach. */
     public val isMultiCurrency: Boolean get() = perCurrency.keys.size > 1
+
+    /**
+     * True when the base total accounts for every amount in the set.
+     *
+     * False means the figure is a floor, not the spend, and the UI must say so.
+     */
+    public val isComplete: Boolean get() = unconverted.isEmpty()
 }

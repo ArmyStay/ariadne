@@ -10,6 +10,7 @@ import com.ariadne.model.CaptureState
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
+import com.ariadne.model.MerchantName
 import com.ariadne.model.Settings
 import com.ariadne.model.Trip
 import com.ariadne.model.dayRange
@@ -41,8 +42,20 @@ public class AppModel(
     private val clock: Clock,
     private val scope: CoroutineScope,
     private val newId: () -> String,
+    /** Where rates come from. Null on a platform with no network, or in a test. */
+    private val rateSource: com.ariadne.fx.RateSource? = null,
 ) {
     private val _state = MutableStateFlow(AppUiState())
+
+    /**
+     * How deep Back may go.
+     *
+     * A phone trip is a few dozen moves; a cap exists only so a session that opens
+     * the same page five hundred times cannot grow a list without bound.
+     */
+    private companion object {
+        const val MAX_HISTORY = 24
+    }
     public val state: StateFlow<AppUiState> = _state.asStateFlow()
 
     /**
@@ -88,7 +101,7 @@ public class AppModel(
         scope.launch {
             val route = _state.value.route
             val day = when (route) {
-                is Route.Nightfall -> route.day
+                is Route.CloseDay -> route.day
                 is Route.Record -> route.day ?: _state.value.today
                 is Route.Detail -> _state.value.detail?.localDate ?: _state.value.today
                 is Route.Frame -> _state.value.detail?.localDate ?: _state.value.today
@@ -96,6 +109,48 @@ public class AppModel(
             }
             if (day != null) runCatching { refreshDay(day) }
             runCatching { loadTripDays(trip) }
+        }
+    }
+
+    // -- rates -------------------------------------------------------------
+
+    /**
+     * Fetches the rates this trip needs, when they are worth fetching.
+     *
+     * Three rules, each of which used to be missing:
+     *
+     *  - one request covers every foreign currency the trip has used;
+     *  - a rate younger than [com.ariadne.fx.RatePolicy.MAX_AGE_DAYS] is not
+     *    re-fetched, so opening the app five times a day is not five requests;
+     *  - a failure changes nothing. The table keeps the last known rate, the
+     *    amounts keep converting at it, and the UI prints its date.
+     *
+     * [force] exists for the one deliberate case: the person taps "Update rates".
+     */
+    public fun refreshRates(force: Boolean = false) {
+        val source = rateSource ?: return
+        val trip = _state.value.trip ?: return
+        val base = trip.baseCurrency
+        val quotes = currenciesInUse().mapNotNull { CurrencyCode.parseOrNull(it) }
+        scope.launch {
+            val today = clock.today()
+            val known = runCatching { store.allRates() }.getOrDefault(emptyList())
+            val newest = known.filter { it.base == base }
+                .groupBy { it.quote }
+                .mapValues { (_, rows) -> rows.maxByOrNull { LocalDay.toEpochDay(it.date) }?.date }
+            if (!force && !com.ariadne.fx.RatePolicy.shouldFetch(newest, quotes, today)) return@launch
+            val url = com.ariadne.fx.Frankfurter.url(base, quotes) ?: return@launch
+            val body = runCatching { source.get(url) }.getOrNull() ?: return@launch
+            val parsed = com.ariadne.fx.Frankfurter.parse(body, base) ?: return@launch
+            runCatching {
+                parsed.rates.forEach { store.upsertRate(it) }
+                fxRates = store.allRates()
+                fx = FxTable(fxRates)
+            }.onFailure(::report)
+            // New rates change the figures on every page that converts, so the day
+            // and the whole trip are re-read rather than left stale behind them.
+            _state.value.today?.let { refreshDay(it) }
+            loadTripDays(trip)
         }
     }
 
@@ -166,6 +221,9 @@ public class AppModel(
                     )
                 }
             }
+            // Rates last, and off the launch path: the app is on screen before the
+            // first request goes out, and a slow or missing network cannot delay it.
+            runCatching { refreshRates() }.onFailure(::report)
             onStartedAction?.invoke()
         }
     }
@@ -256,7 +314,7 @@ public class AppModel(
 
     private suspend fun seedDemoRoll(trip: Trip) {
         // Every demo capture lands on today: the stack a visitor sees at
-        // Nightfall has to be a stack, not a single card.
+        // Closing the day has to be a stack, not a single card.
         val day = clock.today()
         DemoRoll.entries.forEachIndexed { i, entry ->
             val id = newId()
@@ -287,7 +345,11 @@ public class AppModel(
      * The caller is told the id because the shutter now hands the frame straight
      * back to the person holding it: keep it for nightfall, or fill it in now.
      */
-    public fun capturePhoto(bytes: ByteArray, downscaleAdjusted: Boolean = true) {
+    public fun capturePhoto(
+        bytes: ByteArray,
+        downscaleAdjusted: Boolean = true,
+        openSheet: Boolean = true,
+    ) {
         val trip = _state.value.trip ?: return
         // A closed trip is a finished record, not a destination for new paper.
         if (trip.isClosed) return
@@ -316,7 +378,27 @@ public class AppModel(
             // Extraction picks it up on the next drain; the shutter is already back.
             extraction.drain()
             refreshDay(day)
-            _state.value = _state.value.copy(route = Route.Frame(id))
+            // A photograph taken abroad is the moment a rate first matters. Policy
+            // decides whether this is actually a request; a cached rate is enough.
+            runCatching { refreshRates() }.onFailure(::report)
+            // A batch import files its photographs and leaves the person where they
+            // are: the tray they just filled is the answer, not a sheet for the last
+            // photograph in the pile.
+            if (!openSheet) return@launch
+            // The sheet over the photograph is the editor, so it opens with the
+            // editor's state already loaded: the shutter gets out of the way and
+            // the amount field is live on the same tap. Nothing is pre-filled from
+            // extraction — a suggestion is offered, never typed in.
+            val saved = store.findById(id)
+            _state.value = _state.value.copy(
+                route = Route.Frame(id),
+                detail = saved,
+                detailOrigin = DetailOrigin.Record,
+                detailAmount = "",
+                detailMerchant = saved?.merchant ?: "",
+                detailNote = "",
+                detailCategory = saved?.category,
+            )
         }
     }
 
@@ -337,10 +419,31 @@ public class AppModel(
      * Deliberately the same path as [capturePhoto] once the bytes exist: the
      * record does not care, and should not care, whether an image came from the
      * sensor or from the photo library. Imported captures go straight into the
-     * queue like any other, so they meet the same two taps at Nightfall.
+     * queue like any other, so they meet the same two taps when the day is closed.
      */
     public fun importPhoto(bytes: ByteArray) {
         capturePhoto(bytes)
+    }
+
+    /**
+     * Several photographs from the library, filed in one act.
+     *
+     * No sheet opens: the point of a batch is to get the photographs into the record
+     * and out of the way, and each one meets the same "add the amount later" pager
+     * whenever the day is closed. A single photograph still opens its sheet, because
+     * a person who picked one thing probably wants to type the figure now.
+     */
+    public fun importPhotos(photos: List<ByteArray>) {
+        if (photos.isEmpty()) return
+        if (photos.size == 1) {
+            capturePhoto(photos.first())
+            return
+        }
+        photos.forEachIndexed { index, bytes ->
+            // The last one is given the sheet only if the caller asked for a batch of
+            // exactly one, which is handled above; a real batch never interrupts.
+            capturePhoto(bytes, openSheet = false)
+        }
     }
 
     /** Kept for the older call sites: they now open the form rather than a trip. */
@@ -481,6 +584,23 @@ public class AppModel(
      * zone, and a rail that reads UTC is wrong in every zone but one.
      */
     public fun hourOf(millis: Long): Int = clock.hourOf(millis)
+
+    /**
+     * "21:09" — the time a photograph was taken, in the device's own zone.
+     *
+     * Used for the fallback title, which is the only place the clock reaches copy:
+     * a receipt the recogniser could not name is "Receipt · 21:09" rather than a
+     * guessed merchant or the word "Untitled".
+     */
+    public fun clockTimeOf(millis: Long): String {
+        val hour = clock.hourOf(millis).coerceIn(0, 23).toString().padStart(2, '0')
+        val minute = clock.minuteOf(millis).coerceIn(0, 59).toString().padStart(2, '0')
+        return "$hour:$minute"
+    }
+
+    /** What a capture is called on every page that shows it. */
+    public fun titleOf(capture: Capture): String =
+        MerchantName.receiptTitle(capture.merchant, clockTimeOf(capture.createdAt))
 
     public fun startNewTrip() {
         val today = clock.today()
@@ -712,6 +832,8 @@ public class AppModel(
             _state.value = _state.value.copy(trip = updated)
             _state.value.today?.let { refreshDay(it) }
             loadTripDays(updated)
+            // A new base currency means the cached rates are for the wrong base.
+            refreshRates(force = true)
         }
     }
 
@@ -738,12 +860,12 @@ public class AppModel(
 
     // -- nightfall ---------------------------------------------------------
 
-    public fun openNightfall(day: LocalDay? = null) {
+    public fun openCloseDay(day: LocalDay? = null) {
         val trip = _state.value.trip ?: return
         scope.launch {
             val target = (day ?: clock.today()).coerceInto(trip)
             refreshDay(target)
-            _state.value = _state.value.copy(route = Route.Nightfall(target))
+            go(Route.CloseDay(target))
         }
     }
 
@@ -785,6 +907,32 @@ public class AppModel(
     public fun previous() = selectStackIndex((_state.value.stackIndex - 1).coerceAtLeast(0))
 
     /**
+     * Pins the rate a confirmed amount was converted at to the capture row.
+     *
+     * Called from every door that confirms a figure — the stack, "confirm all
+     * ready", the detail page. One helper, because the ₹2,605 bug was three pages
+     * converting the same captures at three different dates: the day being read,
+     * the trip's first capture, and the trip's start date.
+     *
+     * The rate is looked up on the capture's own day, so a receipt photographed in
+     * Bangkok is converted at Bangkok's rate for that day, and is never revisited
+     * when the rate table moves. No rate available is recorded as such: the amount
+     * stays, and the total names it as unconverted instead of quietly pretending.
+     */
+    private suspend fun pinRate(capture: Capture, amountMinor: Long?, currency: CurrencyCode) {
+        val trip = _state.value.trip ?: return
+        if (amountMinor == null || currency == trip.baseCurrency) {
+            // Nothing to convert: clear any stale snapshot so a currency edit
+            // cannot leave an old rate attached to a rupee amount.
+            store.recordRate(capture.id, null, null)
+            return
+        }
+        val day = capture.localDate
+        val rate = fx.rateOrNull(currency, trip.baseCurrency, day)
+        store.recordRate(capture.id, rate, if (rate == null) null else day.iso)
+    }
+
+    /**
      * Confirm the card on screen. Two taps from card open at most: the amount is
      * pre-filled when extraction was confident, so Confirm alone is often enough.
      */
@@ -802,6 +950,7 @@ public class AppModel(
                 markedNoAmount = noAmount,
                 confirmedAt = clock.nowMillis(),
             )
+            pinRate(capture, parsed?.minorUnits, currency)
             outbox.apply(capture.id, if (noAmount) QueueEvent.MarkedNoAmount else QueueEvent.AmountEntered)
             outbox.apply(capture.id, QueueEvent.Confirmed)
             val day = capture.localDate
@@ -847,7 +996,7 @@ public class AppModel(
         val stack = _state.value.stack
         if (stack.isEmpty()) return
         val now = clock.nowMillis()
-        val day = (state.value.route as? Route.Nightfall)?.day ?: state.value.today ?: stack.first().localDate
+        val day = (state.value.route as? Route.CloseDay)?.day ?: state.value.today ?: stack.first().localDate
         scope.launch {
             stack.forEach { capture ->
                 store.updateDetails(
@@ -895,6 +1044,7 @@ public class AppModel(
                     markedNoAmount = false,
                     confirmedAt = clock.nowMillis(),
                 )
+                pinRate(capture, capture.amountMinor, currency)
                 when (capture.state) {
                     CaptureState.NEEDS_CONFIRMATION -> Unit
                     CaptureState.NEEDS_AMOUNT, CaptureState.FAILED -> outbox.apply(capture.id, QueueEvent.AmountEntered)
@@ -903,7 +1053,7 @@ public class AppModel(
                 }
                 outbox.apply(capture.id, QueueEvent.Confirmed)
             }
-            val day = (state.value.route as? Route.Nightfall)?.day ?: state.value.today ?: ready.first().localDate
+            val day = (state.value.route as? Route.CloseDay)?.day ?: state.value.today ?: ready.first().localDate
             refreshDay(day)
             loadTripDays(trip)
             val remaining = _state.value.stack
@@ -922,7 +1072,7 @@ public class AppModel(
         // days may not be re-filed into a finished record.
         if (trip.isClosed) return
         scope.launch {
-            val target = day ?: (_state.value.route as? Route.Nightfall)?.day ?: clock.today()
+            val target = day ?: (_state.value.route as? Route.CloseDay)?.day ?: clock.today()
             store.capturesForDay(trip.id, target).forEach { capture ->
                 if (capture.state.isOpen) {
                     // An untouched capture is not silently dropped: it becomes a
@@ -956,8 +1106,8 @@ public class AppModel(
     public fun openDetail(captureId: String, from: DetailOrigin = DetailOrigin.Record) {
         scope.launch {
             val capture = store.findById(captureId) ?: return@launch
+            go(Route.Detail(captureId))
             _state.value = _state.value.copy(
-                route = Route.Detail(captureId),
                 detailOrigin = from,
                 detail = capture,
                 detailAmount = amountBuffer(capture),
@@ -989,6 +1139,20 @@ public class AppModel(
 
     public fun clearDetailAmountDigit() {
         _state.value = _state.value.copy(detailAmount = _state.value.detailAmount.dropLast(1))
+    }
+
+    /**
+     * "Yes, that is the figure": the extracted amount becomes the typed amount and
+     * is saved. One call, because it is one decision by the person, not two.
+     */
+    public fun acceptDetailSuggestion() {
+        val capture = _state.value.detail ?: return
+        val minor = capture.amountMinor ?: return
+        val currency = capture.currency ?: _state.value.trip?.baseCurrency ?: CurrencyCode.of("INR")
+        _state.value = _state.value.copy(
+            detailAmount = Money.ofMinor(minor).format(currency, grouping = false),
+        )
+        saveDetail()
     }
 
     public fun rejectDetailExtractedAmount() {
@@ -1040,11 +1204,90 @@ public class AppModel(
 
     /** Leave the detail page for wherever it was opened from. */
     public fun closeDetail() {
+        // Back, not a guessed destination: the detail page no longer has to
+        // remember where it came from, because the stack does.
+        if (back()) return
         when (_state.value.detailOrigin) {
-            DetailOrigin.Search -> _state.value = _state.value.copy(route = Route.Search)
+            DetailOrigin.Search -> go(Route.Search)
             // openRecord refreshes the day and its cards, so the record shows the
             // edit that was just made.
             DetailOrigin.Record -> openRecord(_state.value.detail?.localDate)
+        }
+    }
+
+    /**
+     * What a photograph looked like before the last edit, so the edit can be taken
+     * back exactly — including the rate its figure was pinned at, which is the part
+     * a partial undo would silently move.
+     */
+    private data class EditSnapshot(
+        val id: String,
+        val day: LocalDay,
+        val amountMinor: Long?,
+        val currency: String?,
+        val merchant: String?,
+        val category: String?,
+        val note: String?,
+        val rateScaled: Long?,
+        val rateDate: String?,
+        val state: CaptureState,
+    )
+
+    private var lastEdit: EditSnapshot? = null
+    private var noticeSeq = 0L
+
+    /** Say the last thing that happened, and forget it after long enough to act. */
+    private fun say(text: String, actionLabel: String? = null) {
+        noticeSeq += 1
+        val id = noticeSeq
+        _state.value = _state.value.copy(notice = Notice(text, actionLabel, id))
+        // Long enough to read and reach, short enough that a stale offer never sits
+        // there claiming to undo something three edits ago.
+        scope.launch {
+            kotlinx.coroutines.delay(9_000)
+            if (_state.value.notice?.id == id) _state.value = _state.value.copy(notice = null)
+        }
+    }
+
+    /** Put the notice away. The offer goes with it: no undo for a notice you closed. */
+    public fun dismissNotice() {
+        _state.value = _state.value.copy(notice = null)
+        lastEdit = null
+    }
+
+    /**
+     * Take the last edit back.
+     *
+     * Restores the row as it was — amount, currency, merchant, category, note, the
+     * pinned rate and the queue state — and re-derives the day and the index from
+     * the store rather than patching the UI's copy. One write per column group, in
+     * the order the record has always used.
+     */
+    public fun undoLastEdit() {
+        val snapshot = lastEdit ?: return
+        lastEdit = null
+        _state.value = _state.value.copy(notice = null)
+        scope.launch {
+            store.updateDetail(
+                id = snapshot.id,
+                amountMinor = snapshot.amountMinor,
+                currencyCode = snapshot.currency,
+                merchant = snapshot.merchant,
+                category = snapshot.category,
+                note = snapshot.note,
+            )
+            store.recordRate(snapshot.id, snapshot.rateScaled, snapshot.rateDate)
+            store.updateState(snapshot.id, snapshot.state)
+            val restored = store.findById(snapshot.id)
+            index.rebuild(store.confirmedForTrip(_state.value.trip?.id ?: return@launch))
+            refreshDay(snapshot.day)
+            _state.value = _state.value.copy(
+                detail = restored,
+                detailAmount = restored?.let { amountBuffer(it) } ?: "",
+                detailMerchant = restored?.merchant ?: "",
+                detailNote = restored?.note ?: "",
+                detailCategory = restored?.category,
+            )
         }
     }
 
@@ -1061,6 +1304,21 @@ public class AppModel(
         if (_state.value.trip?.isClosed == true) return
         val currency = capture.currency ?: _state.value.trip?.baseCurrency ?: CurrencyCode.of("INR")
         val parsed = if (keepWithoutAmount) null else Money.parseOrNull(_state.value.detailAmount, currency)
+        // The pre-image, taken before anything is written. Without it an edit is a
+        // one-way door, and a one-way door on a figure someone already read is the
+        // reason people stop trusting a ledger.
+        val before = EditSnapshot(
+            id = capture.id,
+            day = capture.localDate,
+            amountMinor = capture.amountMinor,
+            currency = capture.currency?.code,
+            merchant = capture.merchant,
+            category = capture.category?.name,
+            note = capture.note,
+            rateScaled = capture.rateScaled,
+            rateDate = capture.rateDate?.iso,
+            state = capture.state,
+        )
         scope.launch {
             store.updateDetail(
                 id = capture.id,
@@ -1070,9 +1328,12 @@ public class AppModel(
                 category = _state.value.detailCategory?.name,
                 note = _state.value.detailNote.trim().ifBlank { null },
             )
+            // Same rule as the stack: the figure someone just saved is converted at
+            // the rate of that capture's day, and pinned there.
+            pinRate(capture, parsed?.minorUnits, currency)
             if (parsed != null || keepWithoutAmount) {
                 // A figure entered here is a decided figure, so the card leaves the
-                // Nightfall stack through the same door the ritual uses.
+                // close-day stack through the same door the pager uses.
                 outbox.apply(capture.id, if (keepWithoutAmount) QueueEvent.MarkedNoAmount else QueueEvent.AmountEntered)
                 outbox.apply(capture.id, QueueEvent.Confirmed)
             }
@@ -1084,6 +1345,8 @@ public class AppModel(
                 detail = saved,
                 detailCategory = saved?.category,
             )
+            lastEdit = before
+            say("Saved", "Undo")
         }
     }
 
@@ -1097,7 +1360,49 @@ public class AppModel(
     // -- navigation --------------------------------------------------------
 
     public fun go(route: Route) {
-        _state.value = _state.value.copy(route = route)
+        val current = _state.value.route
+        if (current == route) return
+        // "Today" is a promise about a date, not just a page: arriving on it reads
+        // the calendar's today, even if the last thing looked at was the 14th.
+        if (route == Route.Home) {
+            _state.value.trip?.let { trip ->
+                val day = clock.today().coerceInto(trip)
+                if (day != _state.value.today) scope.launch { runCatching { refreshDay(day) } }
+            }
+        }
+        // A move between the four places starts a fresh stack; a move into a page
+        // pushes the place it came from. One rule, stated once, so Back means the
+        // same thing on every surface.
+        _state.value = _state.value.copy(
+            route = route,
+            history = if (route.isDestination()) {
+                // Landing on a place still gives Back one move: to the place you
+                // came from, if it was a place.
+                if (current.isDestination() && current != route) listOf(current) else emptyList()
+            } else {
+                (current.takeIf { current != Route.Onboarding && current != Route.NewTrip }
+                    ?.let { _state.value.history + it } ?: _state.value.history)
+                    .takeLast(MAX_HISTORY)
+            },
+        )
+    }
+
+    /**
+     * One step back, or false when there is nowhere left to go.
+     *
+     * Returning false is the signal the shell needs: with an empty stack the
+     * platform's own Back (leave the app) is the right answer, and swallowing it
+     * to do nothing is how an app gets a reputation for ignoring the gesture.
+     */
+    public fun back(): Boolean {
+        val state = _state.value
+        val target = state.history.lastOrNull() ?: return false
+        _state.value = state.copy(route = target, history = state.history.dropLast(1))
+        // The place being returned to owns its own figures; re-read them rather
+        // than showing what it looked like before the page that was open on top.
+        val trip = state.trip
+        if (trip != null) scope.launch { runCatching { loadTripDays(trip) } }
+        return true
     }
 
     /**
@@ -1154,12 +1459,23 @@ public class AppModel(
     public fun openCapture() {
         val trip = _state.value.trip ?: return
         if (trip.isClosed) {
-            // Not an error: the trip is finished, and Home already explains that
+            // Not an error: the trip is finished, and Today already explains that
             // in a sentence with the card one tap away.
-            _state.value = _state.value.copy(route = Route.Home)
+            go(Route.Home)
             return
         }
-        _state.value = _state.value.copy(route = Route.Capture)
+        go(Route.Capture)
+    }
+
+    /**
+     * Show a day without leaving the page.
+     *
+     * The Days tab picks a date out of a strip, which is a *look*, not a move: the
+     * page it is looking at is the same page. Routing to the record and back for
+     * every date would make a strip into a maze.
+     */
+    public fun viewDay(day: LocalDay) {
+        scope.launch { runCatching { refreshDay(day) }.onFailure(::report) }
     }
 
     public fun openRecord(day: LocalDay? = null) {
@@ -1169,7 +1485,7 @@ public class AppModel(
                 _state.value = _state.value.copy(dayCards = store.dayCards(trip.id))
             }
             if (day != null) refreshDay(day)
-            _state.value = _state.value.copy(route = Route.Record(day))
+            go(Route.Record(day))
         }
     }
 
@@ -1188,12 +1504,19 @@ public class AppModel(
         val byDay = all.groupBy { it.localDate.iso }
         val figures = byDay.mapValues { (_, captures) ->
             Tally(fx, trip.baseCurrency)
-                .total(captures.filter { it.state == CaptureState.CONFIRMED || it.state == CaptureState.ARCHIVED }, captures.first().localDate)
+                // No date argument: each capture converts at its own pinned rate,
+                // or at the rate table for its own day. Passing the first capture's
+                // day here is what made the timeline disagree with the day page.
+                .total(captures.filter { it.state == CaptureState.CONFIRMED || it.state == CaptureState.ARCHIVED })
                 .baseTotal.minorUnits
         }
+        val tripTally = Tally(fx, trip.baseCurrency).total(all.filter {
+            it.state == CaptureState.CONFIRMED || it.state == CaptureState.ARCHIVED
+        })
         _state.value = _state.value.copy(
             dayCapturesAll = byDay.mapKeys { it.key },
             dayFigures = figures,
+            tripUnconverted = tripTally.unconverted.mapKeys { it.key.code }.mapValues { it.value },
         )
     }
 
@@ -1209,7 +1532,6 @@ public class AppModel(
         }
         val tally = Tally(fx, trip.baseCurrency).total(
             captures.filter { it.state == CaptureState.CONFIRMED || it.state == CaptureState.ARCHIVED },
-            day,
         )
         val indexNow = _state.value.stackIndex.coerceIn(0, (stack.size - 1).coerceAtLeast(0))
         _state.value = _state.value.copy(
@@ -1220,7 +1542,16 @@ public class AppModel(
             dayTotalMinor = tally.baseTotal.minorUnits,
             dayCurrency = trip.baseCurrency.code,
             perCurrency = tally.perCurrency.mapKeys { it.key.code }.mapValues { it.value },
-            categoryTotals = store.categoryTotals(trip.id),
+            dayUnconverted = tally.unconverted.mapKeys { it.key.code }.mapValues { it.value },
+            dayRateDates = tally.rateDates.mapKeys { it.key.code }.mapValues { it.value.iso },
+            // Aggregated here, from the same finished captures the trip total is
+            // computed from, and not by a SQL GROUP BY that returned one row per
+            // currency. Stats and Home now add up the same money or neither does.
+            categoryTotals = com.ariadne.fx.CategoryTotals.of(
+                captures = store.confirmedForTrip(trip.id),
+                fx = fx,
+                baseCurrency = trip.baseCurrency,
+            ),
         )
         loadTripDays(trip)
         _state.value = _state.value.copy(

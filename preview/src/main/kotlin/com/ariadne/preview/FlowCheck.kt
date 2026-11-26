@@ -110,11 +110,40 @@ fun main() {
         kotlinx.coroutines.runBlocking { services.files.read(stored?.photoPath ?: "")?.size } == 4,
     )
 
-    // ---- "keep it for nightfall" loses nothing ---------------------------
+    // ---- "add the amount later" loses nothing -----------------------------
+    check(
+        "the sheet opens with the amount field live",
+        model.state.value.route is Route.Frame &&
+            model.state.value.detail?.id == captureId &&
+            model.state.value.detailAmount.isEmpty(),
+    )
     model.keepFrameForLater()
     settle()
-    check("keeping it returns Home", model.state.value.route == Route.Home)
+    check("adding the amount later returns Home", model.state.value.route == Route.Home)
     check("keeping it does not delete the frame", graph.store.findCapture(captureId) != null)
+
+    // ---- the stack: one step in, one step out, and a refusal at a root ---
+    //
+    // Back is now the app's own stack (`AppModel.history`) rather than a guess on
+    // each page. These four checks are the whole contract: a page goes back to the
+    // place that opened it, a place goes back to the place before it, and a place
+    // with nothing behind it says so instead of swallowing the gesture.
+    model.go(Route.Stats)
+    settle()
+    check("a tab switch lands on that tab", model.state.value.route == Route.Stats)
+    model.openRecord(null)
+    settle()
+    check("a day opens over the tab that asked for it", model.state.value.route is Route.Record)
+    check("and the stack now has somewhere to go back to", model.state.value.canGoBack)
+    model.back()
+    settle()
+    check("back from a day returns to its tab", model.state.value.route == Route.Stats)
+    model.back()
+    settle()
+    check("back from a tab returns to the tab before it", model.state.value.route == Route.Home)
+    check("and there it stops", !model.back())
+    settle()
+    check("a refused back does not move the app", model.state.value.route == Route.Home)
 
     // ---- "fill it in now" opens the capture for editing ------------------
     model.openFrame(captureId)
@@ -130,6 +159,20 @@ fun main() {
     val edited = graph.store.findCapture(captureId)
     check("an amount typed in reaches the record", edited?.amountMinor == 4_099L)
     check("a merchant typed in reaches the record", edited?.merchant == "Shrine")
+
+    // ---- an edit can be taken back ---------------------------------------
+    //
+    // Undo has to restore the row as it was, not merely blank a field: the amount,
+    // the merchant, the queue state and the pinned rate all belonged to the
+    // photograph before the edit, and all of them belong to it again after.
+    check("saving offers its own undo", model.state.value.notice?.actionLabel == "Undo")
+    model.undoLastEdit()
+    settle()
+    val undone = graph.store.findCapture(captureId)
+    check("undo restores the figure the edit replaced", undone?.amountMinor == null)
+    check("undo restores the merchant", undone?.merchant == null)
+    check("undo puts the queue state back", undone?.state == com.ariadne.model.CaptureState.QUEUED)
+    check("and the offer goes with the undo", model.state.value.notice == null)
 
     // ---- the demo path still works in one call ---------------------------
     model.startTripDemo()

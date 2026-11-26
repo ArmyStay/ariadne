@@ -33,6 +33,7 @@ import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.app.DetailOrigin
 import com.ariadne.app.Route
+import com.ariadne.design.EmptyState
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.Glyph
@@ -77,7 +78,7 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
     ) {
         Masthead(
-            number = "08",
+            number = "",
             eyebrow = "The record",
             title = "Remember a thing",
             paper = paper,
@@ -142,12 +143,11 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
                 }
             }
 
-            state.searchResults.isEmpty() -> Body(
-                "Nothing by that name. Try a price, or the day it happened.",
-                paper,
-                serif = true,
-                color = paper.inkSoft,
-                size = 16.sp,
+            state.searchResults.isEmpty() -> EmptyState(
+                title = "Nothing by that name.",
+                body = "Try a price, the shop, or the day it happened. Search reads what you " +
+                    "typed on the photograph, and what the recogniser read off it.",
+                paper = paper,
             )
 
             else -> {
@@ -157,7 +157,7 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
                     Reveal(i) {
                         // A result is a photograph, so it opens the photograph.
                         // The day is one quiet Back away, from the detail page.
-                        SearchRow(capture, paper) {
+                        SearchRow(capture, model, paper) {
                             // Opened from search, so Back returns to the results
                             // with the query still in the field.
                             model.openDetail(capture.id, from = DetailOrigin.Search)
@@ -174,7 +174,7 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
 }
 
 @Composable
-private fun SearchRow(capture: Capture, paper: Paper, onClick: () -> Unit) {
+private fun SearchRow(capture: Capture, model: AppModel, paper: Paper, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().androidTap(onClick).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -188,7 +188,7 @@ private fun SearchRow(capture: Capture, paper: Paper, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Title(capture.merchant ?: "Untitled", paper, size = 16.sp)
+            Title(model.titleOf(capture), paper, size = 16.sp)
             Spacer(Modifier.height(3.dp))
             Label(capture.localDate.iso, paper, color = paper.inkFaint)
         }

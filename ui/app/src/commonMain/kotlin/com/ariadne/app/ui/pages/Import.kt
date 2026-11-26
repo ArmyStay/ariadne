@@ -27,6 +27,16 @@ import kotlinx.coroutines.launch
 public interface PhotoPicker {
     /** Opens the platform's picker. Null when the person cancels. */
     public suspend fun pick(): ByteArray?
+
+    /**
+     * Several photographs at once.
+     *
+     * A person who photographed four receipts and forgot to keep them should not
+     * have to open the picker four times. Targets that cannot offer a
+     * multi-selection fall back to one pick, so this is safe to call everywhere and
+     * the caller never has to ask which kind of picker it has.
+     */
+    public suspend fun pickMany(limit: Int = 12): List<ByteArray> = listOfNotNull(pick())
 }
 
 public val LocalPhotoPicker: ProvidableCompositionLocal<PhotoPicker?> =
@@ -59,6 +69,33 @@ public fun rememberPhotoImport(
             scope.launch {
                 val bytes = runCatching { picker.pick() }.getOrNull()
                 if (bytes != null && bytes.isNotEmpty()) onBytes(bytes)
+            }
+        }
+    }
+}
+
+/**
+ * The library, several at a time.
+ *
+ * Used where the pile is the point — the tray of photographs waiting for an amount.
+ * A picker with no multi-selection hands back a list of one, and the page behaves
+ * exactly as it did before.
+ */
+@Composable
+public fun rememberPhotoImportMany(
+    onBytes: (List<ByteArray>) -> Unit,
+    onUnavailable: () -> Unit,
+): () -> Unit {
+    val picker = LocalPhotoPicker.current
+    val scope = rememberCoroutineScope()
+    return {
+        if (picker == null) {
+            onUnavailable()
+        } else {
+            scope.launch {
+                val bytes = runCatching { picker.pickMany() }.getOrNull().orEmpty()
+                val photos = bytes.filter { it.isNotEmpty() }
+                if (photos.isNotEmpty()) onBytes(photos)
             }
         }
     }

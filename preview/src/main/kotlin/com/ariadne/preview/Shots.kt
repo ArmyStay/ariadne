@@ -55,18 +55,19 @@ fun main(args: Array<String>) {
         Shot("01-new-trip", 440, 900, seed = false, route = { it.startNewTrip() }),
         Shot("01-new-trip-desktop", 1200, 800, seed = false, route = { it.startNewTrip() }),
         Shot("01-onboarding", 440, 900, seed = false),
-        Shot("02-home", 440, 900, route = { it.go(Route.Home) }),
-        Shot("02-home-desktop", 1200, 800, route = { it.go(Route.Home) }),
+        Shot("02-today", 440, 900, route = { it.go(Route.Home) }),
+        Shot("02-today-desktop", 1200, 800, route = { it.go(Route.Home) }),
         // Part-scrolled, so the still shows the scroll rail half way down and not
         // only in the state where it is easy to draw.
-        Shot("02-home-scrolled", 440, 900, route = { it.go(Route.Home) }, scrollTo = 0.55f),
-        Shot("02b-timeline-scrolled", 440, 900, route = { it.go(Route.Timeline) }, scrollTo = 0.4f),
+        Shot("02-today-scrolled", 440, 900, route = { it.go(Route.Home) }, scrollTo = 0.55f),
+        Shot("03-days-scrolled", 440, 900, route = { it.go(Route.Days) }, scrollTo = 0.4f),
         Shot("06-record-scrolled", 440, 900, route = { it.openRecord(null) }, settle = 1, scrollTo = 0.6f),
-        Shot("02b-timeline", 440, 900, route = { it.go(Route.Timeline) }),
+        Shot("03-days", 440, 900, route = { it.go(Route.Days) }),
         // The register: every trip on this device, one of them active.
         Shot("02a-trips", 440, 900, route = { it.go(Route.Trips) }),
         Shot("02a-trips-desktop", 1200, 800, route = { it.go(Route.Trips) }),
         Shot("02c-stats", 440, 900, route = { it.go(Route.Stats) }),
+        Shot("02c-stats-desktop", 1200, 800, route = { it.go(Route.Stats) }),
         // Finished through the real ritual, so the breakdown below is the one the
         // app would actually compute — not a fixture.
         Shot(
@@ -77,7 +78,12 @@ fun main(args: Array<String>) {
         ),
         Shot("02d-prefs", 440, 900, route = { it.go(Route.Preferences) }),
         Shot("03-trip", 440, 900, route = { it.go(Route.Trip) }),
+        Shot("03-trip-desktop", 1200, 800, route = { it.go(Route.Trip) }),
         Shot("04-capture", 440, 900, route = { it.go(Route.Capture) }),
+        // The sheet: the shutter's landing, with the photograph behind it. Taken
+        // through the real capture path so the plate is a real one.
+        Shot("04-sheet", 440, 900, route = { it.capturePlaceholder() }, settle = 1),
+        Shot("04-sheet-desktop", 1200, 800, route = { it.capturePlaceholder() }, settle = 1),
         // The frame just taken, held up with its two ways out.
         Shot(
             "04b-frame", 440, 900, settle = 4,
@@ -94,15 +100,15 @@ fun main(args: Array<String>) {
             when {
                 budgetStep == 0 -> {
                     m.editTripBudget("140000")
-                    m.openNightfall(null)
+                    m.openCloseDay(null)
                 }
                 m.state.value.stack.isNotEmpty() -> m.confirmCurrent()
                 else -> m.go(Route.Stats)
             }
             budgetStep++
         }),
-        Shot("05-nightfall", 440, 900, route = { it.openNightfall(null) }),
-        Shot("05-nightfall-desktop", 1200, 800, route = { it.openNightfall(null) }),
+        Shot("05-close-day", 440, 900, route = { it.openCloseDay(null) }),
+        Shot("05-close-day-desktop", 1200, 800, route = { it.openCloseDay(null) }),
         Shot("06-record", 440, 900, route = { it.openRecord(null) }, settle = 1),
         Shot("06b-detail", 440, 900, route = { it.openDetailFirst() }, settle = 1),
         Shot("06b-detail-desktop", 1200, 800, route = { it.openDetailFirst() }, settle = 1),
@@ -119,8 +125,8 @@ fun main(args: Array<String>) {
         ),
         // Twice the system text size. These exist so the claim "the layout grows
         // rather than clips" can be checked by looking at a file.
-        Shot("02-home-200", 440, 900, fontScale = 2f, route = { it.go(Route.Home) }),
-        Shot("05-nightfall-200", 440, 900, fontScale = 2f, route = { it.openNightfall(null) }),
+        Shot("02-today-200", 440, 900, fontScale = 2f, route = { it.go(Route.Home) }),
+        Shot("05-close-day-200", 440, 900, fontScale = 2f, route = { it.openCloseDay(null) }),
         Shot("02d-prefs-200", 440, 900, fontScale = 2f, route = { it.go(Route.Preferences) }),
         // The rest of the 200% audit. Every surface the review asked about gets a
         // still at twice the system text size, because "it reflows" is a claim a
@@ -130,7 +136,7 @@ fun main(args: Array<String>) {
         Shot("01-onboarding-200", 440, 900, seed = false, fontScale = 2f),
         Shot("01-new-trip-200", 440, 900, seed = false, fontScale = 2f, route = { it.startNewTrip() }),
         Shot("02a-trips-200", 440, 900, fontScale = 2f, route = { it.go(Route.Trips) }),
-        Shot("02b-timeline-200", 440, 900, fontScale = 2f, route = { it.go(Route.Timeline) }),
+        Shot("03-days-200", 440, 900, fontScale = 2f, route = { it.go(Route.Days) }),
         Shot("03-trip-200", 440, 900, fontScale = 2f, route = { it.go(Route.Trip) }),
         Shot("04-capture-200", 440, 900, fontScale = 2f, route = { it.go(Route.Capture) }),
         Shot("06-record-200", 440, 900, fontScale = 2f, route = { it.openRecord(null) }, settle = 1),

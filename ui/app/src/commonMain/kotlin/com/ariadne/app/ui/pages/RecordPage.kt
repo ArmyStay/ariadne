@@ -44,6 +44,8 @@ import com.ariadne.model.CurrencyCode
 import com.ariadne.model.DayCard
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
+import com.ariadne.model.DaySummary
+import com.ariadne.model.entryStatus
 
 /**
  * Page 6 — Record.
@@ -68,7 +70,7 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
 
     ScrollingMargin(paper, wide, margin = if (wide) 56.dp else Bone.Margin) { _ ->
         Masthead(
-            number = "06",
+            number = "",
             eyebrow = state.trip?.name ?: "Record",
             title = "The record",
             paper = paper,
@@ -109,7 +111,7 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             Action("Add a photograph", paper, { model.openCapture() })
         } else {
             captures.forEachIndexed { i, capture ->
-                ReceiptLine(capture, i, paper) { model.openDetail(capture.id) }
+                ReceiptLine(capture, model.titleOf(capture), i, paper) { model.openDetail(capture.id) }
             }
         }
 
@@ -126,22 +128,29 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
         }
         FigureRow(
             "Tallied",
-            Money.ofMinor(state.dayTotalMinor).formatWithSymbol(CurrencyCode.of(state.dayCurrency)),
+            // The "≈" appears exactly when the figure contains money that was
+            // converted into it; the note beneath says at which rate's date.
+            (if (state.dayRateDates.isEmpty()) "" else "≈ ") +
+                Money.ofMinor(state.dayTotalMinor).formatWithSymbol(CurrencyCode.of(state.dayCurrency)),
             paper,
             emphasised = true,
         )
+        Spacer(Modifier.height(6.dp))
+        ConversionNote(state.dayRateDates, state.dayUnconverted, paper)
         // The total only ever holds finished cards. Saying so is the difference
         // between a number you trust and a number that looks broken.
-        val waiting = state.stack.size
+        // Counted from the entry state, so this sentence and the timeline row for
+        // the same day always agree on how many cards are open.
+        val waiting = DaySummary.of(state.dayCaptures).pending
         if (waiting > 0) {
             Spacer(Modifier.height(6.dp))
             Body(
                 if (waiting == 1) {
-                    "1 card is still open. Nothing is in the total until nightfall — the figures " +
-                        "above are what the photographs said, not what you have confirmed."
-                } else {
-                    "$waiting cards are still open. Nothing is in the total until nightfall — the " +
+                    "1 card is still open. Nothing is in the total until you close the day — the " +
                         "figures above are what the photographs said, not what you have confirmed."
+                } else {
+                    "$waiting cards are still open. Nothing is in the total until you close the day — " +
+                        "the figures above are what the photographs said, not what you have confirmed."
                 },
                 paper,
                 color = paper.inkFaint,
@@ -154,9 +163,9 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
         // is the ritual. A closed day has nothing to settle, so the bar goes
         // genuinely inert rather than inviting a tap that leads nowhere.
         Action(
-            "Nightfall",
+            "Close day",
             paper,
-            { model.openNightfall(shown) },
+            { model.openCloseDay(shown) },
             accent = true,
             enabled = !dayIsClosed && !tripClosed,
         )
@@ -220,7 +229,14 @@ private fun DayTab(card: DayCard, selected: Boolean, paper: Paper, onClick: () -
 
 /** One capture as a line of a slip: plate, name, figure. */
 @Composable
-private fun ReceiptLine(capture: Capture, index: Int, paper: Paper, onClick: () -> Unit) {
+private fun ReceiptLine(
+    capture: Capture,
+    /** The card's name: a believable merchant, or "Receipt · 21:09". Never raw OCR. */
+    title: String,
+    index: Int,
+    paper: Paper,
+    onClick: () -> Unit,
+) {
     Row(
         Modifier.fillMaxWidth().androidTap(onClick).padding(vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -233,21 +249,26 @@ private fun ReceiptLine(capture: Capture, index: Int, paper: Paper, onClick: () 
         ) {
             PhotoPreview(
                 photoPath = capture.photoPath,
-                caption = capture.merchant ?: "Photograph",
+                // A screen reader hears the same words the title uses, so a
+                // photograph of a menu bar is described as "Receipt · 21:09"
+                // rather than read out as a menu bar.
+                caption = title,
                 paper = paper,
                 modifier = Modifier.fillMaxSize(),
             )
         }
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Title(capture.merchant ?: "Untitled", paper, size = 16.sp)
+            Title(title, paper, size = 16.sp)
             Spacer(Modifier.height(3.dp))
             val currency = capture.currency
             Label(
-                when {
-                    capture.markedNoAmount -> "no amount"
-                    currency == null -> "not filled in"
-                    else -> currency.code
+                // The entry state's own words, or the currency when there is an
+                // amount to name. One vocabulary for every row on every page.
+                if (currency != null && capture.amountMinor != null) {
+                    currency.code
+                } else {
+                    capture.entryStatus.label
                 },
                 paper,
                 color = paper.inkFaint,

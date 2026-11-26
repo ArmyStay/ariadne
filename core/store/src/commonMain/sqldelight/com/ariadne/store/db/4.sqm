@@ -1,0 +1,25 @@
+-- Migration 4: the rate a capture was converted at, kept with the capture.
+--
+-- Until now a foreign amount had no rate of its own. Every total re-looked the
+-- rate up at whatever date the page happened to pass in, and the pages disagreed:
+-- the day total used the day being read, the timeline used the trip's first
+-- capture, the category totals used the trip's start date. THB 2,555 and INR 50
+-- therefore came out as "₹2,605" — one figure added to another with no rate at
+-- all, because the lookup had missed and the miss was counted as a zero.
+--
+-- Two nullable columns fix that at the source:
+--
+--   rateScaled  the rate in use when the amount was confirmed, scaled by 1e6
+--   rateDate    the day that rate was true, so the UI can print "≈ at 20 Nov"
+--
+-- Both stay NULL for a capture in the trip's own currency (no conversion happens,
+-- so there is no rate to keep) and for anything captured before this migration.
+-- Rows without a snapshot fall back to the rate table at the capture's own day —
+-- not the trip's, not the page's.
+--
+-- Additive and nullable on purpose: every existing row remains valid, nothing is
+-- rewritten, and no data is lost.
+
+ALTER TABLE capture ADD COLUMN rateScaled INTEGER;
+
+ALTER TABLE capture ADD COLUMN rateDate TEXT;

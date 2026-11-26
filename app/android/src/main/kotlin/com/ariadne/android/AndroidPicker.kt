@@ -39,6 +39,24 @@ internal fun rememberAndroidPhotoPicker(context: Context): PhotoPicker {
     // so the newest launcher is kept in a state holder rather than captured once.
     val launch = remember { mutableStateOf<(() -> Unit)?>(null) }
     val pending = remember { mutableStateOf<CompletableDeferred<ByteArray?>?>(null) }
+    // The multi-selection is a second contract, and a second launcher: the
+    // platform picker does not turn one request into the other, and asking for
+    // several from the single-image contract is not possible.
+    val launchMany = remember { mutableStateOf<(() -> Unit)?>(null) }
+    val pendingMany = remember { mutableStateOf<CompletableDeferred<List<ByteArray>>?>(null) }
+    val multiContract = remember { ActivityResultContracts.PickMultipleVisualMedia(MAX_PHOTOS) }
+
+    val multiLauncher = rememberLauncherForActivityResult(multiContract) { uris ->
+        val waiting = pendingMany.value
+        pendingMany.value = null
+        if (waiting == null) return@rememberLauncherForActivityResult
+        // Decoding is the expensive half and it happens off the composition
+        // thread, exactly as the single picker does it.
+        Thread { waiting.complete(uris.mapNotNull { readPhoto(context, it) }) }.start()
+    }
+    launchMany.value = {
+        multiLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         val waiting = pending.value
@@ -69,9 +87,30 @@ internal fun rememberAndroidPhotoPicker(context: Context): PhotoPicker {
                 // picker killed by the system cannot strand a coroutine forever.
                 return withTimeoutOrNull(10L * 60L * 1000L) { answer.await() }
             }
+
+            override suspend fun pickMany(limit: Int): List<ByteArray> {
+                // One dialog at a time across both launchers: a second tap while a
+                // picker is open is the same request, not a queue of them.
+                if (pending.value != null || pendingMany.value != null) return emptyList()
+                val answer = CompletableDeferred<List<ByteArray>>()
+                pendingMany.value = answer
+                launchMany.value?.invoke()
+                // Cancelling the dialog arrives as an empty list, so the page keeps
+                // whatever it had without a special case.
+                return withTimeoutOrNull(10L * 60L * 1000L) { answer.await() }.orEmpty()
+            }
         }
     }
 }
+
+/**
+ * How many photographs one trip to the picker may bring back.
+ *
+ * The bound is about the record, not the device: twelve receipts is one evening's
+ * worth of photographs, and a person who picks eighty at once has made a mistake
+ * they cannot see the end of. They can always come back.
+ */
+private const val MAX_PHOTOS = 12
 
 /** Read, bound and re-encode the chosen photograph. Null if it cannot be read. */
 private fun readPhoto(context: Context, uri: Uri): ByteArray? = runCatching {

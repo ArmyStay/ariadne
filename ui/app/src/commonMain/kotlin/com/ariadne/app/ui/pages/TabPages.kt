@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -39,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.ui.text.font.FontWeight
 import com.ariadne.app.Route
 import com.ariadne.design.Action
@@ -83,16 +83,6 @@ import com.ariadne.model.Settings
 import com.ariadne.model.dayRange
 import com.ariadne.model.symbol
 
-
-/**
- * The four destinations in the bottom bar, as single views.
- *
- * They are not "screens" in the routed sense — the routed pages (a trip, a day,
- * the card) still sit on top of these. Each one is a scroller with a headline, a
- * figure and a list, in the reference's language: white panels on paper, hairline
- * rules, tracked-out labels, one blue action.
- */
-
 /**
  * Wraps every tab view in the same page furniture.
  *
@@ -132,6 +122,16 @@ private fun TabPage(
         }
     }
 }
+
+
+/**
+ * The four destinations in the bottom bar, as single views.
+ *
+ * They are not "screens" in the routed sense — the routed pages (a trip, a day,
+ * the card) still sit on top of these. Each one is a scroller with a headline, a
+ * figure and a list, in the reference's language: white panels on paper, hairline
+ * rules, tracked-out labels, one blue action.
+ */
 
 // ── 1. Home ─────────────────────────────────────────────────────────────────
 
@@ -273,7 +273,7 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                     OutlineAction(
                         "Finish ${state.stack.size}",
                         paper,
-                        { model.openNightfall(state.today) },
+                        { model.openCloseDay(state.today) },
                     )
                 }
             }
@@ -311,7 +311,7 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         // the page arrives as a composed set rather than as a block that appears.
         Reveal(1) {
             NavRow(Glyph.Date, "Timeline", "${state.dayCards.count { it.isClosed }} of ${state.dayCards.size} days closed", paper) {
-                model.go(Route.Timeline)
+                model.go(Route.Days)
             }
         }
         Rule(paper)
@@ -626,7 +626,7 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         Action(
             "Close today",
             paper,
-            { model.openNightfall(state.today) },
+            { model.openCloseDay(state.today) },
             accent = true,
             enabled = state.stack.isNotEmpty() && !todayClosed && !tripClosed,
         )

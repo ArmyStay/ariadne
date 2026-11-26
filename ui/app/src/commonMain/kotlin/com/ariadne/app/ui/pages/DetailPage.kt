@@ -112,7 +112,7 @@ public fun DetailPage(
                 .padding(horizontal = if (wide) Bone.MarginWide else Bone.Margin, vertical = 22.dp),
         ) {
             Masthead(
-                number = "07",
+                number = "",
                 eyebrow = capture?.localDate?.iso ?: "Photograph",
                 title = "The photograph",
                 paper = paper,
@@ -236,7 +236,9 @@ private fun Photograph(
         Box(Modifier.fillMaxWidth().aspectRatio(1f).border(Bone.Hairline, paper.edge)) {
             PhotoPreview(
                 photoPath = photoPath,
-                caption = merchant ?: "Photograph",
+                // The same name the row and the search result carry, so a screen
+                // reader describes one photograph one way throughout.
+                caption = com.ariadne.model.MerchantName.receiptTitle(merchant),
                 paper = paper,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -387,7 +389,7 @@ private fun Fields(
 }
 
 @Composable
-private fun LineField(
+internal fun LineField(
     label: String,
     value: String,
     placeholder: String,
@@ -435,7 +437,7 @@ private fun LineField(
 }
 
 @Composable
-private fun CategoryChips(
+internal fun CategoryChips(
     selected: Category?,
     paper: Paper,
     enabled: Boolean = true,
@@ -452,7 +454,7 @@ private fun CategoryChips(
                     // is a finger's width. Density and reach are separate decisions.
                     Box(
                         Modifier
-                            .heightIn(min = 44.dp)
+                            .heightIn(min = 48.dp)
                             .pointerInput(category, enabled) {
                                 if (enabled) detectTapGestures(onTap = { onSelect(category) })
                             },
@@ -487,7 +489,7 @@ private fun CategoryChips(
 }
 
 @Composable
-private fun CurrencyChip(
+internal fun CurrencyChip(
     code: String,
     paper: Paper,
     selected: Boolean,
@@ -496,7 +498,7 @@ private fun CurrencyChip(
 ) {
     Box(
         Modifier
-            .heightIn(min = 44.dp)
+            .heightIn(min = 48.dp)
             .pointerInput(code, enabled) {
                 if (enabled) detectTapGestures(onTap = { if (!selected) onClick() })
             }

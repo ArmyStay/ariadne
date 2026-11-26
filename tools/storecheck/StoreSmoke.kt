@@ -1,4 +1,6 @@
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.ariadne.fx.FxTable
+import com.ariadne.fx.Tally
 import com.ariadne.model.Capture
 import com.ariadne.model.Category
 import com.ariadne.model.CaptureState
@@ -215,8 +217,19 @@ fun main() = runBlocking {
     )
     expect("finished rows still there", store.categoryTotals("trip-1").size, 3)
     store.updateState("c-5", CaptureState.CONFIRMED)
-    val orphan = store.categoryTotals("trip-1").firstOrNull { it.category == Category.Lodging }
-    expect("no rate is not a zero", orphan?.baseMinor, 9_900L)
+    // A currency with no rate is not a zero and is not the raw figure either: it is
+    // money the app cannot convert, so it stays out of every base-currency total and
+    // is named separately. Before this, 99.00 EUR would have joined a rupee column
+    // as "₹99.00" — the same bug that printed THB 2,555 + INR 50 as ₹2,605.
+    expect(
+        "no rate means no converted row",
+        store.categoryTotals("trip-1").any { it.category == Category.Lodging },
+        false,
+    )
+    val tally = Tally(FxTable(store.allRates()), CurrencyCode.of("INR"))
+        .total(store.confirmedForTrip("trip-1"))
+    expect("unconverted money is named", tally.unconverted[CurrencyCode.of("EUR")], 9_900L)
+    expect("and the total says it is incomplete", tally.isComplete, false)
 
     println("persistence")
     expect("db file written", file.length() > 0, true)

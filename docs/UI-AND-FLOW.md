@@ -1,5 +1,13 @@
 # Ariadne — every page, what is on it, and the design in words
 
+> **Superseded in part, as of the redesign.** This document describes the book as it
+> was before Phase 2. Today, Days, Close day, Trip, Stats and Preferences have since
+> been rewritten, the tab bar has been replaced, the routes `Timeline` and `Nightfall`
+> no longer exist, and the plate numbers are gone. The current design is described in
+> `docs/PHASE-2.md` and `docs/PHASE-3.md`; the rest of this file is still the best
+> description of the pages that have not been rewritten yet (the record, search, the
+> register, the new-trip form, the card, onboarding).
+
 **What this document is.** A complete, page-by-page description of the Ariadne UI
 and its flows, written from the code that actually renders it. It describes what
 exists — layout, type, colour, copy, states, and where each control leads — not
