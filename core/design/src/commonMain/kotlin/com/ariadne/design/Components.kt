@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -237,6 +238,9 @@ public fun Action(
      */
     icon: Glyph? = null,
 ) {
+    // A blue action claims its surface's one blue. Disabled actions are drawn on
+    // sunk paper, so they do not claim it: an inert bar is not the thing to do.
+    if (accent && enabled) ClaimAccent(text)
     val bg = when {
         !enabled -> paper.sunk
         accent || fill -> paper.blue
@@ -352,22 +356,29 @@ public fun QuietAction(
     underline: Boolean = true,
 ) {
     val c = if (color == Color.Unspecified) paper.inkMid else color
-    Column(
+    // The whole control is 44dp square-ish even though the mark is small: a quiet
+    // action is quiet in weight, not in the area a thumb has to find, and at 200%
+    // text the box grows with the label rather than clipping it.
+    Box(
         modifier
+            .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
             .semantics {
                 contentDescription = text
                 role = Role.Button
             }
             .pointerInput(text) { detectTapGestures(onTap = { onClick() }) }
             .padding(vertical = 6.dp),
+        contentAlignment = Alignment.CenterStart,
     ) {
-        // 11sp and a full-weight rule. At 10sp with a 1dp mark this read as a
-        // caption rather than as something you can press, which is exactly why the
-        // top of every page felt dead.
-        Label(text, paper, color = c, size = 11.sp, tracking = 1.4.sp)
-        if (underline) {
-            Spacer(Modifier.height(4.dp))
-            Box(Modifier.width(if (text.length > 8) 44.dp else 26.dp).height(1.5.dp).background(c))
+        Column {
+            // 11sp and a full-weight rule. At 10sp with a 1dp mark this read as a
+            // caption rather than as something you can press, which is exactly why
+            // the top of every page felt dead.
+            Label(text, paper, color = c, size = 11.sp, tracking = 1.4.sp)
+            if (underline) {
+                Spacer(Modifier.height(4.dp))
+                Box(Modifier.width(if (text.length > 8) 44.dp else 26.dp).height(1.5.dp).background(c))
+            }
         }
     }
 }

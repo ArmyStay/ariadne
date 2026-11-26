@@ -10,12 +10,18 @@ Apple developer account, an emulator, or a network connection.
 ## 1. Look at it (10 seconds)
 
 ```bash
+./tools/run-preview.sh --shots docs/shots   # render the current build first
 open docs/shots/contact-sheet.png
 ```
 
-Fourteen frames, rendered from the **real** shared Compose UI — not a mockup, not
-a Figma export. `docs/shots/` holds each page at full size, including the desktop
-spread and the night paper.
+The frames are rendered from the **real** shared Compose UI — not a mockup, not a
+Figma export. `docs/shots/` holds each page at full size, including the desktop
+spread, the night paper and the 200% text stills (44 frames in the harness).
+
+**Render before you look.** Everything from before 2026-11-26 has been moved to
+`docs/shots/archive-2026-11-26-pre-third-review/`, behind a README that lists what
+it predates. Those files still show a design that no longer exists; none of them is
+evidence for the current one.
 
 This exists because "it compiles" is not the same as "it looks right", and the
 only honest way to check a layout is to see the frame.

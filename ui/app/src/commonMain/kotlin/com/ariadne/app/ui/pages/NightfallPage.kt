@@ -19,9 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
@@ -30,8 +27,6 @@ import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
-import com.ariadne.design.Glyph
-import com.ariadne.design.Icon
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
@@ -40,6 +35,7 @@ import com.ariadne.design.Paper
 import com.ariadne.design.Plate
 import com.ariadne.design.Subject
 import com.ariadne.design.QuietAction
+import com.ariadne.design.RuledKeypad
 import com.ariadne.design.Rule
 import com.ariadne.design.Title
 import com.ariadne.model.Capture
@@ -102,7 +98,7 @@ public fun NightfallPage(
         Spacer(Modifier.height(20.dp))
 
         if (capture == null) {
-            RestingDay(paper, model, day)
+            RestingDay(paper, model, day, closedTrip = state.trip?.isClosed == true)
             return@Column
         }
 
@@ -155,10 +151,12 @@ public fun NightfallPage(
                     Modifier.fillMaxWidth().weight(1f)
                         .verticalScroll(rememberScrollState()),
                 ) {
+                    // The same plate as everywhere else: 1:1. A 16:9 crop here
+                    // made the triage card look like a different app.
                     PhotographOf(
                         capture,
                         paper,
-                        Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                        Modifier.fillMaxWidth().aspectRatio(1f),
                     )
                     Spacer(Modifier.height(14.dp))
                     Header(state, model, paper, capture)
@@ -170,7 +168,13 @@ public fun NightfallPage(
                 // The decision never scrolls away: two taps finish a card, so both
                 // taps have to be on screen at the same time as the number.
                 Decisions(state, model, paper, wide = false)
-                if (!capture.hasUnconfirmedAmount) Keypad(paper, model)
+                if (!capture.hasUnconfirmedAmount) {
+                    RuledKeypad(
+                        paper = paper,
+                        onDigit = { model.typeAmount(it) },
+                        onBackspace = { model.backspace() },
+                    )
+                }
             }
         }
     }
@@ -343,7 +347,7 @@ private fun Decisions(
             )
             Spacer(Modifier.height(9.dp))
             Body(
-                "Closing files the day. Long-press a card to reopen it.",
+                "Closing files the day. Any card can still be edited from the record.",
                 paper,
                 color = paper.inkFaint,
                 size = 11.sp,
@@ -358,33 +362,25 @@ private fun Decisions(
                 )
                 Spacer(Modifier.height(8.dp))
             }
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                if (extractedAmount != null) {
-                    Box(Modifier.weight(1f)) {
-                        OutlineAction(
-                            "No, enter it",
-                            paper,
-                            { model.rejectCurrentExtractedAmount() },
-                        )
-                    }
-                    Box(Modifier.weight(1f)) {
-                        Action("Yes, save", paper, { model.confirmCurrent() }, accent = true)
-                    }
-                } else {
-                    Box(Modifier.weight(1f)) {
-                        OutlineAction(
-                            "No amount",
-                            paper,
-                            { model.confirmCurrent(noAmount = true) },
-                        )
-                    }
-                    Box(Modifier.weight(1.4f)) {
-                        Action("Confirm", paper, { model.confirmCurrent() }, accent = true)
-                    }
-                }
+            // Stacked, not side by side. Two bars in half a measure fit at 100%
+            // text and clip at 200%, and the phone is where 200% actually happens:
+            // the blue decision comes first, the way out of it under it.
+            if (extractedAmount != null) {
+                Action("Yes, save", paper, { model.confirmCurrent() }, accent = true)
+                Spacer(Modifier.height(8.dp))
+                OutlineAction(
+                    "No, enter it",
+                    paper,
+                    { model.rejectCurrentExtractedAmount() },
+                )
+            } else {
+                Action("Confirm", paper, { model.confirmCurrent() }, accent = true)
+                Spacer(Modifier.height(8.dp))
+                OutlineAction(
+                    "No amount",
+                    paper,
+                    { model.confirmCurrent(noAmount = true) },
+                )
             }
             if (state.stack.size > 1) {
                 Spacer(Modifier.height(8.dp))
@@ -395,10 +391,10 @@ private fun Decisions(
                 )
             }
             Spacer(Modifier.height(4.dp))
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
+            // A column rather than the ends of one line: at 200% "3 of 5" and
+            // "Next photograph" do not both fit across a phone, and a footer that
+            // reflows is better than a footer that truncates.
+            Column(Modifier.fillMaxWidth()) {
                 QuietAction(
                     "${state.stackIndex + 1} of ${state.stack.size}",
                     paper,
@@ -406,7 +402,7 @@ private fun Decisions(
                     color = paper.inkFaint,
                 )
                 QuietAction(
-                    if (state.remaining > 1) "Next" else "Close the day",
+                    if (state.remaining > 1) "Next photograph" else "Close the day",
                     paper,
                     {
                         if (state.remaining > 1) {
@@ -417,43 +413,6 @@ private fun Decisions(
                     },
                     color = paper.inkSoft,
                 )
-            }
-        }
-    }
-}
-
-/**
- * The keypad, ruled.
- *
- * Drawn as a grid of hairlines with no fills — a till slip rules its columns, it
- * does not draw a calculator. Rounded keys with white fills would be the single
- * most generic object on the most important page in the app.
- */
-@Composable
-private fun Keypad(paper: Paper, model: AppModel) {
-    val rows = listOf("123", "456", "789", "0.")
-    Column(Modifier.fillMaxWidth()) {
-        Rule(paper)
-        rows.forEachIndexed { r, row ->
-            if (r > 0) Rule(paper)
-            Row(Modifier.fillMaxWidth()) {
-                row.forEachIndexed { c, digit ->
-                    if (c > 0) Box(Modifier.width(Bone.Hairline).height(50.dp).background(paper.edge))
-                    Box(
-                        Modifier.weight(1f).height(50.dp).androidTap { model.typeAmount(digit) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Numeral(digit.toString(), paper, size = 21.sp, weight = FontWeight.Medium)
-                    }
-                }
-                if (r == rows.lastIndex) {
-                    Box(Modifier.width(Bone.Hairline).height(50.dp).background(paper.edge))
-                    Box(
-                        Modifier.weight(1f).height(50.dp).androidTap { model.backspace() }
-                            .semantics { contentDescription = "Backspace" },
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(Glyph.Backspace, paper, size = 18.dp) }
-                }
             }
         }
     }
@@ -472,7 +431,12 @@ private fun PhotographOf(capture: Capture, paper: Paper, modifier: Modifier) {
 }
 
 @Composable
-private fun RestingDay(paper: Paper, model: AppModel, day: com.ariadne.model.LocalDay?) {
+private fun RestingDay(
+    paper: Paper,
+    model: AppModel,
+    day: com.ariadne.model.LocalDay?,
+    closedTrip: Boolean,
+) {
     Column(Modifier.fillMaxWidth().padding(top = 40.dp)) {
         Title("The day is finished.", paper, size = 28.sp)
         Spacer(Modifier.height(12.dp))
@@ -485,8 +449,21 @@ private fun RestingDay(paper: Paper, model: AppModel, day: com.ariadne.model.Loc
         Spacer(Modifier.height(28.dp))
         Rule(paper)
         Spacer(Modifier.height(20.dp))
-        Action("Close the day", paper, { model.closeDay(day) }, accent = true)
-        Spacer(Modifier.height(10.dp))
-        QuietAction("Back to the record", paper, { model.go(Route.Record(day)) })
+        if (closedTrip) {
+            // A finished journey has no day left to close. The page says so and
+            // offers the only two places that still do something.
+            Body(
+                "This trip is closed, so there is no day left to file.",
+                paper,
+                color = paper.inkFaint,
+                size = 12.sp,
+            )
+            Spacer(Modifier.height(12.dp))
+            QuietAction("Back to the record", paper, { model.go(Route.Record(day)) })
+        } else {
+            Action("Close the day", paper, { model.closeDay(day) }, accent = true)
+            Spacer(Modifier.height(10.dp))
+            QuietAction("Back to the record", paper, { model.go(Route.Record(day)) })
+        }
     }
 }

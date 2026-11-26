@@ -34,21 +34,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
-import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
-import com.ariadne.design.Glyph
-import com.ariadne.design.Icon
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.Masthead
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
+import com.ariadne.design.RuledKeypad
 import com.ariadne.design.Rule
 import com.ariadne.design.Title
 import com.ariadne.model.Category
+import com.ariadne.model.CurrencyCatalog
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.symbol
 
@@ -76,6 +75,19 @@ public fun DetailPage(
 ) {
     val capture = state.detail
     val currency = capture?.currency ?: state.trip?.baseCurrency ?: CurrencyCode.of("INR")
+    // A closed trip is read, not edited: no keypad, no Save, and one sentence
+    // saying why. The model refuses the write too, so a stale route cannot get
+    // around the page.
+    val readOnly = state.trip?.isClosed == true
+    // The chips are the catalogue's shortlist, not a fixed list: the currency the
+    // capture is in comes first, then the trip's own two, then the travel
+    // defaults. A trip created in JPY can always be switched back to JPY here,
+    // which the old fixed row could not do.
+    val currencyOptions = CurrencyCatalog.shortlist(
+        currency.code,
+        state.trip?.baseCurrency?.code,
+        state.trip?.homeCurrency?.code,
+    )
     // The three values typed on this page, read once here and passed down as
     // primitives. The plate on the left must not recompose because a digit went
     // into the amount on the right, and taking the whole AppUiState is how it did.
@@ -106,7 +118,9 @@ public fun DetailPage(
                 paper = paper,
                 italic = true,
                 trailing = {
-                    QuietAction("Back", paper, { model.openRecord(capture?.localDate) }, color = paper.inkSoft)
+                    // Back returns to the search that found the photograph, or to
+                    // the day's record - whichever page opened this one.
+                    QuietAction("Back", paper, { model.closeDetail() }, color = paper.inkSoft)
                 },
             )
 
@@ -121,7 +135,7 @@ public fun DetailPage(
                     size = 16.sp,
                 )
                 Spacer(Modifier.height(22.dp))
-                Action("Back to the record", paper, { model.openRecord(null) }, accent = true)
+                Action("Back to the record", paper, { model.closeDetail() }, accent = true)
                 return@Column
             }
 
@@ -146,7 +160,9 @@ public fun DetailPage(
                                 model = model,
                                 paper = paper,
                                 currency = currency,
+                                options = currencyOptions,
                                 keypad = true,
+                                readOnly = readOnly,
                             )
                         }
                     }
@@ -162,15 +178,11 @@ public fun DetailPage(
                             .verticalScroll(rememberScrollState()),
                     ) {
                         key(capture.id, capture.state) {
-                            // 16:10 rather than 4:5: the photograph is still the
-                            // largest thing on the page, and the amount, the
-                            // currency and the keypad now fit beneath it.
                             Photograph(
                                 capture.state.name,
                                 capture.photoPath,
                                 capture.merchant,
                                 paper,
-                                ratio = 16f / 10f,
                             )
                         }
                         Spacer(Modifier.height(20.dp))
@@ -184,12 +196,22 @@ public fun DetailPage(
                                 model = model,
                                 paper = paper,
                                 currency = currency,
+                                options = currencyOptions,
                                 keypad = false,
+                                readOnly = readOnly,
                             )
                         }
                         Spacer(Modifier.height(20.dp))
                     }
-                    if (!capture.hasUnconfirmedAmount) Keypad(paper, model)
+                    if (!capture.hasUnconfirmedAmount && !readOnly) {
+                        RuledKeypad(
+                            paper = paper,
+                            onDigit = { model.editDetailAmount(it) },
+                            onBackspace = { model.clearDetailAmountDigit() },
+                            rowHeight = 48.dp,
+                            digitSize = 19.sp,
+                        )
+                    }
                 }
             }
 
@@ -204,13 +226,14 @@ private fun Photograph(
     photoPath: String,
     merchant: String?,
     paper: Paper,
-    ratio: Float = 4f / 5f,
 ) {
     Column(Modifier.fillMaxWidth()) {
-        // The phone passes a wider ratio. A 4:5 plate is right on a spread where it
-        // has a page of its own, and wrong on a phone where the figure, the
-        // currency and the keypad all have to fit under the same plate.
-        Box(Modifier.fillMaxWidth().aspectRatio(ratio).border(Bone.Hairline, paper.edge)) {
+        // One plate geometry in the whole book: 1:1, hairline, no rounding. It was
+        // 4:5 here, 16:10 on a phone, 16:9 in the triage card and 1.4:1 on a wide
+        // frame, which meant the same photograph was a different object on every
+        // page. Square matches the viewfinder, so the shutter and the print are
+        // visibly the same frame.
+        Box(Modifier.fillMaxWidth().aspectRatio(1f).border(Bone.Hairline, paper.edge)) {
             PhotoPreview(
                 photoPath = photoPath,
                 caption = merchant ?: "Photograph",
@@ -233,7 +256,9 @@ private fun Fields(
     model: AppModel,
     paper: Paper,
     currency: CurrencyCode,
+    options: List<String>,
     keypad: Boolean,
+    readOnly: Boolean = false,
 ) {
     val state = capture
     Column(Modifier.fillMaxWidth()) {
@@ -250,7 +275,7 @@ private fun Fields(
                 weight = FontWeight.Medium,
             )
         }
-        if (capture.hasUnconfirmedAmount) {
+        if (capture.hasUnconfirmedAmount && !readOnly) {
             val extractedAmount = capture.amountMinor?.let {
                 com.ariadne.model.Money.ofMinor(it).formatWithSymbol(capture.currency ?: currency)
             }
@@ -272,15 +297,29 @@ private fun Fields(
         Spacer(Modifier.height(14.dp))
         Rule(paper)
         Spacer(Modifier.height(14.dp))
-        if (keypad) {
-            if (!capture.hasUnconfirmedAmount) Keypad(paper, model)
+        if (keypad && !readOnly) {
+            if (!capture.hasUnconfirmedAmount) {
+                RuledKeypad(
+                    paper = paper,
+                    onDigit = { model.editDetailAmount(it) },
+                    onBackspace = { model.clearDetailAmountDigit() },
+                    rowHeight = 48.dp,
+                    digitSize = 19.sp,
+                )
+            }
             Spacer(Modifier.height(10.dp))
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CurrencyChip(currency.code, paper, selected = true) { }
-            listOf("THB", "USD", "EUR").filter { it != currency.code }.forEach { code ->
-                CurrencyChip(code, paper, selected = false) { model.changeDetailCurrency(code) }
+            options.forEach { code ->
+                CurrencyChip(
+                    code,
+                    paper,
+                    selected = code == currency.code,
+                    enabled = !readOnly,
+                ) {
+                    model.changeDetailCurrency(code)
+                }
             }
         }
 
@@ -292,6 +331,7 @@ private fun Fields(
             value = merchant,
             placeholder = "the shop, if you want it named",
             paper = paper,
+            enabled = !readOnly,
             onChange = model::editDetailMerchant,
             serif = false,
         )
@@ -301,7 +341,7 @@ private fun Fields(
         // Category: a claim, never a guess. Tap the same chip again to clear it.
         Label("What it was", paper, color = paper.inkSoft)
         Spacer(Modifier.height(10.dp))
-        CategoryChips(category, paper) { model.chooseCategory(it) }
+        CategoryChips(category, paper, enabled = !readOnly) { model.chooseCategory(it) }
         Spacer(Modifier.height(8.dp))
         Label(
             "optional · nothing is sorted for you",
@@ -318,19 +358,31 @@ private fun Fields(
             value = typedNote,
             placeholder = "a line for later",
             paper = paper,
+            enabled = !readOnly,
             onChange = model::editDetailNote,
             serif = true,
         )
 
         Spacer(Modifier.height(28.dp))
 
-        if (!capture.hasUnconfirmedAmount) {
-            Action("Save", paper, { model.saveDetail() }, accent = true)
+        if (readOnly) {
+            Body(
+                "This trip is closed. The photograph and its figures stay exactly as they " +
+                    "were; nothing new can be filed against a finished journey.",
+                paper,
+                color = paper.inkFaint,
+                size = 12.sp,
+                lineHeight = 18.sp,
+            )
+        } else {
+            if (!capture.hasUnconfirmedAmount) {
+                Action("Save", paper, { model.saveDetail() }, accent = true)
+                Spacer(Modifier.height(10.dp))
+                OutlineAction("Keep it without an amount", paper, { model.saveDetail(keepWithoutAmount = true) })
+            }
             Spacer(Modifier.height(10.dp))
-            OutlineAction("Keep it without an amount", paper, { model.saveDetail(keepWithoutAmount = true) })
+            QuietAction("Leave it open", paper, { model.openRecord(capture.localDate) }, color = paper.inkSoft)
         }
-        Spacer(Modifier.height(10.dp))
-        QuietAction("Leave it open", paper, { model.openRecord(capture.localDate) }, color = paper.inkSoft)
     }
 }
 
@@ -342,6 +394,7 @@ private fun LineField(
     paper: Paper,
     onChange: (String) -> Unit,
     serif: Boolean,
+    enabled: Boolean = true,
 ) {
     Column(Modifier.fillMaxWidth()) {
         Label(label, paper, color = paper.inkSoft)
@@ -350,7 +403,18 @@ private fun LineField(
             if (value.isEmpty()) {
                 Title(placeholder, paper, size = if (serif) 22.sp else 18.sp, color = paper.inkFaint)
             }
-            BasicTextField(
+            // A closed trip's fields are printed, not typed: the same type in the
+            // same place, without a cursor, because a cursor promises a change.
+            if (!enabled) {
+                if (value.isNotEmpty()) {
+                    Title(
+                        value,
+                        paper,
+                        size = if (serif) 22.sp else 18.sp,
+                        color = paper.inkMid,
+                    )
+                }
+            } else BasicTextField(
                 value = value,
                 onValueChange = onChange,
                 singleLine = true,
@@ -371,7 +435,12 @@ private fun LineField(
 }
 
 @Composable
-private fun CategoryChips(selected: Category?, paper: Paper, onSelect: (Category) -> Unit) {
+private fun CategoryChips(
+    selected: Category?,
+    paper: Paper,
+    enabled: Boolean = true,
+    onSelect: (Category) -> Unit,
+) {
     // Two rows of three on a phone: the whole vocabulary visible at once, no menu.
     val rows = Category.entries.chunked(3)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -379,27 +448,37 @@ private fun CategoryChips(selected: Category?, paper: Paper, onSelect: (Category
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { category ->
                     val chosen = category == selected
+                    // The chip stays a small printed tag; the tap target around it
+                    // is a finger's width. Density and reach are separate decisions.
                     Box(
                         Modifier
-                            .background(
-                                if (chosen) paper.blueWash else paper.raised,
-                                androidx.compose.foundation.shape.RoundedCornerShape(1.dp),
-                            )
-                            .border(
-                                Bone.Hairline,
-                                if (chosen) paper.blueEdge else paper.edge,
-                                androidx.compose.foundation.shape.RoundedCornerShape(1.dp),
-                            )
-                            .pointerInput(category) { detectTapGestures(onTap = { onSelect(category) }) }
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .heightIn(min = 44.dp)
+                            .pointerInput(category, enabled) {
+                                if (enabled) detectTapGestures(onTap = { onSelect(category) })
+                            },
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Label(
-                            category.label,
-                            paper,
-                            color = if (chosen) paper.blue else paper.inkSoft,
-                            size = 9.sp,
-                            tracking = 1.5.sp,
-                        )
+                        Box(
+                            Modifier
+                                .background(
+                                    if (chosen) paper.blueWash else paper.raised,
+                                    androidx.compose.foundation.shape.RoundedCornerShape(1.dp),
+                                )
+                                .border(
+                                    Bone.Hairline,
+                                    if (chosen) paper.blueEdge else paper.edge,
+                                    androidx.compose.foundation.shape.RoundedCornerShape(1.dp),
+                                )
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                        ) {
+                            Label(
+                                category.label,
+                                paper,
+                                color = if (chosen) paper.blue else paper.inkSoft,
+                                size = 9.sp,
+                                tracking = 1.5.sp,
+                            )
+                        }
                     }
                 }
             }
@@ -408,54 +487,46 @@ private fun CategoryChips(selected: Category?, paper: Paper, onSelect: (Category
 }
 
 @Composable
-private fun CurrencyChip(code: String, paper: Paper, selected: Boolean, onClick: () -> Unit) {
+private fun CurrencyChip(
+    code: String,
+    paper: Paper,
+    selected: Boolean,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
     Box(
         Modifier
-            .background(if (selected) paper.ink else paper.raised)
-            .border(Bone.Hairline, if (selected) paper.ink else paper.edge)
-            .pointerInput(code) { detectTapGestures(onTap = { if (!selected) onClick() }) }
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .semantics { contentDescription = "Currency $code" },
-    ) {
-        Label(
-            code,
-            paper,
-            color = if (selected) paper.onBlue else paper.inkMid,
-            size = 9.sp,
-            tracking = 1.4.sp,
-        )
-    }
-}
-
-/**
- * A keypad drawn the way this book draws everything else: as a grid of hairlines
- * with no fill, the way a till slip rules its columns. Tapping is the only ink.
- */
-@Composable
-private fun Keypad(paper: Paper, model: AppModel) {
-    val rows = listOf("123", "456", "789", "0.")
-    Column(Modifier.fillMaxWidth()) {
-        rows.forEachIndexed { r, row ->
-            if (r > 0) Rule(paper)
-            Row(Modifier.fillMaxWidth()) {
-                row.forEachIndexed { c, digit ->
-                    if (c > 0) Box(Modifier.width(Bone.Hairline).height(48.dp).background(paper.edge))
-                    Box(
-                        Modifier.weight(1f).height(48.dp).androidTap { model.editDetailAmount(digit) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Numeral(digit.toString(), paper, size = 19.sp, weight = FontWeight.Medium)
-                    }
-                }
-                if (r == rows.lastIndex) {
-                    Box(Modifier.width(Bone.Hairline).height(48.dp).background(paper.edge))
-                    Box(
-                        Modifier.weight(1f).height(48.dp).androidTap { model.clearDetailAmountDigit() }
-                            .semantics { contentDescription = "Backspace" },
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(Glyph.Backspace, paper, size = 18.dp) }
-                }
+            .heightIn(min = 44.dp)
+            .pointerInput(code, enabled) {
+                if (enabled) detectTapGestures(onTap = { if (!selected) onClick() })
             }
+            .semantics {
+                contentDescription = when {
+                    selected -> "Currency $code, the one on this photograph"
+                    enabled -> "Currency $code"
+                    else -> "Currency $code, not changeable on a closed trip"
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .background(if (selected) paper.ink else paper.raised)
+                .border(Bone.Hairline, if (selected) paper.ink else paper.edge)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            Label(
+                code,
+                paper,
+                // An unactionable chip is still readable, and stops looking pressable.
+                color = when {
+                    selected -> paper.onBlue
+                    enabled -> paper.inkMid
+                    else -> paper.inkFaint
+                },
+                size = 9.sp,
+                tracking = 1.4.sp,
+            )
         }
     }
 }

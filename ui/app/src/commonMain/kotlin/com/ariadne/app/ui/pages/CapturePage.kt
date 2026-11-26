@@ -17,27 +17,26 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.app.Route
+import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.Glyph
 import com.ariadne.design.Icon
 import com.ariadne.design.Label
+import com.ariadne.design.OutlineAction
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
-import com.ariadne.design.Title
 
 /**
  * Page 4 — Capture.
@@ -57,24 +56,15 @@ public fun CapturePage(
     onFrame: (ByteArray) -> Unit = {},
 ) {
     val shoot = shutterAction()
+    val closedTrip = state.trip?.takeIf { it.isClosed }
 
-    // Import is a suspending call, so the page owns a scope for it. Scoped to the
-    // composition, not a global: leaving the page cancels a picker nobody is
-    // waiting for any more.
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val picker = LocalPhotoPicker.current
-    val import: () -> Unit = {
-        if (picker == null) {
-            // No picker on this target: fall through to whatever the host gave us
-            // rather than presenting a control that silently does nothing.
-            onImport()
-        } else {
-            scope.launch {
-                val bytes = runCatching { picker.pick() }.getOrNull()
-                if (bytes != null && bytes.isNotEmpty()) model.importPhoto(bytes)
-            }
-        }
-    }
+    // The picker is shared with the front page; see rememberPhotoImport. A target
+    // with no picker falls through to the host's fallback rather than presenting
+    // a control that silently does nothing.
+    val import = rememberPhotoImport(
+        onBytes = { model.importPhoto(it) },
+        onUnavailable = onImport,
+    )
     // With a camera, the shutter fires the sensor and the bytes come back through
     // onFrame. Without one, the caller's placeholder path runs instead.
     val fire: () -> Unit = if (cameraAvailable()) ({ shoot() }) else onShutter
@@ -96,6 +86,40 @@ public fun CapturePage(
 
         Spacer(Modifier.height(20.dp))
         Rule(paper)
+
+        // A closed trip cannot receive photographs, and neither can nothing.
+        // Say so, and give the ways out, rather than showing a shutter that would
+        // silently do nothing.
+        if (state.trip == null) {
+            Spacer(Modifier.weight(1f))
+            Body(
+                "No trip is open. A photograph needs a journey to belong to.",
+                paper,
+                serif = true,
+                color = paper.inkSoft,
+                size = 18.sp,
+            )
+            Spacer(Modifier.height(24.dp))
+            OutlineAction("The register", paper, { model.go(Route.Trips) })
+            Spacer(Modifier.weight(1f))
+            return@Column
+        }
+        if (closedTrip != null) {
+            Spacer(Modifier.weight(1f))
+            Body(
+                "This trip is closed. Its photographs are still here, and its card is still yours.",
+                paper,
+                serif = true,
+                color = paper.inkSoft,
+                size = 18.sp,
+            )
+            Spacer(Modifier.height(24.dp))
+            Action("See the card", paper, { model.go(Route.TripCard(closedTrip.id)) }, accent = true)
+            Spacer(Modifier.height(12.dp))
+            OutlineAction("The register", paper, { model.go(Route.Trips) })
+            Spacer(Modifier.weight(1f))
+            return@Column
+        }
 
         Spacer(Modifier.weight(0.6f))
 
@@ -129,18 +153,23 @@ public fun CapturePage(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (pickerAvailable() || true) {
-                // Offered on every target: the shutter is one way in, the library
-                // is the other, and both are real.
-                QuietAction("From the library", paper, import)
+            // Offered only where a picker exists: the shutter is one way in, the
+            // library is the other, and a control that cannot work is not offered.
+            // The shutter stays centred either way, because it is the page.
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (pickerAvailable()) {
+                    QuietAction("From the library", paper, import)
+                }
             }
             Shutter(paper, fire)
-            QuietAction(
-                if (state.stack.isEmpty()) "Nothing waiting" else "${state.stack.size} waiting",
-                paper,
-                { model.openNightfall(state.today) },
-                color = if (state.stack.isEmpty()) paper.inkFaint else paper.inkMid,
-            )
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                QuietAction(
+                    if (state.stack.isEmpty()) "Nothing waiting" else "${state.stack.size} waiting",
+                    paper,
+                    { model.openNightfall(state.today) },
+                    color = if (state.stack.isEmpty()) paper.inkFaint else paper.inkMid,
+                )
+            }
         }
 
         Spacer(Modifier.height(6.dp))
@@ -151,9 +180,9 @@ public fun CapturePage(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Glyph.Budget, paper, size = 12.dp, color = paper.inkGhost)
+            Icon(Glyph.Budget, paper, size = 12.dp, color = paper.inkFaint)
             Spacer(Modifier.width(7.dp))
-            Label("no figure here · settle it at nightfall", paper, color = paper.inkGhost, size = 9.sp, tracking = 1.3.sp)
+            Label("no figure here · settle it at nightfall", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.3.sp)
         }
     }
 }

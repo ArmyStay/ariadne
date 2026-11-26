@@ -266,10 +266,16 @@ public fun Masthead(
             verticalAlignment = Alignment.Top,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Label(number, paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
-                Spacer(Modifier.width(10.dp))
-                Box(Modifier.width(18.dp).height(Bone.Hairline).background(paper.edgeStrong))
-                Spacer(Modifier.width(10.dp))
+                // Surfaces outside the trip's sequence (the front door and the
+                // register) pass a blank number: no plate mark, just the eyebrow.
+                // That keeps 01..09 meaning one thing - a page of the book - and
+                // stops two pages claiming the same plate.
+                if (number.isNotBlank()) {
+                    Label(number, paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+                    Spacer(Modifier.width(10.dp))
+                    Box(Modifier.width(18.dp).height(Bone.Hairline).background(paper.edgeStrong))
+                    Spacer(Modifier.width(10.dp))
+                }
                 Label(eyebrow, paper, color = paper.inkSoft, size = 9.sp, tracking = 1.6.sp)
             }
             if (trailing != null) trailing()

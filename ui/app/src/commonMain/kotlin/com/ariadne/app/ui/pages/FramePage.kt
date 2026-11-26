@@ -72,12 +72,13 @@ public fun FramePage(
 
         Spacer(Modifier.height(18.dp))
 
-        // The plate. Square, full measure, hairline frame: the same frame it had in
-        // the viewfinder, so the shutter and the result are visibly the same object.
+        // The plate. Square, full measure, hairline frame on every width: the same
+        // frame it had in the viewfinder, so the shutter and the result are visibly
+        // the same object — including on a wide page, which used to stretch it.
         Box(
             Modifier
                 .fillMaxWidth()
-                .aspectRatio(if (wide) 1.4f else 1f)
+                .aspectRatio(1f)
                 .border(Bone.Hairline, paper.edge),
         ) {
             PhotoPreview(
@@ -123,9 +124,9 @@ public fun FramePage(
         // The sentence that used to sit here explained the whole product for the
         // fourth time. A glyph and five words carry the same fact.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Glyph.Done, paper, size = 13.dp, color = paper.inkGhost)
+            Icon(Glyph.Done, paper, size = 13.dp, color = paper.inkFaint)
             Spacer(Modifier.width(8.dp))
-            Label("nothing here is required", paper, color = paper.inkGhost, size = 9.sp, tracking = 1.3.sp)
+            Label("nothing here is required", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.3.sp)
         }
 
         Spacer(Modifier.height(22.dp))
@@ -148,7 +149,7 @@ public fun FramePage(
         Rule(paper, color = paper.edge)
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            QuietAction("Take another", paper, { model.go(com.ariadne.app.Route.Capture) })
+            QuietAction("Take another", paper, { model.openCapture() })
             QuietAction("Nightfall", paper, { model.openNightfall(state.today) })
         }
         Spacer(Modifier.height(20.dp))

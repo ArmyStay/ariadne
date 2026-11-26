@@ -58,8 +58,19 @@ public object Bone {
 
     // ── ink ──────────────────────────────────────────────────────────────────
     public val Ink: Color = Color(0xFF1F1F20)
-    public val InkMid: Color = Color(0xFF475569)
+
+    /**
+     * Quiet action labels and secondary figures. Deliberately a step darker than
+     * [InkSoft]: this is the weight a control uses when it is not the blue one,
+     * and a control has to survive a glance. They were once the same value, which
+     * made the palette lie about having two tones.
+     */
+    public val InkMid: Color = Color(0xFF334155)
+
+    /** Running text that is not the point: notes under a title, a footnote. */
     public val InkSoft: Color = Color(0xFF475569)
+
+    /** Metadata a person reads only when looking for it. */
     public val InkFaint: Color = Color(0xFF64748B)
     public val InkGhost: Color = Color(0xFFCBD5E1)
 

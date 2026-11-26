@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
+import com.ariadne.app.DetailOrigin
 import com.ariadne.app.Route
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
@@ -154,7 +155,13 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
                 Spacer(Modifier.height(16.dp))
                 state.searchResults.forEachIndexed { i, capture ->
                     Reveal(i) {
-                        SearchRow(capture, paper) { model.openRecord(capture.localDate) }
+                        // A result is a photograph, so it opens the photograph.
+                        // The day is one quiet Back away, from the detail page.
+                        SearchRow(capture, paper) {
+                            // Opened from search, so Back returns to the results
+                            // with the query still in the field.
+                            model.openDetail(capture.id, from = DetailOrigin.Search)
+                        }
                     }
                 }
             }

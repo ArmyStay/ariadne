@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,12 +21,16 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -68,7 +71,6 @@ import com.ariadne.design.Pill
 import com.ariadne.design.PillTone
 import com.ariadne.design.Plate
 import com.ariadne.design.QuietAction
-import com.ariadne.design.Rule
 import com.ariadne.design.Subject
 import com.ariadne.design.Tick
 import com.ariadne.design.Title
@@ -76,6 +78,7 @@ import com.ariadne.model.Capture
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
+import com.ariadne.model.Settings
 import com.ariadne.model.dayRange
 import com.ariadne.model.symbol
 
@@ -134,6 +137,13 @@ private fun TabPage(
 @Composable
 public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
     val trip = state.trip
+    val closedTrip = trip?.takeIf { it.isClosed }
+    // "Bring one in from the library" opens the picker itself. Routing to the
+    // shutter first and asking for a second tap made a real control feel dead.
+    val importPhoto = rememberPhotoImport(
+        onBytes = { model.importPhoto(it) },
+        onUnavailable = { model.openCapture() },
+    )
     TabPage(
         paper,
         wide,
@@ -157,17 +167,23 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         Masthead(
             number = "01",
             eyebrow = "Ariadne",
-            title = trip?.name ?: "No trips yet",
+            title = trip?.name ?: if (state.trips.isEmpty()) "No trips yet" else "No trip open",
             paper = paper,
             italic = true,
             wide = wide,
-            trailing = { PageAction("Prefs", paper, { model.go(Route.Settings) }) },
+            // The visible word stays PREFS — it is what a printed index would put
+            // in this corner — but it opens the Preferences route.
+            trailing = { PageAction("Prefs", paper, { model.go(Route.Preferences) }) },
         )
 
         if (trip == null) {
             Spacer(Modifier.height(28.dp))
             Body(
-                "A journey, from its first day to its last. Photographs now; figures at nightfall.",
+                if (state.trips.isEmpty()) {
+                    "A journey, from its first day to its last. Photographs now; figures at nightfall."
+                } else {
+                    "Every trip on this device is closed. Open one from the register, or begin another."
+                },
                 paper,
                 serif = true,
                 color = paper.inkSoft,
@@ -177,7 +193,31 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             Spacer(Modifier.height(30.dp))
             Action("Start a trip", paper, { model.startEmptyTrip() }, accent = true)
             Spacer(Modifier.height(12.dp))
-            OutlineAction("Begin with the demo roll", paper, { model.startTripDemo() })
+            if (state.trips.isEmpty()) {
+                OutlineAction("Begin with the demo roll", paper, { model.startTripDemo() })
+            } else {
+                OutlineAction("The register", paper, { model.go(Route.Trips) })
+            }
+            return@TabPage
+        }
+
+        // A finished trip is read, not photographed. Home says so and offers the
+        // two real places: its card, and the register where another trip begins.
+        if (closedTrip != null) {
+            Spacer(Modifier.height(26.dp))
+            Body(
+                "This trip is closed. Nothing new can be filed against it; the record " +
+                    "and the card stay exactly as they were.",
+                paper,
+                serif = true,
+                color = paper.inkSoft,
+                size = 18.sp,
+                lineHeight = 27.sp,
+            )
+            Spacer(Modifier.height(28.dp))
+            Action("See the card", paper, { model.go(Route.TripCard(closedTrip.id)) }, accent = true)
+            Spacer(Modifier.height(12.dp))
+            OutlineAction("The register", paper, { model.go(Route.Trips) })
             return@TabPage
         }
 
@@ -222,7 +262,7 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                     // word photograph being clipped to "A".
                     "Take a photo",
                     paper,
-                    { model.go(Route.Capture) },
+                    { model.openCapture() },
                     accent = true,
                     icon = Glyph.Shutter,
                 )
@@ -239,12 +279,16 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         }
         Spacer(Modifier.height(12.dp))
         // The library is the second way in - a real action, not a label.
-        QuietAction(
-            "or bring one in from the library",
-            paper,
-            { model.go(Route.Capture) },
-            color = paper.inkSoft,
-        )
+        // Only where a picker exists. A link that opens nothing is worse than
+        // no link: the shutter above is already the primary way in.
+        if (pickerAvailable()) {
+            QuietAction(
+                "or bring one in from the library",
+                paper,
+                importPhoto,
+                color = paper.inkSoft,
+            )
+        }
 
         SectionHead("II", "the trip", paper, trailing = "${trip.startDate.iso} → ${trip.endDate.iso}")
 
@@ -356,6 +400,7 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
                 captures = captures,
                 figure = figure,
                 paper = paper,
+                hourOf = model::hourOf,
             ) { model.openRecord(card.localDate) }
         }
 
@@ -464,7 +509,11 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         }
         Spacer(Modifier.height(12.dp))
         Rule(paper, color = paper.ink)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(7.dp))
+        // The qualifier belongs to the figure, not to the note three sections
+        // below it: a total is read before anything under it.
+        Label("finished photographs only", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.3.sp)
+        Spacer(Modifier.height(14.dp))
 
         // The fence, if one was set. Over budget is stated plainly and in the same
         // voice as under it: this is a record, not a scold.
@@ -569,22 +618,26 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         }
 
         Spacer(Modifier.height(24.dp))
+        // Nothing to settle on a day already filed: the bar goes inert rather
+        // than opening a ritual with an empty stack.
+        val todayClosed = state.dayCards.firstOrNull { it.localDate == state.today }?.isClosed == true
+        val tripClosed = state.trip?.isClosed == true
         Action(
             "Close today",
             paper,
             { model.openNightfall(state.today) },
             accent = true,
-            enabled = state.stack.isNotEmpty(),
+            enabled = state.stack.isNotEmpty() && !todayClosed && !tripClosed,
         )
 
         Spacer(Modifier.height(96.dp))
     }
 }
 
-// ── 4. Prefs ────────────────────────────────────────────────────────────────
+// ── 4. Preferences ──────────────────────────────────────────────────────────
 
 @Composable
-public fun PrefsPage(
+public fun PreferencesPage(
     state: AppUiState,
     model: AppModel,
     paper: Paper,
@@ -619,26 +672,26 @@ public fun PrefsPage(
         // pretending to be a setting; the ones that cannot change say so instead.
         SectionHead("I", "the record", paper)
 
-        PrefChoice(
-            glyph = Glyph.Budget,
+        // Both currencies come from the same catalogue the New trip page uses, so
+        // there is one vocabulary for choosing money in the whole app.
+        CurrencyField(
             label = "Base currency",
-            value = state.trip?.baseCurrency?.code ?: "INR",
+            code = state.trip?.baseCurrency?.code ?: "INR",
             note = "Every total is stated in this one",
+            glyph = Glyph.Budget,
             paper = paper,
-            options = listOf("INR", "THB", "USD", "EUR", "GBP", "JPY"),
             onChoose = { model.editTripCurrency(it) },
         )
-        PrefChoice(
-            glyph = Glyph.Trip,
+        CurrencyField(
             label = "Home currency",
-            value = state.trip?.homeCurrency?.code ?: "INR",
+            code = state.trip?.homeCurrency?.code ?: "INR",
             note = "What a foreign amount is converted back to",
+            glyph = Glyph.Trip,
             paper = paper,
-            options = listOf("INR", "THB", "USD", "EUR", "GBP", "JPY"),
             onChoose = { model.editTripHomeCurrency(it) },
         )
-        PrefReadout(Glyph.Date, "Dates", "2026-11-23, ISO order", paper)
-        PrefReadout(Glyph.Paper, "Paper", "Follows the system", paper)
+        PrefReadout(Glyph.Date, "Dates", "${state.today?.iso ?: "2026-11-23"}, ISO order", paper)
+        PrefPaper(paper, state.theme) { model.setTheme(it) }
 
         // ── The exchange rate ────────────────────────────────────────────────
         //
@@ -646,26 +699,44 @@ public fun PrefsPage(
         // and every total silently under-reports. The figures are exact scaled
         // integers all the way down; this is the only place a human types one.
         Spacer(Modifier.height(26.dp))
-        SectionHead("I", "the exchange", paper)
+        SectionHead("II", "the exchange", paper)
 
         val inUse = model.currenciesInUse()
         val foreign = (inUse + listOf("THB", "USD", "EUR", "GBP", "JPY"))
             .filter { it != state.trip?.baseCurrency?.code }
             .distinct()
 
+        // One open field at a time. Two live keyboards' worth of ruled boxes on
+        // one page is a form; the page is a ledger with one line you can edit.
+        var openCode by remember { mutableStateOf<String?>(null) }
+
         if (foreign.isEmpty()) {
             Body("Everything so far is already in the base currency.", paper, color = paper.inkFaint, size = 12.sp)
         } else {
             foreign.forEachIndexed { index, code ->
-                RateRow(
-                    code = code,
-                    label = model.rateLabel(code),
-                    used = inUse.contains(code),
-                    paper = paper,
-                    base = state.trip?.baseCurrency?.code ?: "INR",
-                    onSet = { text -> model.setFxRate(code, text) },
-                    onClear = { model.clearFxRate(code) },
-                )
+                // Keyed so an opened row's typed text belongs to that currency and
+                // does not drift to the next one down when the list changes.
+                key(code) {
+                    RateRow(
+                        code = code,
+                        label = model.rateLabel(code),
+                        used = inUse.contains(code),
+                        paper = paper,
+                        base = state.trip?.baseCurrency?.code ?: "INR",
+                        open = openCode == code,
+                        onOpen = { openCode = code },
+                        onDone = { openCode = null },
+                        onSet = { text ->
+                            val accepted = model.setFxRate(code, text)
+                            if (accepted) openCode = null
+                            accepted
+                        },
+                        onClear = {
+                            model.clearFxRate(code)
+                            openCode = null
+                        },
+                    )
+                }
                 if (index == foreign.lastIndex) Rule(paper)
             }
         }
@@ -676,7 +747,7 @@ public fun PrefsPage(
         }
 
         Spacer(Modifier.height(26.dp))
-        SectionHead("II", "what leaves this device", paper)
+        SectionHead("III", "what leaves this device", paper)
 
         PrefReadout(Glyph.Ledger, "Reading", "On device only", paper)
         Spacer(Modifier.height(12.dp))
@@ -709,7 +780,7 @@ public fun PrefsPage(
         }
 
         Spacer(Modifier.height(28.dp))
-        SectionHead("III", "this trip", paper)
+        SectionHead("IV", "this trip", paper)
 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Icon(Glyph.Trip, paper, size = 16.dp)
@@ -727,7 +798,15 @@ public fun PrefsPage(
         Spacer(Modifier.height(14.dp))
 
         IconAction(Glyph.Ledger, "See the trip's page", paper) { model.go(Route.Trip) }
-        IconAction(Glyph.Done, "Close the trip into a card", paper) { model.closeTripIntoCard() }
+        if (state.trip?.isClosed == true) {
+            // Closing is not a thing a closed trip can do again; the card is where
+            // the finished record lives.
+            IconAction(Glyph.Done, "See the card", paper) {
+                state.trip?.let { model.go(Route.TripCard(it.id)) }
+            }
+        } else {
+            IconAction(Glyph.Done, "Close the trip into a card", paper) { model.closeTripIntoCard() }
+        }
 
         Spacer(Modifier.height(22.dp))
         Rule(paper, color = paper.edge)
@@ -762,72 +841,62 @@ public fun PrefsPage(
 }
 
 /**
- * A setting you can change: the value is the control.
+ * The stock the book is printed on.
  *
- * Not a dropdown, not a switch. The options are laid out under the row when it is
- * open, at the same tracked size as the label, because a currency is a word and
- * six words fit on one line.
+ * Three choices, as chips — not a switch, because "System" is a real third answer
+ * and a switch has only two. The note under the label says what the current one
+ * means, which is the difference between a setting and a riddle.
  */
 @Composable
-private fun PrefChoice(
-    glyph: Glyph,
-    label: String,
-    value: String,
-    note: String,
+private fun PrefPaper(
     paper: Paper,
-    options: List<String>,
-    onChoose: (String) -> Unit,
+    theme: Settings.Theme,
+    onChoose: (Settings.Theme) -> Unit,
 ) {
-    var open by remember(label) { mutableStateOf(false) }
+    val options = listOf(
+        Settings.Theme.LIGHT to "Light",
+        Settings.Theme.SYSTEM to "System",
+        Settings.Theme.DARK to "Night",
+    )
+    val note = when (theme) {
+        Settings.Theme.LIGHT -> "Light paper, always"
+        Settings.Theme.SYSTEM -> "Follows this device's light or dark setting"
+        Settings.Theme.DARK -> "Night paper: the same design on dark stock"
+    }
     Column {
         Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = 15.dp)
-                .androidTap { open = !open },
+            Modifier.fillMaxWidth().padding(vertical = 15.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(glyph, paper, size = 16.dp, color = paper.inkSoft)
+            Icon(Glyph.Paper, paper, size = 16.dp, color = paper.inkSoft)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Title(label, paper, size = 17.sp)
+                Title("Paper", paper, size = 17.sp)
                 Spacer(Modifier.height(3.dp))
                 Label(note, paper, color = paper.inkFaint, size = 9.sp, tracking = 1.1.sp)
             }
-            Numeral(value, paper, size = 18.sp, weight = FontWeight.Medium, color = paper.ink)
-            Spacer(Modifier.width(8.dp))
-            Icon(Glyph.Edit, paper, size = 14.dp, color = paper.inkFaint)
         }
-        androidx.compose.animation.AnimatedVisibility(
-            visible = open,
-            enter = androidx.compose.animation.expandVertically(motionSpec(Motion.Reveal)) +
-                androidx.compose.animation.fadeIn(motionSpec(Motion.Reveal)),
-            exit = androidx.compose.animation.shrinkVertically(motionSpec(Motion.Reveal)) +
-                androidx.compose.animation.fadeOut(motionSpec(Motion.Reveal)),
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                options.forEach { code ->
-                    val chosen = code == value
-                    Box(
-                        Modifier
-                            .border(
-                                Bone.Hairline,
-                                if (chosen) paper.blue else paper.edge,
-                            )
-                            .androidTap { onChoose(code); open = false }
-                            .padding(horizontal = 12.dp, vertical = 7.dp),
-                    ) {
-                        Label(
-                            code,
-                            paper,
-                            color = if (chosen) paper.blue else paper.inkSoft,
-                            size = 9.sp,
-                            tracking = 1.4.sp,
-                        )
-                    }
+            options.forEach { (value, text) ->
+                val chosen = value == theme
+                Box(
+                    Modifier
+                        .heightIn(min = 44.dp)
+                        .border(Bone.Hairline, if (chosen) paper.blue else paper.edge)
+                        .androidTap { onChoose(value) }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Label(
+                        text,
+                        paper,
+                        color = if (chosen) paper.blue else paper.inkSoft,
+                        size = 9.sp,
+                        tracking = 1.2.sp,
+                    )
                 }
             }
         }
@@ -853,16 +922,29 @@ private fun RateRow(
     used: Boolean,
     paper: Paper,
     base: String,
+    open: Boolean,
+    onOpen: () -> Unit,
+    onDone: () -> Unit,
     onSet: (String) -> Boolean,
     onClear: () -> Unit,
 ) {
     var text by remember { mutableStateOf("") }
     var refused by remember { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+
+    // Opening the row is what asks for the keyboard; closing it throws away a
+    // half-typed rate rather than leaving it to look like a saved one.
+    LaunchedEffect(open) {
+        if (open) focus.requestFocus() else {
+            text = ""
+            refused = false
+        }
+    }
 
     Column(Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(26.dp)) {
-                Icon(Glyph.Budget, paper, size = 15.dp, color = if (label == null) paper.inkGhost else paper.inkSoft)
+                Icon(Glyph.Budget, paper, size = 15.dp, color = paper.inkSoft)
             }
             Title(code, paper, size = 17.sp)
             Spacer(Modifier.width(10.dp))
@@ -877,63 +959,78 @@ private fun RateRow(
             }
         }
         Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Label("1 $code =", paper, color = paper.inkSoft, size = 10.sp, tracking = 1.2.sp)
-            Spacer(Modifier.width(12.dp))
-            // The field is the thing you have to find and hit, so it is a ruled
-            // box with a visible baseline rather than a line of floating type.
-            Box(
-                Modifier
-                    .width(104.dp)
-                    .background(paper.sunk)
-                    .padding(horizontal = 10.dp, vertical = 7.dp),
-            ) {
-                BasicTextField(
-                    value = text,
-                    onValueChange = { v ->
-                        text = v.filter { it.isDigit() || it == '.' }.take(12)
-                        refused = false
+        if (!open) {
+            // A closed row still says what is true; only the field is put away.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Label(
+                    label ?: if (used) {
+                        "no rate on file — this currency is not being converted"
+                    } else {
+                        "no rate on file"
                     },
-                    singleLine = true,
-                    textStyle = androidx.compose.ui.text.TextStyle(
-                        fontFamily = Bone.Sans,
-                        fontSize = 16.sp,
-                        color = paper.ink,
-                    ),
-                    cursorBrush = androidx.compose.ui.graphics.SolidColor(paper.ink),
-                    modifier = Modifier.fillMaxWidth(),
+                    paper,
+                    color = paper.inkSoft,
+                    size = 9.5.sp,
+                    tracking = 1.2.sp,
+                    modifier = Modifier.weight(1f),
                 )
-                if (text.isEmpty()) {
-                    Label("rate", paper, color = paper.inkFaint, size = 10.sp, tracking = 1.2.sp)
+                Spacer(Modifier.width(10.dp))
+                QuietAction(if (label == null) "Set rate" else "Change", paper, onOpen, color = paper.blue)
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Label("1 $code =", paper, color = paper.inkSoft, size = 10.sp, tracking = 1.2.sp)
+                Spacer(Modifier.width(12.dp))
+                // The field is the thing you have to find and hit, so it is a ruled
+                // box with a visible baseline rather than a line of floating type.
+                Box(
+                    Modifier
+                        .width(104.dp)
+                        .background(paper.sunk)
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                ) {
+                    BasicTextField(
+                        value = text,
+                        onValueChange = { v ->
+                            text = v.filter { it.isDigit() || it == '.' }.take(12)
+                            refused = false
+                        },
+                        singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = Bone.Sans,
+                            fontSize = 16.sp,
+                            color = paper.ink,
+                        ),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(paper.ink),
+                        modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                    )
+                    if (text.isEmpty()) {
+                        Label("rate", paper, color = paper.inkFaint, size = 10.sp, tracking = 1.2.sp)
+                    }
                 }
+                Spacer(Modifier.width(10.dp))
+                Label(base, paper, color = paper.inkSoft, size = 10.sp, tracking = 1.2.sp)
+                Spacer(Modifier.weight(1f))
+                if (text.isNotEmpty()) {
+                    QuietAction("Set", paper, {
+                        val accepted = onSet(text)
+                        refused = !accepted
+                        if (accepted) text = ""
+                    }, color = paper.blue)
+                }
+                QuietAction("Cancel", paper, onDone, color = paper.inkFaint)
             }
-            Spacer(Modifier.width(10.dp))
-            Label(base, paper, color = paper.inkSoft, size = 10.sp, tracking = 1.2.sp)
-            Spacer(Modifier.weight(1f))
-            if (text.isNotEmpty()) {
-                QuietAction("Set", paper, {
-                    val accepted = onSet(text)
-                    refused = !accepted
-                    if (accepted) text = ""
-                }, color = paper.blue)
-            }
+            Spacer(Modifier.height(6.dp))
+            Label(
+                if (refused) "not a number" else label ?: "no rate on file",
+                paper,
+                // Every state of a rate row is information, so every state is legible.
+                // inkGhost is for line work, never for a sentence.
+                color = paper.inkSoft,
+                size = 9.5.sp,
+                tracking = 1.2.sp,
+            )
         }
-        Spacer(Modifier.height(6.dp))
-        Label(
-            when {
-                refused -> "not a number"
-                label != null -> label
-                used -> "no rate on file — this currency is not being converted"
-                else -> "no rate on file"
-            },
-            paper,
-            color = when {
-                refused || (label == null && used) -> paper.inkSoft
-                else -> paper.inkGhost
-            },
-            size = 9.5.sp,
-            tracking = 1.2.sp,
-        )
     }
 }
 

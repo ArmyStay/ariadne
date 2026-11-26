@@ -22,5 +22,6 @@ class Matrix {
 class BitmapFactory {
     companion object {
         fun decodeByteArray(data: ByteArray, offset: Int, length: Int): Bitmap? = Bitmap()
+        fun decodeStream(stream: java.io.InputStream): Bitmap? = Bitmap()
     }
 }

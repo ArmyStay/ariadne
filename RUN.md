@@ -93,8 +93,9 @@ cd ariadne
 ### Or just look at it
 
 ```bash
-./tools/run-preview.sh --shots docs/shots   # render every page to PNG, headless
+./tools/run-preview.sh --shots docs/shots   # render all 44 pages to PNG, headless
 open docs/shots/contact-sheet.png           # macOS  (xdg-open on Linux, start on Windows)
+# pre-2026-11-26 renders live in docs/shots/archive-2026-11-26-pre-third-review/
 ```
 
 ### And check the logic

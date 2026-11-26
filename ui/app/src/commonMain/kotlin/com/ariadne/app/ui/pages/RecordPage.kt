@@ -60,6 +60,11 @@ import com.ariadne.model.Money
 public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
     val days = state.dayCards
     val shown = state.route.let { (it as? Route.Record)?.day } ?: state.today
+    val shownCard = days.firstOrNull { it.localDate == shown }
+    val dayIsClosed = shownCard?.isClosed == true
+    // A closed trip is a finished record: even a day that was never filed is not
+    // something the ritual can be opened for any more.
+    val tripClosed = state.trip?.isClosed == true
 
     ScrollingMargin(paper, wide, margin = if (wide) 56.dp else Bone.Margin) { _ ->
         Masthead(
@@ -67,7 +72,7 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             eyebrow = state.trip?.name ?: "Record",
             title = "The record",
             paper = paper,
-            trailing = { PageAction("Capture", paper, { model.go(Route.Capture) }) },
+            trailing = { PageAction("Capture", paper, { model.openCapture() }) },
         )
 
         Spacer(Modifier.height(18.dp))
@@ -101,7 +106,7 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
                 size = 17.sp,
             )
             Spacer(Modifier.height(22.dp))
-            Action("Add a photograph", paper, { model.go(Route.Capture) })
+            Action("Add a photograph", paper, { model.openCapture() })
         } else {
             captures.forEachIndexed { i, capture ->
                 ReceiptLine(capture, i, paper) { model.openDetail(capture.id) }
@@ -146,8 +151,15 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
 
         Spacer(Modifier.height(26.dp))
         // One primary move per page: the day is done, so the only forward action
-        // is the ritual. Search and the trip are deliberately quieter.
-        Action("Nightfall", paper, { model.openNightfall(shown) }, accent = true)
+        // is the ritual. A closed day has nothing to settle, so the bar goes
+        // genuinely inert rather than inviting a tap that leads nowhere.
+        Action(
+            "Nightfall",
+            paper,
+            { model.openNightfall(shown) },
+            accent = true,
+            enabled = !dayIsClosed && !tripClosed,
+        )
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
             QuietAction("Search", paper, { model.go(Route.Search) }, color = paper.inkMid)
@@ -155,10 +167,19 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
         }
 
         Spacer(Modifier.height(20.dp))
-        days.getOrNull(days.indexOfFirst { it.localDate == shown })?.let { card ->
+        if (tripClosed) {
+            Body(
+                "This trip is closed. The record is readable and its card is yours; " +
+                    "nothing can be added to it.",
+                paper,
+                color = paper.inkFaint,
+                size = 12.sp,
+            )
+        }
+        shownCard?.let { card ->
             if (card.isClosed) {
                 Body(
-                    "This day is closed. Long-press any card to open it again.",
+                    "This day is closed. Its cards can still be edited from here.",
                     paper,
                     color = paper.inkFaint,
                     size = 12.sp,

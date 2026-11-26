@@ -15,6 +15,7 @@ import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
 import com.ariadne.app.ui.pages.LocalCamera
 import com.ariadne.app.ui.pages.LocalPhotoImageRenderer
+import com.ariadne.app.ui.pages.LocalPhotoPicker
 import com.ariadne.core.time.SystemClock
 import com.ariadne.extract.TextRecognizer
 import com.google.android.play.core.review.ReviewManagerFactory
@@ -43,6 +44,10 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalCamera provides camera,
                 LocalPhotoImageRenderer provides AndroidPhotoImageRenderer,
+                // The library, on the one target that has a system picker bound.
+                // No storage permission is needed for it: the person hands over a
+                // single image rather than opening their library to the app.
+                LocalPhotoPicker provides rememberAndroidPhotoPicker(this@MainActivity),
             ) {
                 AriadneApp(model = graph.model, wide = false, reducedMotion = reducedMotion())
             }

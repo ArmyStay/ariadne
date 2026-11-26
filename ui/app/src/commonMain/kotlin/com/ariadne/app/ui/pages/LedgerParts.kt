@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,16 +57,20 @@ import kotlin.math.abs
  * without reading a single figure. Empty hours stay empty: an hour with no
  * photograph is not a gap to be ashamed of, it is an hour you were living.
  *
- * Honest about its own resolution: `createdAt` is an instant, converted to the
- * hour of the day it happened, so no timezone is invented and nothing is
- * interpolated between two marks.
+ * Honest about its own resolution: `createdAt` is an instant, and the hour it is
+ * drawn at comes from the [Clock] in the device's zone — never from the instant's
+ * own remainder, which is UTC and wrong everywhere else. Nothing is interpolated
+ * between two marks, and marks that share an hour are stacked rather than hidden.
+ *
+ * The clock is passed in as `hourOf` rather than looked up here, so a preview or a
+ * test can pin the zone by pinning the clock.
  */
 @Composable
 internal fun DayBand(
     captures: List<Capture>,
     paper: Paper,
+    hourOf: (Long) -> Int,
     modifier: Modifier = Modifier,
-    onHourTap: ((Int) -> Unit)? = null,
 ) {
     val line = paper.edgeStrong
     val ink = paper.ink
@@ -83,30 +88,35 @@ internal fun DayBand(
                 strokeWidth = 1f,
             )
             // Hours that carry something get a tick; the marks sit on the rail.
-            captures.forEach { capture ->
-                val hour = hourOf(capture.createdAt)
-                val x = left + (right - left) * (hour.coerceIn(0, 23) / 23f)
-                val confirmed = capture.state.name == "CONFIRMED" || capture.state.name == "ARCHIVED"
-                val markColor: Color = if (confirmed) ink else open
-                val top = size.height - 30f
-                if (!confirmed) {
-                    // Outlined: a hairline rectangle rather than a filled dot.
-                    drawCircle(
-                        color = markColor,
-                        radius = 4.2f,
-                        center = Offset(x, top),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.4f),
+            // Two photographs in one hour land on the same x, so each further
+            // mark in that hour is lifted one step: a collision is visible
+            // instead of one dot hiding another.
+            val taken = captures.groupBy { hourOf(it.createdAt).coerceIn(0, 23) }
+            taken.keys.sorted().forEach { hour ->
+                taken.getValue(hour).forEachIndexed { index, capture ->
+                    val x = left + (right - left) * (hour / 23f)
+                    val confirmed = capture.state.name == "CONFIRMED" || capture.state.name == "ARCHIVED"
+                    val markColor: Color = if (confirmed) ink else open
+                    val top = size.height - 30f - index.coerceAtMost(3) * 7f
+                    if (!confirmed) {
+                        // Outlined: a hairline rectangle rather than a filled dot.
+                        drawCircle(
+                            color = markColor,
+                            radius = 4.2f,
+                            center = Offset(x, top),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.4f),
+                        )
+                    } else {
+                        drawCircle(color = markColor, radius = 3.4f, center = Offset(x, top))
+                    }
+                    drawLine(
+                        color = if (confirmed) ink else open.copy(alpha = 0.55f),
+                        start = Offset(x, top + 6f),
+                        end = Offset(x, size.height - 1f),
+                        strokeWidth = if (confirmed) 1.4f else 1f,
+                        cap = StrokeCap.Butt,
                     )
-                } else {
-                    drawCircle(color = markColor, radius = 3.4f, center = Offset(x, top))
                 }
-                drawLine(
-                    color = if (confirmed) ink else open.copy(alpha = 0.55f),
-                    start = Offset(x, top + 6f),
-                    end = Offset(x, size.height - 1f),
-                    strokeWidth = if (confirmed) 1.4f else 1f,
-                    cap = StrokeCap.Butt,
-                )
             }
         }
         Spacer(Modifier.height(6.dp))
@@ -133,11 +143,6 @@ private fun Legend(color: Color, text: String, paper: Paper) {
     }
 }
 
-/** Hour of the day from an epoch instant, in the device's zone, without a formatter. */
-private fun hourOf(epochMillis: Long): Int {
-    val hours = ((epochMillis / 3_600_000L) % 24L)
-    return hours.toInt().let { if (it < 0) it + 24 else it }
-}
 
 /**
  * The breakdown: what the money was for, in the trip's base currency.
@@ -261,6 +266,7 @@ internal fun DayPlate(
     captures: List<Capture>,
     figure: String,
     paper: Paper,
+    hourOf: (Long) -> Int,
     onClick: () -> Unit,
 ) {
     Row(
@@ -270,8 +276,9 @@ internal fun DayPlate(
             .padding(vertical = 18.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        // The spine.
-        Column(Modifier.width(64.dp)) {
+        // The spine. A minimum, not a width: at 200% text the day number is
+        // twice as wide, and the spine grows instead of slicing the numeral.
+        Column(Modifier.widthIn(min = 64.dp)) {
             Numeral(
                 day.iso.takeLast(2),
                 paper,
@@ -302,7 +309,7 @@ internal fun DayPlate(
             }
             Spacer(Modifier.height(10.dp))
             if (captures.isNotEmpty()) {
-                DayBand(captures, paper)
+                DayBand(captures, paper, hourOf)
             } else {
                 Box(Modifier.fillMaxWidth().height(Bone.Hairline).background(paper.edge))
                 Spacer(Modifier.height(9.dp))

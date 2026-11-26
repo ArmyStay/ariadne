@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,6 +22,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
@@ -65,8 +68,10 @@ public fun NewTripPage(
     val d = state.draft
 
     Page(paper = paper, wide = wide) {
+        // The front door carries no plate number: the book's plates are the pages
+        // of the trip, and this page is the door before them.
         Masthead(
-            number = "01",
+            number = "",
             eyebrow = if (state.trip == null) "Ariadne" else "another trip",
             title = "Where to",
             paper = paper,
@@ -96,55 +101,63 @@ public fun NewTripPage(
             onChange = { model.editDraft(place = it) },
         )
 
-        // Dates side by side: they are read as a pair, so they are set as one.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(if (wide) 32.dp else 18.dp)) {
-            Box(Modifier.weight(1f)) {
-                DraftField(
-                    label = "from",
-                    placeholder = "2026-11-24",
-                    value = d.startIso,
-                    paper = paper,
-                    wide = false,
-                    numeric = true,
-                    onChange = { model.editDraft(startIso = it) },
-                )
+        // Dates are read as a pair, so on a wide page they sit as a pair. On a
+        // phone they are stacked instead: two ISO dates at 200% type do not fit
+        // in half a measure, and a date clipped at the year is worse than one
+        // under the other. Each keeps its own label and rule, so the pair is still
+        // two facts rather than one merged field.
+        val from = @Composable {
+            DraftField(
+                label = "from",
+                placeholder = "2026-11-24",
+                value = d.startIso,
+                paper = paper,
+                wide = false,
+                numeric = true,
+                onChange = { model.editDraft(startIso = it) },
+            )
+        }
+        val to = @Composable {
+            DraftField(
+                label = "to",
+                placeholder = "2026-11-30",
+                value = d.endIso,
+                paper = paper,
+                wide = false,
+                numeric = true,
+                onChange = { model.editDraft(endIso = it) },
+            )
+        }
+        if (wide) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                Box(Modifier.weight(1f)) { from() }
+                Box(Modifier.weight(1f)) { to() }
             }
-            Box(Modifier.weight(1f)) {
-                DraftField(
-                    label = "to",
-                    placeholder = "2026-11-30",
-                    value = d.endIso,
-                    paper = paper,
-                    wide = false,
-                    numeric = true,
-                    onChange = { model.editDraft(endIso = it) },
-                )
-            }
+        } else {
+            from()
+            to()
         }
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(if (wide) 32.dp else 18.dp)) {
-            Box(Modifier.weight(1f)) {
-                DraftField(
-                    label = "currency",
-                    placeholder = "INR",
-                    value = d.currency,
-                    paper = paper,
-                    wide = false,
-                    onChange = { model.editDraft(currency = it.uppercase().take(3)) },
-                )
-            }
-            Box(Modifier.weight(1f)) {
-                DraftField(
-                    label = "budget, if you have one",
-                    placeholder = "25000",
-                    value = d.budget,
-                    paper = paper,
-                    wide = false,
-                    numeric = true,
-                    onChange = { model.editDraft(budget = it) },
-                )
-            }
-        }
+        // The currency is chosen from the catalogue the arithmetic already knows,
+        // not typed as three letters. It used to accept anything that fit, which
+        // meant a trip could be opened in a currency the app could not scale.
+        CurrencyField(
+            label = "currency",
+            code = d.currency,
+            paper = paper,
+            onChoose = { model.editDraft(currency = it) },
+        )
+
+        DraftField(
+            label = "budget, if you have one",
+            placeholder = "25000",
+            value = d.budget,
+            paper = paper,
+            wide = false,
+            numeric = true,
+            keyboard = KeyboardType.Number,
+            onChange = { model.editDraft(budget = it) },
+        )
 
         if (d.error != null) {
             Spacer(Modifier.height(14.dp))
@@ -168,9 +181,8 @@ public fun NewTripPage(
         SectionHead("II", "or start with something in it", paper)
 
         Body(
-            "Five photographs of one Bangkok afternoon, already taken — Nightfall with a " +
-                "stack in front of you. " +
-                "reading about it.",
+            "Five photographs of one Bangkok afternoon, already taken — you land on the trip " +
+                "with five photographs waiting at Nightfall.",
             paper,
             color = paper.inkFaint,
             size = 13.sp,
@@ -196,7 +208,7 @@ public fun NewTripPage(
         Rule(paper, color = paper.edge)
         Spacer(Modifier.height(10.dp))
         Label(
-            "no account · no server · only the photograph leaves the camera",
+            "no account · no server · nothing leaves this device",
             paper,
             color = paper.inkFaint,
             size = 9.sp,
@@ -230,6 +242,7 @@ private fun DraftField(
     wide: Boolean,
     serif: Boolean = false,
     numeric: Boolean = false,
+    keyboard: KeyboardType = KeyboardType.Text,
     onChange: (String) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth()) {
@@ -243,6 +256,14 @@ private fun DraftField(
                 value = value,
                 onValueChange = onChange,
                 singleLine = true,
+                // A number field gets a number keyboard, and every field but the
+                // last says Next: on a device the IME is how this page is filled,
+                // so the return key should move down the page rather than close
+                // the keyboard five times.
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = keyboard,
+                    imeAction = ImeAction.Next,
+                ),
                 textStyle = TextStyle(
                     fontFamily = if (serif) Bone.Serif else Bone.Sans,
                     fontSize = if (serif) (if (wide) 30.sp else 26.sp) else 19.sp,

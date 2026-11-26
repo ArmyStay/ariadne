@@ -1,5 +1,9 @@
 # Ariadne — design language
 
+> For the current build's page-by-page inventory and flows, see
+> [`UI-AND-FLOW.md`](UI-AND-FLOW.md). This file is the rationale; that one is the
+> specification as built.
+
 **Ink.** A cool paper ground, one blue, a high-contrast serif for headlines, and
 small tracked-out uppercase for everything structural. The colour is the
 reference's; the bones are the second reference's: big italic serif, ink-filled
@@ -24,15 +28,52 @@ a page means one of them is wrong.
 | `Edge` | `#E2E8F0` | `#272B33` | Hairlines inside content. |
 | `EdgeStrong` | `#CBD5E1` | `#3A404A` | Frame edges, the bar's top line. |
 | `Ink` | `#1F1F20` | `#F2F5F9` | Headlines, figures, the shutter. |
-| `InkMid` | `#475569` | `#B6C0CC` | Body. |
-| `InkSoft` | `#64748B` | `#8794A3` | Labels, secondary actions. |
-| `InkFaint` | `#94A3B8` | `#616C7A` | Footnotes, inactive tabs. |
+| `InkMid` | `#334155` | `#B6C0CC` | Quiet action labels, secondary figures. A control, so a step stronger. |
+| `InkSoft` | `#475569` | `#8794A3` | Running text that is not the point. |
+| `InkFaint` | `#64748B` | `#616C7A` | Footnotes, inactive tabs, metadata. |
 | `InkGhost` | `#CBD5E1` | `#3A404A` | Ticks, plate line work. |
 | `Blue` | `#2563EB` | `#7DA2F7` | The one action. |
 | `BlueWash` | `#EFF4FE` | `#1A2436` | A count pill, a selected row. |
+| `TripGround` | `#F5F2E7` | `#14181E` | The kept card's warmer stock. |
 
 **No red.** It is not in the palette, so it cannot appear in the product: errors
 are ink, and a failure says what happened in words.
+
+**Both stocks are shipped.** The palette above has always had a night half; since
+2026-11-26 it is chosen in Preferences (`Light` / `System` / `Night`), stored with
+the settings, and resolved once at the root. `System` asks the platform. Nothing
+else in the product knows which stock it is printed on — pages read `Paper` and
+the tokens resolve.
+
+**One blue, audited.** A page cannot ship two blue actions quietly: the shell hands
+every surface an `AccentBudget`, `Action(accent = true)` claims it, and the stills
+harness fails if any surface claimed twice. A disabled action draws on `PaperSunk`
+and claims nothing. Two `Action(accent = true)` calls in the alternative branches of
+one `if` are not a violation — only one of them composes (this is why `TripPage`'s
+"Close the trip into a card" / "See the card" pair is not on the violation list).
+
+### The ink ladder, and why there are five rungs
+
+They are not improvised greys; each rung is a role, and a component that picks the
+wrong one is the most common way a page looks almost right.
+
+| Rung | Role | Never |
+| --- | --- | --- |
+| `Ink` | Headlines, figures, the trip name | — |
+| `InkMid` | **A small control's label** and secondary figures. One step darker than `InkSoft` on purpose: a control has to survive a glance, and the two were once the same value, which made the palette lie. | body copy |
+| `InkSoft` | Running text that is not the point: notes under a title, a state sentence under a rate row | a control's label |
+| `InkFaint` | Metadata a person reads only when looking for it: 9sp tracked caps, inactive tabs, footnotes | any sentence that carries information |
+| `InkGhost` | Line work only: ticks, plate rules, a hairline that happens to be ink | any text at all |
+
+`InkSoft` and `InkMid` were **kept as two rungs** rather than merged (third review,
+P1-8). They are 2 steps apart in value and 1 step apart in role, and the codebase
+uses both deliberately — merging them would either make quiet controls faint or make
+running prose shout. The decision is recorded here so the next reviewer does not
+have to re-derive it.
+
+**`TripGround` has exactly one user**: the kept card (§5.15 of `UI-AND-FLOW.md`).
+A warmer stock is only warmer if it is rare; a second page on it would make it a
+theme, and the app already has two of those.
 
 ## 2. Type
 
@@ -214,3 +255,12 @@ it themselves.
 4. Every screen works offline. Every figure is legible with no network.
 5. A card you cannot finish without scrolling is a bug.
 6. No `!!`, no `GlobalScope`, no mutable global state.
+7. **One plate geometry.** 1:1, hairline, square corners, wherever a single
+   photograph is shown: viewfinder, frame, record thumbnail, triage card, Detail,
+   the card. Four different ratios for one object is four different objects.
+8. **44dp is the floor for anything a thumb has to find**, including the quiet
+   actions and the shutter's count badge. Quiet is a weight, not a target size.
+9. **A page that is stacked on a tab marks no tab.** The bar stays (it is how you
+   leave) and `selected` is null; the bar announces where it is stacked from.
+10. **Grow, never shrink.** At 200% text things stack, wrap and reflow; nothing
+    drops below the specified rung in §2, and no action may be pushed off-screen.

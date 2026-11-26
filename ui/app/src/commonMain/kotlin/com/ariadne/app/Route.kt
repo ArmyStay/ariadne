@@ -5,9 +5,32 @@ import com.ariadne.model.Category
 import com.ariadne.model.CategoryTotal
 import com.ariadne.model.DayCard
 import com.ariadne.model.LocalDay
+import com.ariadne.model.Settings
 import com.ariadne.model.Trip
 
 /** Every surface in the app. There are six, and none of them is a spreadsheet. */
+/**
+ * Where a launch lands, decided once, from two facts.
+ *
+ * Every startup path asks this function and no other — the cold launch, a
+ * restored process, and a deep link whose page cannot exist yet. Written as a
+ * pure function rather than as branches inside `start()` so a test can state the
+ * rule in one line:
+ *
+ *  - the device has never held a trip -> [Route.Onboarding];
+ *  - a trip is open -> [Route.Home];
+ *  - trips exist but every one is closed -> the register, [Route.Trips].
+ *
+ * The third case is not a fallback: with no open trip there is no shutter to
+ * open, no record to read and no day to close, and inventing a trip would invent
+ * a day boundary. The register is where closed trips are still readable.
+ */
+public fun startRoute(hasAnyTrip: Boolean, hasOpenTrip: Boolean): Route = when {
+    !hasAnyTrip -> Route.Onboarding
+    hasOpenTrip -> Route.Home
+    else -> Route.Trips
+}
+
 /**
  * The seven pages. One sealed type, one `when`, no navigation library: a trip is
  * short and the surfaces are few, so the routing table should be readable in full.
@@ -64,7 +87,10 @@ public sealed interface Route {
     /** 8. Search by what you remember. */
     public data object Search : Route
 
-    /** 9. Settings, quiet and short. */
+    /**
+     * Retired name for [Preferences], kept so a route persisted by an older build
+     * still resolves. Nothing in the UI navigates here; the shell maps it.
+     */
     public data object Settings : Route
 
     // ── the four destinations in the bottom bar ──────────────────────────────
@@ -80,8 +106,15 @@ public sealed interface Route {
     /** What it came to. */
     public data object Stats : Route
 
-    /** Preferences. */
-    public data object Prefs : Route
+    /**
+     * Preferences: the stock, the currencies, the exchange.
+     *
+     * "Preferences" is the one canonical name for this surface. The Home action
+     * that opens it is printed `PREFS`, because that is the word a printed index
+     * would use at that size; the route, the page title and the code all say
+     * Preferences.
+     */
+    public data object Preferences : Route
 }
 
 /** Everything a screen can see. One immutable snapshot, replaced wholesale. */
@@ -106,8 +139,25 @@ public data class TripDraft(
     public val isEmpty: Boolean get() = name.isBlank() && startIso.isBlank() && endIso.isBlank()
 }
 
+/**
+ * Where the detail page was opened from.
+ *
+ * A photograph can be reached from the day's record or from a search result, and
+ * Back has to return to the place the person was, not to a fixed page. Search
+ * keeps its query and its results either way, so going back lands on the same
+ * list the person was reading.
+ */
+public enum class DetailOrigin { Record, Search }
+
 public data class AppUiState(
     public val route: Route = Route.Onboarding,
+    /**
+     * Which stock the book is printed on: light paper, night paper, or whatever
+     * the device is currently asking for. Loaded from the store at start and
+     * written back when it is changed; the palette itself lives in `:core:design`
+     * and has done since the first commit — this is only what finally selects it.
+     */
+    public val theme: Settings.Theme = Settings.Theme.SYSTEM,
     public val trip: Trip? = null,
     public val today: LocalDay? = null,
     public val dayCards: List<DayCard> = emptyList(),
@@ -120,6 +170,8 @@ public data class AppUiState(
     public val perCurrency: Map<String, Long> = emptyMap(),
     /** The capture open in the detail page, when one is. */
     public val detail: Capture? = null,
+    /** Where the detail page was opened from, so Back can return there. */
+    public val detailOrigin: DetailOrigin = DetailOrigin.Record,
     public val detailAmount: String = "",
     public val detailMerchant: String = "",
     public val detailNote: String = "",
