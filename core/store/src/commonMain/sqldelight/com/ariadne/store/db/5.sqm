@@ -1,0 +1,4 @@
+-- Migration 5: a local-only profile name.
+-- Existing theme choices remain untouched; new settings rows use LIGHT in code.
+
+ALTER TABLE settings ADD COLUMN displayName TEXT NOT NULL DEFAULT '';

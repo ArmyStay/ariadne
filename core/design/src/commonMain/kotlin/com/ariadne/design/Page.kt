@@ -542,7 +542,7 @@ public fun ScrollingMargin(
         Box(
             Modifier
                 .fillMaxHeight()
-                .padding(end = (margin - 4.dp).coerceAtLeast(2.dp))
+                .padding(end = if (wide) (margin - 4.dp).coerceAtLeast(2.dp) else 0.dp)
                 .padding(top = vertical, bottom = vertical),
         ) {
             ScrollRail(scroll, paper, Modifier.fillMaxHeight())

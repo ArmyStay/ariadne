@@ -1,7 +1,6 @@
 package com.ariadne.app.ui.pages
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -165,10 +164,7 @@ public fun CameraPlate(
     live: Boolean,
     onFrame: (ByteArray) -> Unit,
 ) {
-    Box(
-        modifier.border(Bone.Hairline, paper.edge),
-        contentAlignment = Alignment.Center,
-    ) {
+    Box(modifier, contentAlignment = Alignment.Center) {
         if (live) {
             val frame = rememberCameraFrame(paper, Modifier.fillMaxSize(), onFrame)
             if (frame != null) {

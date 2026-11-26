@@ -3,7 +3,9 @@ package com.ariadne.desktop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import com.ariadne.app.ui.pages.LocalPhotoPicker
+import com.ariadne.app.ui.pages.LocalTripCardImageExporter
 import com.ariadne.app.ui.pages.PhotoPicker
+import com.ariadne.app.ui.pages.TripCardImageExporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.awt.FileDialog
@@ -26,22 +28,49 @@ import java.io.File
  *    window while it is being copied into the record.
  */
 private class DesktopPhotoPicker(private val owner: Frame?) : PhotoPicker {
-    override suspend fun pick(): ByteArray? {
+    override suspend fun pick(): ByteArray? = pickMany(1).firstOrNull()
+
+    override suspend fun pickMany(limit: Int): List<ByteArray> {
         val chosen = withContext(Dispatchers.Main) {
-            val dialog = FileDialog(owner, "Choose a photograph", FileDialog.LOAD).apply {
-                // A filter is a hint, not a guarantee: every platform lets the
-                // person pick anything anyway, so the bytes are checked below.
+            val dialog = FileDialog(owner, "Choose photographs", FileDialog.LOAD).apply {
                 setFilenameFilter { _, name -> name.hasImageExtension() }
+                isMultipleMode = limit > 1
                 isVisible = true
             }
-            val dir = dialog.directory
-            val file = dialog.file
-            if (dir == null || file == null) null else File(dir, file)
-        } ?: return null
-
-        return withContext(Dispatchers.IO) {
-            runCatching { chosen.readBytes() }.getOrNull()?.takeIf { it.isNotEmpty() }
+            if (dialog.isMultipleMode) {
+                dialog.files.take(limit.coerceAtLeast(1))
+            } else {
+                val dir = dialog.directory
+                val file = dialog.file
+                if (dir == null || file == null) emptyList() else listOf(File(dir, file))
+            }
         }
+        return withContext(Dispatchers.IO) {
+            chosen.mapNotNull { file -> file.readBytes().takeIf { it.isNotEmpty() } }
+        }
+    }
+}
+
+private class DesktopTripCardImageExporter(private val owner: Frame?) : TripCardImageExporter {
+    override suspend fun savePng(fileName: String, bytes: ByteArray): Boolean {
+        val destination = withContext(Dispatchers.Main) {
+            val dialog = FileDialog(owner, "Save Trip Card as PNG", FileDialog.SAVE).apply {
+                file = fileName
+                isVisible = true
+            }
+            val directory = dialog.directory
+            val selected = dialog.file
+            if (directory == null || selected == null) {
+                null
+            } else {
+                File(directory, selected).let { file ->
+                    if (file.extension.equals("png", ignoreCase = true)) file
+                    else File(file.parentFile, "${file.name}.png")
+                }
+            }
+        } ?: return false
+        withContext(Dispatchers.IO) { destination.writeBytes(bytes) }
+        return true
     }
 }
 
@@ -51,8 +80,12 @@ private fun String.hasImageExtension(): Boolean {
         .any { lower.endsWith(it) }
 }
 
-/** Supplies the picker to the shared UI, the same way the camera is supplied on Android. */
+/** Supplies the platform's photo picker and local Trip Card export surface. */
 @Composable
 fun ProvideDesktopPhotoPicker(owner: Frame?, content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalPhotoPicker provides DesktopPhotoPicker(owner), content = content)
+    CompositionLocalProvider(
+        LocalPhotoPicker provides DesktopPhotoPicker(owner),
+        LocalTripCardImageExporter provides DesktopTripCardImageExporter(owner),
+        content = content,
+    )
 }

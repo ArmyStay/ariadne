@@ -71,7 +71,7 @@ internal fun Breakdown(
                         )
                         Spacer(Modifier.height(3.dp))
                         Label(
-                            "${row.captures} photograph${if (row.captures == 1) "" else "s"}",
+                            "${row.captures} entr${if (row.captures == 1) "y" else "ies"}",
                             paper,
                             color = paper.inkFaint,
                             tracking = 1.2.sp,
@@ -133,7 +133,7 @@ internal fun PatternLine(totals: List<CategoryTotal>, baseCurrency: CurrencyCode
     Spacer(Modifier.height(18.dp))
     Body(
         "Most of this trip so far went on ${top.category?.label?.lowercase()} — " +
-            "$share% of it, across ${top.captures} photograph${if (top.captures == 1) "" else "s"}. " +
+            "$share% of it, across ${top.captures} entr${if (top.captures == 1) "y" else "ies"}. " +
             "Everything else is in the column above.",
         paper,
         serif = true,

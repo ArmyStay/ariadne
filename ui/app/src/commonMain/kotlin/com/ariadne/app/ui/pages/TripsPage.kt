@@ -81,7 +81,6 @@ public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             italic = true,
             wide = wide,
             lede = "Every journey this device holds. One of them is open.",
-            trailing = { PageAction("Home", paper, { model.go(Route.Home) }) },
         )
 
         Spacer(Modifier.height(10.dp))
@@ -124,9 +123,6 @@ public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
                 { model.startNewTrip() },
             )
             Spacer(Modifier.height(10.dp))
-            if (state.trips.isEmpty()) {
-                QuietAction("Or open the demo roll", paper, { model.startTripDemo() }, color = paper.inkSoft)
-            }
             Spacer(Modifier.height(26.dp))
             Rule(paper, color = paper.edge)
 

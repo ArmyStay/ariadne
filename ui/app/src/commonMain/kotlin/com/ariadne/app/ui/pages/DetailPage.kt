@@ -117,11 +117,6 @@ public fun DetailPage(
                 title = "The photograph",
                 paper = paper,
                 italic = true,
-                trailing = {
-                    // Back returns to the search that found the photograph, or to
-                    // the day's record - whichever page opened this one.
-                    QuietAction("Back", paper, { model.closeDetail() }, color = paper.inkSoft)
-                },
             )
 
             Spacer(Modifier.height(24.dp))

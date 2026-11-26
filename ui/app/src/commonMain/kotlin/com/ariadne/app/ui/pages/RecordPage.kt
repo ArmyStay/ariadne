@@ -119,8 +119,8 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
         Rule(paper)
         Spacer(Modifier.height(14.dp))
 
-        if (state.perCurrency.isNotEmpty()) {
-            state.perCurrency.forEach { (code, minor) ->
+        if (state.dayPerCurrency.isNotEmpty()) {
+            state.dayPerCurrency.forEach { (code, minor) ->
                 FigureRow(code, Money.ofMinor(minor).format(CurrencyCode.of(code)), paper)
             }
             Spacer(Modifier.height(4.dp))

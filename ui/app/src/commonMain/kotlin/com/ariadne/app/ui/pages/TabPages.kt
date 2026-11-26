@@ -1,5 +1,6 @@
 package com.ariadne.app.ui.pages
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.border
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -34,6 +36,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.pointerInput
@@ -121,9 +129,14 @@ private fun TabPage(
                     .padding(bottom = 40.dp),
             ) { content() }
             // The bar hangs in the margin, level with the text it measures and
-            // never on top of it.
+            // never on top of it. On a phone, move it out of the page inset and
+            // into the device-edge gutter.
             Box(Modifier.fillMaxHeight().padding(start = 10.dp)) {
-                ScrollRail(scroll, paper, Modifier.fillMaxHeight().offset(x = 4.dp))
+                ScrollRail(
+                    scroll,
+                    paper,
+                    Modifier.fillMaxHeight().offset(x = if (wide) 4.dp else Bone.Margin),
+                )
             }
         }
     }
@@ -145,12 +158,6 @@ private fun TabPage(
 public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
     val trip = state.trip
     val closedTrip = trip?.takeIf { it.isClosed }
-    // "Bring one in from the library" opens the picker itself. Routing to the
-    // shutter first and asking for a second tap made a real control feel dead.
-    val importPhoto = rememberPhotoImport(
-        onBytes = { model.importPhoto(it) },
-        onUnavailable = { model.openCapture() },
-    )
     TabPage(
         paper,
         wide,
@@ -165,9 +172,9 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 Spacer(Modifier.height(4.dp))
                 Label("closed ${state.dayCards.count { it.isClosed }}", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
                 Spacer(Modifier.height(26.dp))
-                RailFigure("waiting", "${state.stack.size}", paper, 26.sp)
+                RailFigure("waiting today", "${state.stack.size}", paper, 26.sp)
                 Spacer(Modifier.height(4.dp))
-                Label("photographs", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
+                Label("on this day", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
             }
         },
     ) {
@@ -180,7 +187,6 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             wide = wide,
             // The visible word stays PREFS — it is what a printed index would put
             // in this corner — but it opens the Preferences route.
-            trailing = { PageAction("Prefs", paper, { model.go(Route.Preferences) }) },
         )
 
         if (trip == null) {
@@ -198,12 +204,10 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 lineHeight = 27.sp,
             )
             Spacer(Modifier.height(30.dp))
-            Action("Start a trip", paper, { model.startEmptyTrip() }, accent = true)
+            Action("Create a trip", paper, { model.startEmptyTrip() }, accent = true)
             Spacer(Modifier.height(12.dp))
             if (state.trips.isEmpty()) {
-                OutlineAction("Begin with the demo roll", paper, { model.startTripDemo() })
-            } else {
-                OutlineAction("The register", paper, { model.go(Route.Trips) })
+                QuietAction("Open the trip register", paper, { model.go(Route.Trips) }, color = paper.inkSoft)
             }
             return@TabPage
         }
@@ -250,7 +254,7 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Label("finished today", paper, color = paper.inkSoft)
             Pill(
-                if (state.stack.isEmpty()) "all settled" else "${state.stack.size} waiting",
+                if (state.stack.isEmpty()) "today settled" else "${state.stack.size} waiting today",
                 paper,
                 if (state.stack.isEmpty()) PillTone.Quiet else PillTone.Blue,
             )
@@ -258,44 +262,16 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
 
         Spacer(Modifier.height(24.dp))
 
-        // The shutter is the product, so it gets the page's one blue - always,
-        // not only on the days a stack happens to exist. Before this, a fresh day
-        // showed "Begin tonight's tally" and no way to take a photograph at all,
-        // which is the wrong hierarchy for an app whose whole claim is the photo.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.weight(1.5f)) {
-                Action(
-                    // Short enough to fit beside Finish at 440dp without the
-                    // word photograph being clipped to "A".
-                    "Take a photo",
-                    paper,
-                    { model.openCapture() },
-                    accent = true,
-                    icon = Glyph.Shutter,
-                )
-            }
-            if (state.stack.isNotEmpty()) {
-                Box(Modifier.weight(1f)) {
-                    OutlineAction(
-                        "Finish ${state.stack.size}",
-                        paper,
-                        { model.openCloseDay(state.today) },
-                    )
-                }
-            }
+        if (state.stack.isNotEmpty()) {
+            OutlineAction("Close day", paper, { model.openCloseDay(state.today) })
+            Spacer(Modifier.height(8.dp))
         }
-        Spacer(Modifier.height(12.dp))
-        // The library is the second way in - a real action, not a label.
-        // Only where a picker exists. A link that opens nothing is worse than
-        // no link: the shutter above is already the primary way in.
-        if (pickerAvailable()) {
-            QuietAction(
-                "or bring one in from the library",
-                paper,
-                importPhoto,
-                color = paper.inkSoft,
-            )
-        }
+        QuietAction(
+            "Add an expense manually",
+            paper,
+            { model.go(Route.ManualEntry) },
+            color = paper.inkSoft,
+        )
 
         SectionHead("II", "the trip", paper, trailing = "${trip.startDate.iso} → ${trip.endDate.iso}")
 
@@ -333,14 +309,68 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             }
         }
         Rule(paper)
-        Reveal(4) {
-            NavRow(Glyph.Trip, "The trip's page", "dates, currencies, the card", paper) {
-                model.go(Route.Trip)
+        Spacer(Modifier.height(30.dp))
+        SectionHead("III", "recent records", paper, trailing = "across this trip")
+        val recent = state.dayCapturesAll.values.flatten()
+            .sortedByDescending { it.createdAt }
+            .take(4)
+        if (recent.isEmpty()) {
+            Body(
+                "Photographs and manual expenses will appear here as you keep them.",
+                paper,
+                color = paper.inkFaint,
+                size = 12.sp,
+                lineHeight = 18.sp,
+            )
+        } else {
+            recent.forEach { capture ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .pointerInput(capture.id) {
+                            detectTapGestures(onTap = { model.openDetail(capture.id) })
+                        }
+                        .semantics {
+                            contentDescription = "Open ${model.titleOf(capture)}, ${capture.localDate.iso}"
+                            role = Role.Button
+                        }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (capture.photoPath.isNotEmpty()) {
+                        PhotoPreview(
+                            capture.photoPath,
+                            capture.merchant ?: "Receipt",
+                            paper,
+                            Modifier.size(56.dp),
+                        )
+                    } else {
+                        Box(
+                            Modifier.size(56.dp).background(paper.sunk),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Label("MANUAL", paper, color = paper.inkFaint, size = 7.sp, tracking = 0.8.sp)
+                        }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Title(model.titleOf(capture), paper, size = 15.sp)
+                        Spacer(Modifier.height(3.dp))
+                        Label(capture.localDate.iso, paper, color = paper.inkFaint, size = 9.sp)
+                    }
+                    capture.amountMinor?.let { minor ->
+                        Spacer(Modifier.width(8.dp))
+                        Numeral(
+                            Money.ofMinor(minor).formatWithSymbol(capture.currency ?: trip.baseCurrency),
+                            paper,
+                            size = 12.sp,
+                        )
+                    }
+                }
+                Rule(paper)
             }
         }
-        Rule(paper)
-
-        Spacer(Modifier.height(30.dp))
+        Spacer(Modifier.height(22.dp))
         // One line, no argument. The old sentence argued with an imaginary
         // competitor; a guest book does not do that.
         Body(
@@ -379,10 +409,9 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
     val days = state.dayCards
     val trip = state.trip
     val closed = days.count { it.isClosed }
-    // Every day's figure is already in the trip's base currency — `loadTripDays`
-    // converts each capture at its own pinned rate — so this sum is money, not a
-    // pile of different currencies added together.
-    val spent = state.dayFigures.values.sum()
+    // `tripTotalMinor` and every `dayFigures` entry come out of the same pass in
+    // `loadTripDays`, each capture converted at its own pinned rate, so the total
+    // is one currency's money rather than a sum of currencies.
     val currency = trip?.baseCurrency ?: CurrencyCode.of(state.dayCurrency)
 
     TabPage(
@@ -448,7 +477,12 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
         )
         Spacer(Modifier.height(10.dp))
         Label(
-            "${trip.name} · ${trip.startDate.iso} — ${trip.endDate.iso}",
+            // Where the trip is, if it was named, then the dates. Repeating the
+            // headline above would be a line that says nothing twice.
+            listOfNotNull(
+                trip.place ?: trip.name,
+                "${trip.startDate.iso} — ${trip.endDate.iso}",
+            ).joinToString(" · "),
             paper,
             color = paper.inkFaint,
             size = 9.sp,
@@ -459,14 +493,32 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
-                Label("Spent so far", paper, color = paper.inkFaint, size = 9.sp, tracking = 0.4.sp)
+                // A closed trip has no "so far" left in it: the figure is final,
+                // and the label says so rather than pretending the trip is moving.
+                Label(
+                    if (trip.isClosed) "Trip total" else "Spent so far",
+                    paper,
+                    color = paper.inkFaint,
+                    size = 9.sp,
+                    tracking = 0.4.sp,
+                )
                 Spacer(Modifier.height(6.dp))
                 Numeral(
-                    Money.ofMinor(spent).formatWithSymbol(currency),
+                    Money.ofMinor(state.tripTotalMinor).formatWithSymbol(currency),
                     paper,
                     size = if (wide) 44.sp else 33.sp,
                     serif = true,
                 )
+                trip.budgetMinor?.let { budget ->
+                    Spacer(Modifier.height(6.dp))
+                    Label(
+                        "budget ${Money.ofMinor(budget).formatWithSymbol(currency)}",
+                        paper,
+                        color = paper.inkFaint,
+                        size = 9.sp,
+                        tracking = 0.4.sp,
+                    )
+                }
             }
             Label(
                 "$closed of ${days.size} days closed",
@@ -623,13 +675,13 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         rail = {
             RailFigure(
                 "the trip",
-                Money.ofMinor(state.categoryTotals.sumOf { it.baseMinor })
+                Money.ofMinor(state.tripTotalMinor)
                     .formatWithSymbol(state.trip?.baseCurrency ?: CurrencyCode.of(state.dayCurrency)),
                 paper,
                 16.sp,
             )
             Spacer(Modifier.height(26.dp))
-            RailFigure("photographs", "${state.categoryTotals.sumOf { it.captures }}", paper, 26.sp)
+            RailFigure("entries", "${state.categoryTotals.sumOf { it.captures }}", paper, 26.sp)
             Spacer(Modifier.height(26.dp))
             Label("finished only", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
         },
@@ -648,7 +700,7 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         // The trip's figure, not the open day's: this page is about the whole thing,
         // and a headline that disagreed with the breakdown below it would be a bug
         // wearing a design.
-        val tripTotal = state.categoryTotals.sumOf { it.baseMinor }
+        val tripTotal = state.tripTotalMinor
         val base = state.trip?.baseCurrency ?: CurrencyCode.of(state.dayCurrency)
 
         // The figure, set on the paper itself. No card: a number this size carries
@@ -674,7 +726,7 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         Spacer(Modifier.height(7.dp))
         // The qualifier belongs to the figure, not to the note three sections
         // below it: a total is read before anything under it.
-        Label("finished photographs only", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.3.sp)
+        Label("finished entries only", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.3.sp)
         Spacer(Modifier.height(14.dp))
 
         // The fence, if one was set. Over budget is stated plainly and in the same
@@ -713,27 +765,42 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         }
 
         Body(
-            "Only photographs that were finished. Anything still waiting tonight is not in " +
-                "this figure, and is not counted as zero.",
+            "Only entries that were finished. Anything still waiting across this trip is not " +
+                "in this figure, and is not counted as zero.",
             paper,
             color = paper.inkFaint,
             size = 12.sp,
             lineHeight = 18.sp,
         )
 
+        if (state.dayFigures.isNotEmpty()) {
+            Spacer(Modifier.height(18.dp))
+            SectionHead("II", "daily spending", paper)
+            Label(
+                "finished entries · ${base.code}",
+                paper,
+                color = paper.inkFaint,
+                size = 9.sp,
+                tracking = 1.2.sp,
+            )
+            Spacer(Modifier.height(10.dp))
+            DailySpendChart(state, paper)
+            Spacer(Modifier.height(22.dp))
+        }
+
         if (state.categoryTotals.isNotEmpty()) {
-            SectionHead("II", "what it was", paper)
+            SectionHead("III", "what it was", paper)
             Breakdown(
                 totals = state.categoryTotals,
                 baseCurrency = base,
-                totalBaseMinor = state.categoryTotals.sumOf { it.baseMinor },
+                totalBaseMinor = state.tripTotalMinor,
                 paper = paper,
             )
             PatternLine(state.categoryTotals, base, paper)
             Spacer(Modifier.height(10.dp))
             Body(
-                "Nothing here is sorted for you. A category is a claim you make on the photograph, " +
-                    "and most photographs never need one.",
+                "Nothing here is sorted for you. A category is a claim you make on an entry, " +
+                    "and most entries never need one.",
                 paper,
                 color = paper.inkFaint,
                 size = 12.sp,
@@ -742,11 +809,11 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             Spacer(Modifier.height(26.dp))
         }
 
-        if (state.perCurrency.isNotEmpty()) {
+        if (state.tripPerCurrency.isNotEmpty()) {
             // The same finished photographs, seen from the other side. The two
             // columns must always add to the same figure.
-            SectionHead("III", "by currency, before conversion", paper)
-            state.perCurrency.forEach { (code, minor) ->
+            SectionHead("IV", "by currency, before conversion", paper)
+            state.tripPerCurrency.forEach { (code, minor) ->
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -770,8 +837,7 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             )
         } else if (state.categoryTotals.isEmpty()) {
             Body(
-                "Nothing has been tallied yet. The figures appear here the first time you finish a " +
-                    "photograph at nightfall.",
+                "Nothing has been tallied yet. The figures appear here the first time you confirm an entry.",
                 paper,
                 color = paper.inkSoft,
                 size = 15.sp,
@@ -793,6 +859,37 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         )
 
         Spacer(Modifier.height(96.dp))
+    }
+}
+
+@Composable
+private fun DailySpendChart(state: AppUiState, paper: Paper) {
+    val values = state.dayCards.map { it.localDate }.takeLast(7).map { day ->
+        day to (state.dayFigures[day.iso] ?: 0L)
+    }
+    val maximum = values.maxOfOrNull { it.second }?.coerceAtLeast(1L) ?: 1L
+    Canvas(Modifier.fillMaxWidth().height(108.dp)) {
+        val columnWidth = size.width / (values.size * 2f)
+        val chartHeight = size.height - 2f
+        values.forEachIndexed { index, (_, value) ->
+            val barHeight = (value.toDouble() / maximum.toDouble() * chartHeight).toFloat()
+            drawRect(
+                color = if (index == values.lastIndex) paper.blue else paper.inkSoft.copy(alpha = 0.62f),
+                topLeft = Offset(columnWidth * (index * 2 + 0.5f), chartHeight - barHeight),
+                size = Size(columnWidth, barHeight),
+            )
+        }
+        drawLine(
+            color = paper.edgeStrong,
+            start = Offset(0f, chartHeight),
+            end = Offset(size.width, chartHeight),
+            strokeWidth = 1.dp.toPx(),
+        )
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        values.forEach { (day, _) ->
+            Label(day.iso.takeLast(2), paper, color = paper.inkFaint, size = 8.sp)
+        }
     }
 }
 
@@ -820,19 +917,28 @@ public fun PreferencesPage(
         Masthead(
             number = "04",
             eyebrow = "Ariadne",
-            title = "Preferences",
+            title = "Settings",
             paper = paper,
             wide = wide,
-            trailing = { PageAction("Done", paper, { model.go(Route.Home) }) },
         )
 
         Spacer(Modifier.height(14.dp))
+        SectionHead("I", "your profile", paper)
+        LineField(
+            label = "display name · kept on this device",
+            value = state.displayName,
+            placeholder = "Your name",
+            paper = paper,
+            onChange = model::editProfileName,
+            serif = false,
+        )
+        Spacer(Modifier.height(10.dp))
 
         // Every row below is a read-out of something real, and the two that can be
         // changed are the two that are actually changeable. A row that says
         // "Date format — 2026-11-23" with no way to set it would be decoration
         // pretending to be a setting; the ones that cannot change say so instead.
-        SectionHead("I", "the record", paper)
+        SectionHead("II", "the record", paper)
 
         // Both currencies come from the same catalogue the New trip page uses, so
         // there is one vocabulary for choosing money in the whole app.
@@ -852,7 +958,7 @@ public fun PreferencesPage(
             paper = paper,
             onChoose = { model.editTripHomeCurrency(it) },
         )
-        PrefReadout(Glyph.Date, "Dates", "${state.today?.iso ?: "2026-11-23"}, ISO order", paper)
+        PrefReadout(Glyph.Date, "Dates", "${state.today?.iso ?: "—"}, ISO order", paper)
         PrefPaper(paper, state.theme) { model.setTheme(it) }
 
         // ── The exchange rate ────────────────────────────────────────────────
@@ -861,7 +967,7 @@ public fun PreferencesPage(
         // and every total silently under-reports. The figures are exact scaled
         // integers all the way down; this is the only place a human types one.
         Spacer(Modifier.height(26.dp))
-        SectionHead("II", "the exchange", paper)
+        SectionHead("III", "the exchange", paper)
 
         val inUse = model.currenciesInUse()
         val foreign = (inUse + listOf("THB", "USD", "EUR", "GBP", "JPY"))
@@ -882,6 +988,7 @@ public fun PreferencesPage(
                     RateRow(
                         code = code,
                         label = model.rateLabel(code),
+                        effectiveDate = model.rateDateLabel(code),
                         used = inUse.contains(code),
                         paper = paper,
                         base = state.trip?.baseCurrency?.code ?: "INR",
@@ -909,23 +1016,29 @@ public fun PreferencesPage(
         }
 
         Spacer(Modifier.height(26.dp))
-        SectionHead("III", "what leaves this device", paper)
+        SectionHead("IV", "what leaves this device", paper)
 
-        PrefReadout(Glyph.Ledger, "Reading", "On device only", paper)
+        PrefReadout(Glyph.Ledger, "Storage", "Local to this build", paper)
         Spacer(Modifier.height(12.dp))
         Body(
-            // This used to claim "there is no network call in the product at all", which
-            // was not true: the exchange rates are fetched. A privacy paragraph that
-            // overstates is worse than no paragraph, so it says exactly what goes out.
-            "No account, no server, no sync. Photographs are stored in the app's private " +
-                "folder and the record lives in a local database. The one thing that leaves " +
-                "this device is a request for today's exchange rates, and it carries nothing " +
-                "about the trip; the app works without it and keeps the last rate it saw.",
+            state.storageDisclosure,
             paper,
             color = paper.inkMid,
             size = 14.sp,
             lineHeight = 21.sp,
         )
+        Spacer(Modifier.height(12.dp))
+        Body(
+            state.rateDisclosure,
+            paper,
+            color = paper.inkMid,
+            size = 14.sp,
+            lineHeight = 21.sp,
+        )
+        Spacer(Modifier.height(16.dp))
+        IconAction(Glyph.Ledger, "Export all data as a ZIP archive", paper) {
+            model.go(Route.DataExport)
+        }
 
         // The honest diagnostic. If anything threw and was swallowed - which is
         // exactly how a dead button happens - it is written here rather than
@@ -946,7 +1059,7 @@ public fun PreferencesPage(
         }
 
         Spacer(Modifier.height(28.dp))
-        SectionHead("IV", "this trip", paper)
+        SectionHead("V", "this trip", paper)
 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Icon(Glyph.Trip, paper, size = 16.dp)
@@ -984,7 +1097,7 @@ public fun PreferencesPage(
             }
             Spacer(Modifier.height(6.dp))
             Body(
-                "Deletes its photographs and its record. Nothing is kept anywhere else, so this " +
+                "Deletes its entries and photographs. Nothing is kept anywhere else, so this " +
                     "is the one action in the app you cannot take back.",
                 paper,
                 color = paper.inkFaint,
@@ -1085,6 +1198,7 @@ private fun PrefPaper(
 private fun RateRow(
     code: String,
     label: String?,
+    effectiveDate: String?,
     used: Boolean,
     paper: Paper,
     base: String,
@@ -1128,18 +1242,29 @@ private fun RateRow(
         if (!open) {
             // A closed row still says what is true; only the field is put away.
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Label(
-                    label ?: if (used) {
-                        "no rate on file — this currency is not being converted"
-                    } else {
-                        "no rate on file"
-                    },
-                    paper,
-                    color = paper.inkSoft,
-                    size = 9.5.sp,
-                    tracking = 1.2.sp,
-                    modifier = Modifier.weight(1f),
-                )
+                Column(Modifier.weight(1f)) {
+                    Label(
+                        label ?: if (used) {
+                            "no rate on file — this currency is not being converted"
+                        } else {
+                            "no rate on file"
+                        },
+                        paper,
+                        color = paper.inkSoft,
+                        size = 9.5.sp,
+                        tracking = 1.2.sp,
+                    )
+                    if (label != null && effectiveDate != null) {
+                        Spacer(Modifier.height(3.dp))
+                        Label(
+                            "rate dated $effectiveDate",
+                            paper,
+                            color = paper.inkFaint,
+                            size = 9.sp,
+                            tracking = 0.8.sp,
+                        )
+                    }
+                }
                 Spacer(Modifier.width(10.dp))
                 QuietAction(if (label == null) "Set rate" else "Change", paper, onOpen, color = paper.blue)
             }

@@ -16,6 +16,8 @@ import com.ariadne.app.ui.AriadneApp
 import com.ariadne.app.ui.pages.LocalCamera
 import com.ariadne.app.ui.pages.LocalPhotoImageRenderer
 import com.ariadne.app.ui.pages.LocalPhotoPicker
+import com.ariadne.app.ui.pages.LocalTripCardImageExporter
+import com.ariadne.app.ui.pages.LocalDataArchiveExporter
 import com.ariadne.core.time.SystemClock
 import com.ariadne.extract.TextRecognizer
 import com.google.android.play.core.review.ReviewManagerFactory
@@ -43,6 +45,8 @@ class MainActivity : ComponentActivity() {
                 // No storage permission is needed for it: the person hands over a
                 // single image rather than opening their library to the app.
                 LocalPhotoPicker provides rememberAndroidPhotoPicker(this@MainActivity),
+                LocalTripCardImageExporter provides rememberAndroidTripCardImageExporter(this@MainActivity),
+                LocalDataArchiveExporter provides rememberAndroidDataArchiveExporter(this@MainActivity),
             ) {
                 AriadneApp(
                     model = graph.model,
@@ -80,6 +84,12 @@ class MainActivity : ComponentActivity() {
 private class AndroidServices(
     private val activity: ComponentActivity,
 ) : PlatformServices {
+
+    override val storageDisclosure: String =
+        "Trips, rates, and receipt photographs are stored in Ariadne's private app storage on this device. Nothing is synced."
+
+    override val rateDisclosure: String =
+        "When online, Ariadne requests currency rates from frankfurter.app using currency pairs only, not trip details. Saved rates remain available offline; the date shown is the rate's effective date."
 
     override fun store(): com.ariadne.store.Store = com.ariadne.store.AriadneStore(
         driver = AndroidSqliteDriver(

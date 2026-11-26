@@ -1,13 +1,11 @@
 # Ariadne — the interface, surface by surface, as built
 
-**What this document is.** A description of the app that the source in this repository
-actually renders — every surface, every block of it, and the exact words on the buttons,
-labels, pills, placeholders, empty states and notes — read out of `ui/app` and
-`core/design`. It replaces an earlier version of this file that described design intent
-and a sequence of redesign passes. That file described a landing page, a bar and a set of
-routes that are not in the code.
+**What this document is.** A source-level description of the Ariadne interface and
+flows. The navigation and route details below reflect the current Home / Timeline /
+Stats / More structure, manual entry, profile settings, and local data export. Device
+layout and platform save/share behavior still need human verification.
 
-**Audited at** `8185219` (merge of PR #11), 2026-11-27. **Second revision:** every
+**Audited at** `d6f6fe0` (main, after the data-export pass), 2026-11-27. **Second revision:** every
 surface lists its blocks in order, with the exact words on every label, button, pill,
 placeholder, empty state and note, and the control each one calls. **Third revision
 (phase 8):** the timeline was rebuilt to the journey reference — globe backdrop,
@@ -22,7 +20,7 @@ design system change how they appear on screen and are worth stating once:
 
 - **`Label`, `Action`, `OutlineAction`, `QuietAction`, `PageAction` and `Pill` uppercase
   their text.** So `Label("finished today")` renders **FINISHED TODAY**, and
-  `Action("Take a photo")` renders **TAKE A PHOTO**. The strings below are quoted in
+  `Action("Create a trip")` renders **CREATE A TRIP**. The strings below are quoted in
   source form.
 - **`Title`, `Body`, `Numeral`, `NavRow` and field placeholders do not.** A serif title
   reads as written, in sentence case.
@@ -48,8 +46,8 @@ design system change how they appear on screen and are worth stating once:
 | Term | Meaning in this codebase |
 | --- | --- |
 | **Trip** | A dated container for captures. Exactly one is *active*; photographs land in it. |
-| **Capture** | One photograph plus what is known about it. `QUEUED → EXTRACTING → NEEDS_AMOUNT / NEEDS_CONFIRMATION → CONFIRMED → ARCHIVED`. |
-| **Stack** | The opened day's captures that still owe something, in pager order. Counted in the bar and on Home. |
+| **Capture** | One expense record. It may have a photograph or be entered manually; photo captures move through `QUEUED → EXTRACTING → NEEDS_AMOUNT / NEEDS_CONFIRMATION → CONFIRMED → ARCHIVED`. |
+| **Stack** | The opened day's captures that still owe something, in pager order. Counted on Home and settled by Close Day. |
 | **Sheet** | The capture editor that rises over the page after a photograph (`FramePage`, driven by `state.sheetCaptureId`). Not a route. |
 | **Shutter** | The camera cover (`CaptureOverlay`, driven by `state.shutterOpen`). Not a route. |
 | **The card** | The keepsake summary of a finished trip (`TripCardPage`). |
@@ -67,35 +65,36 @@ design system change how they appear on screen and are worth stating once:
 2. the **notice bar** (undo), if `state.notice != null`;
 3. the **shutter cover**, if `state.shutterOpen`;
 4. the **sheet**, if `state.sheetCaptureId != null`;
-5. the **bottom bar**, if `route.showsTabBar()`.
+5. the **bottom dock**, if the route supports it and neither capture overlay is open.
 
-The order is load-bearing: the sheet draws after the shutter (a capture never shows a
-viewfinder under it), and the bar draws last, so both overlays cover it.
+The shutter and sheet are layered over the page, not placed as full-height siblings in
+its content column. The sheet draws after the shutter, and the dock is hidden under either
+overlay.
 
-### 1.1 The bottom bar (`Nav.kt`)
+### 1.1 The bottom dock (`Nav.kt`)
 
 A Material 3 `NavigationBar`, `containerColor = paper.raised`, zero tonal elevation, four
-items and an empty middle slot:
+destinations around the central shutter's reserved slot:
 
 | Slot | Content |
 | --- | --- |
-| 1 | **TODAY** — sun-over-horizon glyph; badge when captures are waiting |
-| 2 | **DAYS** — calendar-page glyph |
-| 3 | *empty* — a `Box(weight(1f))`, which is where the shutter sits |
-| 4 | **TRIP** — suitcase glyph |
-| 5 | **STATS** — three bars |
+| 1 | **HOME** — today's record and recent expenses |
+| 2 | **TIMELINE** — trip overview and its days |
+| 3 | *empty* — a reserved central seat for the shutter |
+| 4 | **STATS** — spending breakdown and daily totals |
+| 5 | **MORE** — Trips, manual entry, profile/settings, privacy, and terms |
 
-- Item labels are 11sp, sentence case, tracking 0.2sp: `Today`, `Days`, `Trip`, `Stats`.
-  Selected item: `paper.ink` icon and text on a `paper.sunk` indicator.
+- Item labels are 11sp, sentence case, tracking 0.2sp: `Home`, `Timeline`, `Stats`,
+  `More`. Settings is reached from More rather than occupying its own tab.
+- Selected item: `paper.ink` icon and text on a `paper.sunk` indicator.
 - The **shutter** is a `FloatingActionButton`: 56dp, `CircleShape`, `paper.blue`
   (`paper.edge` when a trip is closed), aligned top-centre and offset up 20dp, drawn
   aperture glyph (circle, inner ring, six blades).
-- **Badge** on Today only: a `paper.blue` circle containing the count, positioned
+- **Badge** on Timeline only: a `paper.blue` circle containing the trip-wide waiting count, positioned
   `x = 8dp, y = -6dp` from the icon's top end — a numeral, not a dot.
-- **Content descriptions**: the bar as a whole is described by
-  `Route.stackedFrom()` (`"Preferences, stacked over Today"`, `"Trips, stacked over
-  Today"`) or nothing on a destination; the FAB says `"Take a photograph"`,
-  `"Take a photograph. N waiting for an amount"`, or
+- **Content descriptions**: a stacked Trips or Preferences dock includes its actual
+  history parent; the FAB says `"Take a photograph"`,
+  `"Take a photograph. N waiting across this trip"`, or
   `"A closed trip takes no photographs"`.
 
 ### 1.2 Where the bar is, and where it is not
@@ -104,22 +103,22 @@ items and an empty middle slot:
 
 | Bar | Routes |
 | --- | --- |
-| **shown** | `Home`, `Days`, `Stats`, `Trip`, `Record`, `Trips`, `Preferences`, `Search` |
+| **shown** | `Home`, `Days`/`Timeline`, `Stats`, `More`, `Record`, `Trips`, `Preferences`, `ManualEntry`, `DataExport`, `PrivacyPolicy`, `Terms`, `Search` |
 | **hidden** | `Onboarding`, `NewTrip`, `Capture`, `CloseDay`, `TripCard`, `Detail`, `Frame` |
 
-`Route.tab()` maps a route to a tab for highlighting: `Home→Today`,
-`Days/Record/CloseDay→Days`, `Trip/TripCard→Trip`, `Stats→Stats`, everything else `null`.
-(`CloseDay` and `TripCard` are mapped *and* bar-less; the mapping has no visible effect
-there.)
+`Route.tab()` maps `Home→Home`, `Days/Trip/Record/CloseDay→Timeline`, `Stats→Stats`,
+and `More/Trips/Preferences/Settings/ManualEntry/TripCard→More`. Other stacked pages
+have no selected destination.
 
 ### 1.3 The notice bar (`NoticeBar` in `AriadneApp.kt`)
 
-A full-width strip above whatever is at the foot: hairline, then one row —
+A full-width strip above the dock: hairline, then one row —
 the notice text in a tracked `Label` (10sp, `inkSoft`), an optional action
 (`QuietAction`, `paper.blue`) and always `close` (`inkFaint`). The row is a
 `LiveRegionMode.Polite` live region, so an undo offer is announced.
 
-The only notice in the product today: *"Saved"* with the action **UNDO**.
+Notices are deferred while the shutter or photograph sheet is open so they cannot
+obstruct the capture decision.
 
 ### 1.4 Where the app opens
 
@@ -140,18 +139,22 @@ The only notice in the product today: *"Saved"* with the action **UNDO**.
 | Route | Draws | Bar | Reached from |
 | --- | --- | --- | --- |
 | `Onboarding` | `OnboardingPage` | no | cold start with no trips |
-| `NewTrip` | `NewTripPage` | no | Onboarding **BEGIN EMPTY**; register **BEGIN A NEW TRIP**; Trip **START ANOTHER TRIP**; Home no-trip **START A TRIP** (`startEmptyTrip()` = `startNewTrip()`) |
-| `Home` | `HomePage` | yes | start, **TODAY**, `Done` on Preferences, register **HOME** |
-| `Days` | `TimelinePage` | yes | **DAYS**, Trip **SEE THE DAYS** |
-| `Trip` | `TripPage` | yes | **TRIP**, record **TRIP**, Preferences **SEE THE TRIP'S PAGE**, card **BACK TO THE TRIP** |
+| `NewTrip` | `NewTripPage` | no | Onboarding **CREATE A TRIP**; Trips **BEGIN A NEW TRIP**; Home no-trip **START A TRIP** |
+| `Home` | `HomePage` | yes | start, **HOME**, Trips **HOME** |
+| `Days` | `TimelinePage` | yes | **TIMELINE** |
+| `Trip` | `TimelinePage` | yes | legacy route redirected to Timeline |
 | `Stats` | `StatsPage` | yes | **STATS** |
+| `More` | `MorePage` | yes | **MORE** |
 | `Record(day?)` | `RecordPage` | yes | Timeline plate, record's day tabs, Home **THE RECORD** row, Timeline **RECORD**, Search **RECORD**, Close day **BACK TO THE DAY**, Detail **LEAVE IT OPEN** |
-| `CloseDay(day)` | `CloseDayPage` | no | Home **FINISH N**, Stats **CLOSE TODAY**, record **CLOSE DAY**, the shutter page's **TODAY** |
+| `CloseDay(day)` | `CloseDayPage` | no | Home **CLOSE DAY**, Stats **CLOSE TODAY**, record **CLOSE DAY**, the shutter page's **TODAY** |
 | `Detail(captureId)` | `DetailPage` | no | any receipt line or photograph; Close day **EDIT**; sheet **OPEN THE WHOLE PAGE** |
 | `TripCard(tripId)` | `TripCardPage` | no | Trip **THE CARD** / **CLOSE THE TRIP INTO A CARD**; Home closed **SEE THE CARD**; Preferences **CLOSE THE TRIP INTO A CARD** / **SEE THE CARD** |
-| `Trips` | `TripsPage` | yes | Home **TRIPS** row, Home **THE REGISTER**, Trip **THE REGISTER**, Capture page **THE REGISTER**, register itself from `startRoute` |
+| `Trips` | `TripsPage` | yes | More **TRIPS**; register itself from `startRoute` |
 | `Search` | `SearchPage` | yes | Home **SEARCH WHAT YOU KEPT** row, record **SEARCH** |
-| `Preferences` | `PreferencesPage` | yes | Home **PREFS**, Trip **CHANGE THE BUDGET** / **SET A BUDGET** / **THE RATES** |
+| `Preferences` | `PreferencesPage` | yes | More **SETTINGS & PROFILE** |
+| `ManualEntry` | `ManualEntryPage` | yes | More **ADD MANUALLY**; Home manual-entry action |
+| `DataExport` | `DataExportPage` | yes | Preferences **EXPORT ALL DATA AS A ZIP ARCHIVE** |
+| `PrivacyPolicy` / `Terms` | `LegalPage` | yes | More **PRIVACY POLICY** / **TERMS OF USE**; both are marked drafts |
 | `Capture` | `CapturePage` | no | **only** `openCapture()` with no trip or a closed trip, and Escape from the pager (desktop) — legacy (§9) |
 | `Frame(captureId)` | `FramePage` as a page | no | **only** a restored route — legacy (§9) |
 | `Settings` | `PreferencesPage` | yes | retired name, still resolves |
@@ -163,14 +166,19 @@ The only notice in the product today: *"Saved"* with the action **UNDO**.
 - `back()`: closes the sheet → closes the shutter → pops `history` → returns `false`,
   which is the app's cue to leave.
 - `canGoBack` = an overlay is open **or** `history` is not empty.
+- A stacked page with a history parent shows a consistent top-left **BACK TO [PARENT]**
+  action; its destination is read from the same route history as system Back.
 - Escape mirrors Back for overlays; on the pager it leaves for `Route.Capture`.
 
 ### 2.3 The two overlays
 
 | State | Drawn by | Opened by | Closed by |
 | --- | --- | --- | --- |
-| `shutterOpen` | `CaptureOverlay`, full cover | `openCapture()` with an open trip; the FAB; record **CAPTURE**; record **ADD A PHOTOGRAPH**; Home **TAKE A PHOTO** | **CLOSE**, Back, Escape, taking a frame |
-| `sheetCaptureId` | `FramePage`, bottom sheet at 84% height | `capturePhoto()`; `importPhoto()` | back chevron, **ADD THE AMOUNT LATER**, **SAVE …**, **OPEN THE WHOLE PAGE**, Back, Escape |
+| `shutterOpen` | `CaptureOverlay`, full cover | `openCapture()` with an open trip; the FAB; record **CAPTURE**; record **ADD A PHOTOGRAPH**; Home **TAKE PHOTO** | **CLOSE**, Back, Escape, taking a frame |
+| `sheetCaptureId` | `FramePage`, photograph sheet | one successful photo from camera or picker | **KEEP FOR LATER**, **OPEN THE FULL EDITOR**, Back, Escape |
+
+Picking multiple photographs files them into the current day's waiting stack and returns
+to the underlying page. A single picked photograph opens the same sheet as a camera photo.
 
 ### 2.4 Desktop keys (`handleKey`)
 
@@ -191,22 +199,24 @@ No other page responds to keys.
 
 ### 3.1 First run
 
-`Onboarding` → **BEGIN WITH THE DEMO ROLL** (`startTripDemo()`) *or* **BEGIN EMPTY**
-(`startNewTrip()` → `NewTrip` with *from* = today, *to* = today + 6, currency = the
-setting) → **OPEN THE TRIP** (`commitDraft()`) → `Home`.
+`Onboarding` → **CREATE A TRIP** (`startNewTrip()` → `NewTrip` with *from* = today,
+*to* = today + 6, currency = the setting) → **CREATE TRIP** (`commitDraft()`) → `Home`.
+The user-facing onboarding and trip-register flows do not offer the demo roll.
 
 ### 3.2 The everyday loop
 
 1. FAB (or record **CAPTURE**) → `CaptureOverlay` over the same page.
-2. Tap the plate → `capturePhoto()` → camera closes, `FramePage` rises over the same page.
-3. Type a figure → **SAVE ₹18.41**, or **ADD THE AMOUNT LATER**. Either closes the sheet
-   and leaves the person exactly where they were.
+2. Tap the plate → `capturePhoto()` → the saved photograph appears in the sheet over the
+   same page.
+3. **KEEP FOR LATER** is the primary action; **OPEN THE FULL EDITOR** is secondary.
+   The amount is not required on the post-capture path. OCR remains unconfirmed until
+   Close Day.
 
 Nothing navigates.
 
 ### 3.3 Settling a day
 
-Home **FINISH N** / record **CLOSE DAY** / Stats **CLOSE TODAY** → `CloseDay`, one card
+Home **CLOSE DAY** / record **CLOSE DAY** / Stats **CLOSE TODAY** → `CloseDay`, one card
 at a time: **YES, SAVE IT** or **NO, LET ME ENTER IT**; **CONFIRM**; **KEEP IT WITHOUT AN
 AMOUNT**; **EDIT**; **EARLIER**/**LATER**; **CONFIRM N READY**; **CONFIRM REST AS NO
 AMOUNT**; **CLOSE THE DAY** → the summary → **BACK TO THE DAY**.
@@ -218,13 +228,15 @@ AMOUNT**; **CLOSE THE DAY** → the summary → **BACK TO THE DAY**.
 
 ### 3.5 The card
 
-`Trip` → **CLOSE THE TRIP INTO A CARD** (or **THE CARD**) → the card, tappable to copy
-(**SHARE THE CARD** → **COPIED**) → **BACK TO THE RECORD** or **BACK TO THE TRIP**.
+`Trip` → **CLOSE THE TRIP INTO A CARD** (or **THE CARD**) → **COPY TEXT** or
+**SAVE PNG**. PNG export uses the platform's local save/share surface; no server is used.
 
 ### 3.6 Registers, settings, switching
 
-`Home` → **TRIPS** row → `Trips` → tap a row (`switchTrip`) → **HOME**.
-`Home` → **PREFS** → `Preferences` → **DONE**.
+`More` → **TRIPS** → tap a row (`switchTrip`); **SETTINGS & PROFILE** → `Preferences`.
+Settings keeps a local display name, appearance and currencies, and provides the ZIP
+export action. **ADD MANUALLY** saves a confirmed expense without a photo or OCR queue.
+Privacy and terms are in-app drafts that need review before publication.
 
 ---
 
@@ -238,11 +250,14 @@ AMOUNT**; **CLOSE THE DAY** → the summary → **BACK TO THE DAY**.
 | `trip` | every page |
 | `today` | Home, Record, CloseDay, Preferences, Search |
 | `dayCards` | Home rail, Timeline, Record, Trip, Stats' "Close today" |
-| `dayCaptures`, `dayTotalMinor`, `dayCurrency`, `perCurrency`, `dayUnconverted`, `dayRateDates` | Home, Record, CloseDay, Detail, Stats |
-| `stack`, `stackIndex`, `amountInput` | the pager, Home, the badge |
+| `dayCaptures`, `dayTotalMinor`, `dayCurrency`, `dayPerCurrency`, `dayUnconverted`, `dayRateDates` | Home, Record, CloseDay, Detail |
+| `tripPerCurrency`, `tripTotalMinor`, `tripUnconverted` | Trip, Stats, Trip Card |
+| `stack`, `stackIndex`, `amountInput` | the current day's Close Day flow and Home |
+| `tripPending` | the Trip dock badge and shutter's trip-wide waiting action |
 | `dayCapturesAll`, `dayFigures` | Timeline, Trip, Stats, the sheet's lookup |
 | `categoryTotals` | Stats, Trip, Home |
 | `detail`, `detailAmount/Merchant/Note/Category` | Detail, the sheet |
+| `storageDisclosure`, `rateDisclosure` | Preferences |
 | `searchQuery`, `searchResults` | Search |
 | `trips`, `activeTripId` | Trips, Trip, Home |
 | `draft` | NewTrip |
@@ -255,6 +270,13 @@ AMOUNT**; **CLOSE THE DAY** → the summary → **BACK TO THE DAY**.
 
 ## 5. Every surface, in full
 
+The current refresh adds a photo-free manual expense form, a local ZIP data-export flow,
+the four-destination dock, and a welcome screen without a demo-roll choice. Home now
+summarizes the active trip/day and recent expenses; Timeline combines the trip overview
+with its day list; Stats includes daily spending; More opens Trips, Settings & Profile,
+manual entry, and the in-app legal drafts. Fresh settings default to Light appearance.
+The detailed surface descriptions below remain subject to device-level visual review.
+
 Each tab page is framed by `TabPage`: a scrolling column, the hanging margin on a wide
 window with a scroll rail, and a bottom spacer of 96–104dp so the bar never covers the
 last row. Non-tab pages use `ScrollingMargin` or a bare column.
@@ -265,18 +287,16 @@ Wide windows get a left margin column; phones get a single column.
 
 | Element | Text |
 | --- | --- |
-| eyebrow (wide: a rail of labels) | `Ariadne` (tracking 3sp), `edition one`, `a trip ledger`, `no account` |
-| headline, line 1 | **The photograph / is the memory.** (40sp phone, 66sp wide) |
-| headline, line 2 (italic, `inkSoft`) | **The numbers wait for night.** |
+| eyebrow (wide: a rail of labels) | `Ariadne` (tracking 3sp), `edition one`, `no account` |
+| headline | **Welcome to / Ariadne** (42sp phone, 64sp wide; no italic styling) |
 | rule | `paper.ink` |
-| paragraph | "Forty rupees on chai, twelve hundred on shoes, and by tonight neither is remembered. Point the camera at the receipt, the stall, the ticket. When the day is done, sit down and settle it - two taps a card." |
-| primary | **BEGIN WITH THE DEMO ROLL** (`startTripDemo()`), max width 360dp |
-| secondary | **BEGIN EMPTY** (`startNewTrip()`) |
+| paragraph | "Keep the moments from a trip without turning them into a chore. Take a photograph now, add the amount later, and keep the whole record on this device." |
+| primary | **CREATE A TRIP** (`startNewTrip()`), max width 360dp |
 | foot | `No account · no server · no sync` |
 
 ### 5.2 New trip — `NewTripPage.kt`, no bar
 
-`Masthead("", eyebrow = "Ariadne" \| "another trip", title = "Where to", lede = "A name, the dates, and a figure to stay under. The fence is optional.")`
+`Masthead("", eyebrow = "Ariadne" \| "another trip", title = "Create a trip", lede = "Give it a name and dates. A budget is optional.")`
 
 Fields, in order — each a labelled hairline set in the serif:
 
@@ -289,37 +309,27 @@ Fields, in order — each a labelled hairline set in the serif:
 | `currency` | a `CurrencyField` (see §5.16) |
 | `budget, if you have one` | `25000` |
 
-Then:
-
-- **OPEN THE TRIP** (`commitDraft()`), the only blue control;
-- the draft's error line, when there is one (it wraps; e.g. *"The trip could not be
-  saved. … — nothing was lost; try again."*);
-- `SectionHead("II", "or start with something in it")` with the paragraph "Five
-  photographs of one Bangkok afternoon, already taken — you land on the trip with five
-  photographs waiting for an amount.", then **DEMO ROLL** (`commitDraft(withDemoRoll =
-  true)`) and **PREFILL FROM DEMO** (`fillDraftFromDemo()`);
-- the foot `no account · no server · no sync`;
-- **GO BACK** → `Home` (only when a trip already exists).
+Then **CREATE TRIP** (`commitDraft()`), any draft error line, and the foot
+`no account · no server · no sync`. **GO BACK** returns to Home when a trip already
+exists. There is no demo-roll or demo-prefill action in this flow.
 
 ### 5.3 Home — `HomePage` in `TabPages.kt`, Today tab
 
-**Header.** `Masthead(01, "Ariadne", title = the trip's name \| "No trips yet" \| "No trip open", italic, trailing = PageAction("Prefs") → Preferences)`.
+**Header.** `Masthead(01, "Ariadne", title = the trip's name | "No trips yet" | "No trip open")`.
 
 **Rail (wide).** `today` = today's ISO or `—`; `days` = the trip's length; `closed N`;
-`waiting` = `stack.size`; `photographs`.
+`waiting today` = `stack.size`; `on this day`.
 
 **Open trip, top to bottom:**
 
 1. the day's figure: currency symbol (22sp, `inkFaint`) + `Money.format` at 52sp (phone) /
    68sp (wide);
-2. row: `finished today` (Label, `inkSoft`) — pill **ALL SETTLED** (`PillTone.Quiet`)
-   or **N WAITING** (`PillTone.Blue`);
-3. **TAKE A PHOTO** (`openCapture()`, accent, shutter glyph; weighted 1.5) and, when the
-   stack is non-empty, **FINISH N** (`openCloseDay(today)`, outline; weighted 1);
-4. **OR BRING ONE IN FROM THE LIBRARY** — only when `pickerAvailable()`; opens the
-   platform picker and calls `importPhoto(bytes)`;
-5. `SectionHead("II", "the trip", trailing = "start → end")`, then five `NavRow`s, each
-   revealed with a staggered animation (delays 0…4) and separated by rules:
+2. row: `finished today` (Label, `inkSoft`) — pill **TODAY SETTLED** (`PillTone.Quiet`)
+   or **N WAITING TODAY** (`PillTone.Blue`);
+3. the **TODAY SETTLED** or **N WAITING TODAY** pill; when the stack is non-empty,
+   **CLOSE DAY** (`openCloseDay(today)`);
+4. **ADD AN EXPENSE MANUALLY** opens the photo-free confirmed-entry form;
+5. `SectionHead("II", "the trip", trailing = "start → end")`, then four `NavRow`s:
 
 | Row label (serif) | Detail (right, sans) | Lands on |
 | --- | --- | --- |
@@ -327,19 +337,19 @@ Then:
 | `Timeline` | `N of M days closed` | `Days` |
 | `The record` | `N kept today` | `Record(today)` |
 | `Search what you kept` | `by shop, price, day` | `Search` |
-| `The trip's page` | `dates, currencies, the card` | `Trip` |
 
-6. closing line, `inkFaint` 12sp: "No account. No sync. The record stays here."
+6. a **recent records** section across the trip, with up to four newest items; manual
+   entries use a `MANUAL` placeholder instead of a photograph;
+7. closing line: "No account. No sync. The record stays here."
 
-**No trip.** Body — *"A journey, from its first day to its last. Photographs now; figures
-at nightfall."* (no trips) or *"Every trip on this device is closed. Open one from the
-register, or begin another."* (all closed) → **START A TRIP** (`startEmptyTrip()`) →
-**BEGIN WITH THE DEMO ROLL** (`startTripDemo()`) or **THE REGISTER** (`Trips`).
+**No trip.** The Home text explains either first-run or all-trips-closed state, then
+**CREATE A TRIP** (`startEmptyTrip()`). With no trips, **OPEN THE TRIP REGISTER** is
+also available. There is no demo-roll option.
 
 **Closed trip.** Body — *"This trip is closed. Nothing new can be filed against it; the
 record and the card stay exactly as they were."* → **SEE THE CARD** → **THE REGISTER**.
 
-### 5.4 Timeline — `TimelinePage` in `TabPages.kt`, Days tab
+### 5.4 Timeline — `TimelinePage` in `TabPages.kt`, Timeline tab
 
 The page is built on the reference: a watercolour globe hung off the top-right corner,
 a masthead set over it, then **THE JOURNEY** and **THE DAYS** as two bar-marked
@@ -491,45 +501,22 @@ file."* and **BACK TO THE DAY** alone.
 **Missing capture.** *"That photograph is not in the record any more."* + **BACK TO THE
 RECORD** (`closeDetail()`).
 
-### 5.8 The sheet — `FramePage.kt`, overlay (or the legacy page)
+### 5.8 The photograph sheet — `FramePage.kt`, overlay (or the legacy page)
 
 Bottom sheet at **84% height** over the photograph and a scrim, or, on a wide window, a
-two-column spread: the print on the left, the fields on the right, actions under them.
+two-column spread: the print on the left and the quick choice on the right.
 
 **Header row.** A drawn back chevron (44dp target, `contentDescription = "Back"`, calls
 `keepFrameForLater()`), then `the photograph is kept` (8sp, `inkGhost`), then a pill with
-the entry status: `Needs an amount` / `Not confirmed` / `Confirmed` / `No amount` / `In
-the record` / `Couldn't read it` (blue when pending, quiet otherwise).
+the entry status.
 
-**Body, top to bottom:**
+**Quick choice.** `Photograph kept`; the photograph title; *"No amount is needed now.
+You can finish it at Close Day."* An unconfirmed OCR amount is shown quietly as a
+suggestion, never treated as saved.
 
-1. **The moment** — a 62dp thumbnail; `TUESDAY 11 NOVEMBER · 05:30`; the figure as it
-   stands — `S$` + `18.41` (30sp), or `0` plus `nothing typed yet` when empty.
-2. **The suggestion** (only with an unconfirmed amount and nothing typed) — *"Found
-   S$18.41 on it."* + **YES** (`acceptDetailSuggestion()` — saves immediately) / **NO**
-   (`rejectDetailExtractedAmount()`).
-3. **The pair** — a sunk, bordered block:
-   - labels: `original purchase` … `base trip equivalent`;
-   - figures: `S$18.41` `≈` `₹1,373.94` (19sp each; `—` where unknown);
-   - one line underneath: `rate: 1 SGD ≈ 74.6298 INR`, or `already in the trip's
-     currency`, or `no SGD rate yet — it will be counted in SGD`, or `type an amount and
-     the pair updates`.
-4. **READ THE PHOTOGRAPH AGAIN** (`reExtractCurrent()`), reading **READING THE
-   PHOTOGRAPH…** and disabled while `busy`.
-5. **Amount** — `amount` label; a 56×52 box with the currency symbol and a field beside
-   it showing the typed figure (26sp) or the placeholder `how much`; under the field,
-   `will convert to the trip's currency (INR) on save.` or `already in the trip's
-   currency, INR.`; then the keypad (46dp rows, 19sp digits).
-6. **Currency** — `currency` label + the shortlist chips.
-7. **Category** — `category` label + the six chips.
-8. **Merchant** — label `Merchant`, placeholder *"the shop, if you want it named"*.
-9. **Remember it by** — placeholder *"a line for later"*.
-10. **Date** — `date` label; a bordered row `11/11/2025` · `05:30` · `as photographed`.
-    Printed, not editable.
-
-**Foot, pinned.** **SAVE 18.41** (`saveDetail()`, accent) + **ADD THE AMOUNT LATER**
-(`keepFrameForLater()`), or **ADD THE AMOUNT LATER** alone when nothing is typed; then
-**OPEN THE WHOLE PAGE** (`openFrame()` → `Detail`).
+**Foot, pinned.** **KEEP FOR LATER** (`keepFrameForLater()`, primary) and
+**OPEN THE FULL EDITOR** (`openFrame(capture.id)`, secondary). Amount, currency,
+merchant, category, note, and keypad remain in the full editor.
 
 **Missing capture.** *"That photograph is not here any more."* + **BACK TO TODAY**.
 
@@ -542,7 +529,7 @@ the record` / `Couldn't read it` (blue when pending, quiet otherwise).
 | plate | live preview, or the engraved plate; `contentDescription = "Viewfinder. Tap to keep the photograph."`; tapping fires the camera |
 | hint | `Tap the frame to keep it` — or `No camera here — tap the frame for a plate` when the platform supplies none |
 | left of the shutter | **FROM THE LIBRARY** (`rememberPhotoImportMany` → `importPhotos`) |
-| right of the shutter | `nothing waiting` / `N waiting` |
+| right of the shutter | `nothing waiting across this trip` / `N waiting across this trip` |
 | under the shutter | `no figure here · the amount comes after` |
 
 **No trip / closed trip.** Title — *"This trip is closed."* or *"No trip is open."*;
@@ -569,8 +556,8 @@ still yours."* + **SEE THE CARD** + **THE REGISTER**.
 2. a rule at `paper.ink`, then `finished photographs only`;
 3. when a budget exists: `against a budget of` + the figure + `left`/`over` + the
    difference (blue when over);
-4. the note *"Only photographs that were finished. Anything still waiting tonight is not
-   in this figure, and is not counted as zero."*;
+4. the note *"Only photographs that were finished. Anything still waiting across this trip
+   is not in this figure, and is not counted as zero."*;
 5. `SectionHead("II", "what it was")` — a `Breakdown` by category (`Food`, `Transport`,
    … or `Uncategorised`; `N photographs`; the figure; `of`), a `PatternLine` sentence
    (*"Most of this trip so far went on food — 34% of it, across 6 photographs. Everything
@@ -597,8 +584,8 @@ still yours."* + **SEE THE CARD** + **THE REGISTER**.
    `Preferences`;
 3. a rule; `how far`; **N of M days closed** (22sp); a measured rule; **SEE THE DAYS** →
    `Days`;
-4. a rule; `what it was spent in`: one row per currency with its subtotal, then `all of
-   it` and the total; empty: *"Nothing tallied yet. The first capture is a photograph,
+4. a rule; `by currency, before conversion`: one row per `tripPerCurrency` subtotal;
+   empty: *"Nothing tallied yet. The first capture is a photograph,
    not a form."*;
 5. `currency` + the paragraph *"Base INR · home INR. The original amount is never
    converted away — it stays under the figure it became."* + **THE RATES** →
@@ -625,7 +612,7 @@ still yours."* + **SEE THE CARD** + **THE REGISTER**.
 
 ### 5.14 The card — `TripCardPage.kt`, no bar
 
-A single column of type, the whole card a tap target (`copyCardToClipboard()`):
+A single column of type, with separate text-copy and PNG-export actions:
 
 - `A trip, kept`; the name; the dates; the days as rows with `closed`/`open`;
 - *"No figures recorded yet. The photographs are still the record."* when nothing is
@@ -633,8 +620,9 @@ A single column of type, the whole card a tap target (`copyCardToClipboard()`):
 - the closing sentence — *"Every day closed. This is the whole of the trip: no account, no
   sync, and nothing about it left this device."* or *"N of M days closed. The card keeps
   filling itself in until the trip is done."*;
-- **SHARE THE CARD**, which becomes **COPIED** for a moment (`state.cardCopied`);
-- **BACK TO THE RECORD** (`Record(today)`) and **BACK TO THE TRIP** (`Trip`).
+- **COPY TEXT**, which becomes **TEXT COPIED** for a moment (`state.cardCopied`);
+- **SAVE PNG**, which exports the card locally using the platform's save/share surface;
+- a shell-level **BACK TO TRIP** action when this page has a route parent.
 
 ### 5.15 Search — `SearchPage.kt`, stacked
 
@@ -652,9 +640,11 @@ A single column of type, the whole card a tap target (`copyCardToClipboard()`):
   happened. Search reads what you typed on the photograph, and what the recogniser read
   off it."*
 
-### 5.16 Preferences — `PreferencesPage` in `TabPages.kt`, stacked
+### 5.16 Preferences — `PreferencesPage` in `TabPages.kt`
 
-**Header.** `Masthead(04, "Ariadne", title = "Preferences", trailing = PageAction("Done") → Home)`.
+**Header.** `Masthead(04, "Ariadne", title = "Preferences")`; it is reachable from the
+**PREFS** dock destination. Stacked entry points use the shell's **BACK TO [PARENT]**
+action.
 **Rail:** `on device only`, `no account · no sync`.
 
 **I · the record**
@@ -663,7 +653,7 @@ A single column of type, the whole card a tap target (`copyCardToClipboard()`):
 | --- | --- | --- |
 | `Base currency` | `CurrencyField` → `editTripCurrency` | `Every total is stated in this one` |
 | `Home currency` | `CurrencyField` → `editTripHomeCurrency` | `What a foreign amount is converted back to` |
-| `Dates` | read-out (`NavRow` with a no-op) | value: today's ISO date + `, ISO order` — e.g. `2026-11-27, ISO order`; the fallback literal in source is `2026-11-23` |
+| `Dates` | read-out | today's ISO date + `, ISO order`; `—, ISO order` when no day is open |
 | `Paper` | three chips | `Light paper, always` · `Follows this device's light or dark setting` · `Night paper: the same design on dark stock` |
 
 The Paper chips read `Light`, `System`, `Night` and call `setTheme(...)`; the chosen one
@@ -677,6 +667,7 @@ is drawn in `paper.blue`.
   is on file;
 - the sentence `1 SGD = 74.6298 INR`, or `no rate on file — this currency is not being
   converted` (in use) / `no rate on file` (not in use);
+- when a rate is saved with a date, `rate dated 27 Nov` beneath the pair;
 - **SET RATE** (no rate) or **CHANGE** → opens the one open editor: `1 SGD =` + a field
   (`rate` label beside it) and **SET** / **CANCEL**; a refused value reads `not a number`;
 - the row is followed by a rule; only one editor can be open at a time.
@@ -684,14 +675,11 @@ is drawn in `paper.blue`.
 With nothing foreign: *"Everything so far is already in the base currency."* A rejected
 rate is stated under the list (`state.rateError`).
 
-**III · what leaves this device.** `Reading` read-out: `On device only`. Then the
-paragraph: *"No account, no server, no sync. Photographs are stored in the app's private
-folder and the record lives in a local database. The one thing that leaves this device is
-a request for today's exchange rates, and it carries nothing about the trip; the app works
-without it and keeps the last rate it saw."* If anything has ever failed:
-`SectionBreak("something failed")` + the last error, with *"This is the last error the app
-saw. Nothing was lost; it is written here because a failure that only happens in a log is
-a failure nobody fixes."*
+**III · what leaves this device.** A `Storage` read-out (`Local to this build`) followed by
+platform-specific `storageDisclosure` and `rateDisclosure` text. This states where the
+record and photographs are kept, whether data persists across launches, and whether an
+exchange-rate request sends anything off-device. If a failure was recorded, Preferences
+shows its message explicitly.
 
 **IV · this trip.** The trip's name (or `No trip`), the place (or `no place set`), then
 icon rows: **SEE THE TRIP'S PAGE**; **CLOSE THE TRIP INTO A CARD** (`closeTripIntoCard()`)
@@ -710,8 +698,8 @@ this is the one action in the app you cannot take back."* Armed, the block becom
 elsewhere; scale follows the currency (JPY has none). Negative figures carry a `-`
 sign; the app prefers `₹8,240.00 left` / `₹8,240.00 over` over a negative numeral.
 
-**The `≈`.** Printed before a figure that contains converted money, and in the sheet's
-pair between its two figures. The rate date always accompanies it:
+**The `≈`.** Printed before a figure that contains converted money. Where the record's
+conversion note is shown, it includes the effective rate date, for example
 `≈ converted at the rate for 20 Nov`.
 
 **Capture titles.** `MerchantName.receiptTitle(merchant, "21:09")`: a cleaned merchant
@@ -721,7 +709,6 @@ name, else `Receipt · 21:09`, else `Receipt`. Never a raw OCR line, never "Unti
 `In the record`, `Couldn't read it`.
 
 **Dates.** ISO (`2026-11-27`) in fields and rows; spoken form `27 Nov` in sentences;
-`TUESDAY 11 NOVEMBER` in the sheet's head; `11/11/2025` in the sheet's date field;
 times as 24-hour `HH:MM`.
 
 **Empty states (verbatim).** `No trips yet.` · `Nothing kept` (a day on the timeline, and the line under an
@@ -738,15 +725,15 @@ still the record.`
 number` (rate field) · `no rate on file — this currency is not being converted`.
 
 **Accessibility descriptions written in source.** `"Take a photograph"` (and
-`"Take a photograph. N waiting for an amount"`, `"A closed trip takes no photographs"`) ·
+`"Take a photograph. N waiting across this trip"`, `"A closed trip takes no photographs"`) ·
 `"Viewfinder. Tap to keep the photograph."` · `"Back"` (the sheet's chevron) ·
 `"Search the record"` · `"Search currencies"` · `"Camera viewfinder"` ·
 `"Backspace"` and every keypad digit · the currency chips' three variants
 (`"Currency SGD"`, `"Currency SGD, the one on this photograph"`,
 `"Currency SGD, not changeable on a closed trip"`) · register rows,
-`"name, dates, state"` · the bar's `"Trips, stacked over Today"` /
-`"Preferences, stacked over Today"`. There is no settings glyph on Home in this build —
-settings is the `PREFS` page action in the masthead.
+`"name, dates, state"` · stacked dock destination descriptions include the actual history
+parent, such as `"Preferences, stacked over Today"`. Preferences is a `PREFS` dock
+destination rather than a Home masthead action.
 
 ---
 

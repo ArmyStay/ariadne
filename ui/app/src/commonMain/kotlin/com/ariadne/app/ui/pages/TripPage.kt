@@ -65,7 +65,7 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
     val trip = state.trip ?: return
     val currency = trip.baseCurrency
     val place = trip.place
-    val spent = state.categoryTotals.sumOf { it.baseMinor }
+    val spent = state.tripTotalMinor
     val days = state.dayCards.size
     val closed = state.dayCards.count { it.isClosed }
     // One plan, one arithmetic: the bar, the pace tick and the day's share all come
@@ -192,7 +192,7 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         Label("what it was spent in", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
         Spacer(Modifier.height(12.dp))
 
-        if (state.perCurrency.isEmpty()) {
+        if (state.tripPerCurrency.isEmpty()) {
             Body(
                 "Nothing tallied yet. The first capture is a photograph, not a form.",
                 paper,
@@ -201,7 +201,7 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 size = 15.sp,
             )
         } else {
-            state.perCurrency.forEach { (code, minor) ->
+            state.tripPerCurrency.forEach { (code, minor) ->
                 CurrencyLine(code, Money.ofMinor(minor).format(CurrencyCode.of(code)), paper)
             }
             Spacer(Modifier.height(8.dp))
