@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Ariadne mark</title>
+  <desc id="desc">A cobalt route thread curving around an ink aperture.</desc>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M82 35C43 49 19 86 22 126c4 57 52 101 109 101 42 0 78-23 96-58" stroke="#2563EB" stroke-width="18"/>
+    <path d="M227 169c9-24 9-48 1-70-14-42-54-71-101-71-16 0-31 3-45 9" stroke="#2563EB" stroke-width="18"/>
+    <path d="M44 177c30 25 67 33 91 15 20-15 21-39 35-62 12-20 29-35 51-42" stroke="#1F1F20" stroke-width="10"/>
+  </g>
+  <g fill="#1F1F20">
+    <path d="M128 91l14 26-14 18-14-18z"/>
+    <path d="M165 113l-25 14-18-14 18-14z"/>
+    <path d="M162 151l-26-14-14 18 14 14z"/>
+    <path d="M125 166l-14-26 14-18 14 18z"/>
+    <path d="M91 145l25-14 18 14-18 14z"/>
+    <path d="M94 107l26 14 14-18-14-14z"/>
+  </g>
+  <circle cx="128" cy="129" r="13" fill="#F8FAFC"/>
+</svg>
