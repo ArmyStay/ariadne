@@ -353,7 +353,11 @@ private fun TodayCard(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
                     tracking = 0.9.sp,
                 )
                 Spacer(Modifier.width(12.dp))
-                Box(Modifier.rowTap { model.openCloseDay(state.today) }) {
+                Box(
+                    Modifier
+                        .rowTap { model.openCloseDay(state.today) }
+                        .padding(vertical = 10.dp, horizontal = 4.dp),
+                ) {
                     Label(
                         "finish",
                         paper,
