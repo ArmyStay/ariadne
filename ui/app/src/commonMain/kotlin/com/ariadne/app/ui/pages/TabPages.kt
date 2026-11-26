@@ -2,11 +2,13 @@ package com.ariadne.app.ui.pages
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +25,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,9 +36,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -83,6 +93,7 @@ import com.ariadne.design.QuietAction
 import com.ariadne.design.Subject
 import com.ariadne.design.Tick
 import com.ariadne.design.Title
+import com.ariadne.design.TravelGlobeArtwork
 import com.ariadne.model.Capture
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.LocalDay
@@ -114,22 +125,31 @@ private fun TabPage(
         onToggleRail = onToggleRail,
         rail = rail,
     ) {
-        Row(Modifier.fillMaxWidth()) {
-            val scroll = rememberScrollState()
-            Column(
-                Modifier
-                    .weight(1f)
-                    .verticalScroll(scroll)
-                    .padding(bottom = 40.dp),
-            ) { content() }
-            // The bar hangs in the margin, level with the text it measures and
-            // never on top of it. On a phone, move it out of the page inset and
-            // into the device-edge gutter.
-            Box(Modifier.fillMaxHeight().padding(start = 10.dp)) {
+        val scroll = rememberScrollState()
+        if (wide) {
+            Row(Modifier.fillMaxWidth()) {
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .verticalScroll(scroll)
+                        .padding(bottom = 40.dp),
+                ) { content() }
+                Box(Modifier.fillMaxHeight().padding(start = 10.dp)) {
+                    ScrollRail(scroll, paper, Modifier.fillMaxHeight().offset(x = 4.dp))
+                }
+            }
+        } else {
+            Box(Modifier.fillMaxWidth()) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scroll)
+                        .padding(bottom = 40.dp),
+                ) { content() }
                 ScrollRail(
                     scroll,
                     paper,
-                    Modifier.fillMaxHeight().offset(x = if (wide) 4.dp else Bone.Margin),
+                    Modifier.align(Alignment.TopEnd).fillMaxHeight().offset(x = Bone.Margin),
                 )
             }
         }
@@ -172,15 +192,11 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             }
         },
     ) {
-        Masthead(
-            number = "01",
-            eyebrow = "Ariadne",
-            title = trip?.name ?: if (state.trips.isEmpty()) "No trips yet" else "No trip open",
+        HomeHero(
+            title = trip?.name?.lowercase()
+                ?: if (state.trips.isEmpty()) "somewhere new" else "choose a trip",
             paper = paper,
-            italic = true,
             wide = wide,
-            // The visible word stays PREFS — it is what a printed index would put
-            // in this corner — but it opens the Preferences route.
         )
 
         if (trip == null) {
@@ -226,83 +242,68 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             return@TabPage
         }
 
-        // The figure, hung directly on the paper with no card around it. A number
-        // this large does not need a box; the box was only ever decoration.
-        Spacer(Modifier.height(26.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Numeral(
-                CurrencyCode.of(state.dayCurrency).symbol(),
-                paper,
-                color = paper.inkFaint,
-                size = 22.sp,
-            )
-            Spacer(Modifier.width(6.dp))
-            Numeral(
-                Money.ofMinor(state.dayTotalMinor).format(CurrencyCode.of(state.dayCurrency)),
-                paper,
-                size = if (wide) 68.sp else 52.sp,
-                weight = FontWeight.Medium,
-            )
-        }
-        Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Label("finished today", paper, color = paper.inkSoft)
-            Pill(
-                if (state.stack.isEmpty()) "today settled" else "${state.stack.size} waiting today",
-                paper,
-                if (state.stack.isEmpty()) PillTone.Quiet else PillTone.Blue,
-            )
-        }
-
-        Spacer(Modifier.height(24.dp))
-
-        if (state.stack.isNotEmpty()) {
-            OutlineAction("Close day", paper, { model.openCloseDay(state.today) })
-            Spacer(Modifier.height(8.dp))
-        }
-        QuietAction(
-            "Add an expense manually",
-            paper,
-            { model.go(Route.ManualEntry) },
-            color = paper.inkSoft,
+        HomeBalancePanel(
+            amount = Money.ofMinor(state.dayTotalMinor)
+                .formatWithSymbol(CurrencyCode.of(state.dayCurrency)),
+            status = if (state.stack.isEmpty()) "Finished today" else "${state.stack.size} waiting today",
+            paper = paper,
+            wide = wide,
+            onSettle = { model.openCloseDay(state.today) },
         )
-
-        SectionHead("II", "the trip", paper, trailing = "${trip.startDate.iso} → ${trip.endDate.iso}")
+        Spacer(Modifier.height(14.dp))
+        HomeManualEntry(paper) { model.go(Route.ManualEntry) }
+        Spacer(Modifier.height(18.dp))
+        HomeTripHeading(
+            start = trip.startDate.iso,
+            end = trip.endDate.iso,
+            paper = paper,
+        )
+        Spacer(Modifier.height(10.dp))
 
         // The shelf, first: everything else on this page is about the trip you are
         // in, and this is the way out of it.
         Reveal(0) {
-            NavRow(
-                Glyph.Trip,
-                "Trips",
-                if (state.trips.size <= 1) "the register" else "${state.trips.size} in the register",
-                paper,
-            ) {
-                model.go(Route.Trips)
-            }
+            HomeShortcut(
+                glyph = Glyph.Trip,
+                title = "Trips",
+                detail = if (state.trips.size <= 1) "the register" else "${state.trips.size} in the register",
+                paper = paper,
+                onClick = { model.go(Route.Trips) },
+            )
         }
-        Rule(paper)
+        Spacer(Modifier.height(6.dp))
 
         // The index settles in, one row behind the next. Each row is a Reveal, so
         // the page arrives as a composed set rather than as a block that appears.
         Reveal(1) {
-            NavRow(Glyph.Date, "Timeline", "${state.dayCards.count { it.isClosed }} of ${state.dayCards.size} days closed", paper) {
-                model.go(Route.Days)
-            }
+            HomeShortcut(
+                glyph = Glyph.Date,
+                title = "Timeline",
+                detail = "${state.dayCards.count { it.isClosed }} of ${state.dayCards.size} days closed",
+                paper = paper,
+                onClick = { model.go(Route.Days) },
+            )
         }
-        Rule(paper)
+        Spacer(Modifier.height(6.dp))
         Reveal(2) {
-            NavRow(Glyph.Record, "The record", "${state.dayCaptures.size} kept today", paper) {
-                model.go(Route.Record(state.today))
-            }
+            HomeShortcut(
+                glyph = Glyph.Record,
+                title = "The record",
+                detail = "${state.dayCaptures.size} kept today",
+                paper = paper,
+                onClick = { model.go(Route.Record(state.today)) },
+            )
         }
-        Rule(paper)
+        Spacer(Modifier.height(6.dp))
         Reveal(3) {
-            NavRow(Glyph.Search, "Search what you kept", "by shop, price, day", paper) {
-                model.go(Route.Search)
-            }
+            HomeShortcut(
+                glyph = Glyph.Search,
+                title = "Search what you kept",
+                detail = "by shop, price, day",
+                paper = paper,
+                onClick = { model.go(Route.Search) },
+            )
         }
-        Rule(paper)
         Spacer(Modifier.height(30.dp))
         SectionHead("III", "recent records", paper, trailing = "across this trip")
         val recent = state.dayCapturesAll.values.flatten()
@@ -375,6 +376,236 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             lineHeight = 19.sp,
         )
         Spacer(Modifier.height(96.dp))
+    }
+}
+
+@Composable
+private fun HomeHero(title: String, paper: Paper, wide: Boolean) {
+    val titleSize = when {
+        title.length > 18 -> if (wide) 48.sp else 38.sp
+        title.length > 12 -> if (wide) 56.sp else 46.sp
+        else -> if (wide) 68.sp else 56.sp
+    }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(if (wide) 218.dp else 190.dp)
+            .clipToBounds(),
+    ) {
+        TravelGlobeArtwork(
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.TopEnd,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(y = if (wide) (-36).dp else (-26).dp)
+                .width(if (wide) 340.dp else 300.dp)
+                .aspectRatio(0.5333f),
+            opacity = if (paper.isNight) 0.3f else 0.92f,
+        )
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            paper.bg.copy(alpha = 0.98f),
+                            paper.bg.copy(alpha = 0.78f),
+                            Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
+        Column(Modifier.fillMaxSize().padding(top = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Label("01", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+                Spacer(Modifier.width(10.dp))
+                Box(
+                    Modifier
+                        .width(18.dp)
+                        .height(Bone.Hairline)
+                        .background(paper.edgeStrong),
+                )
+                Spacer(Modifier.width(10.dp))
+                Label("Ariadne", paper, color = paper.inkSoft, size = 9.sp, tracking = 1.6.sp)
+            }
+            Spacer(Modifier.height(if (wide) 18.dp else 14.dp))
+            Title(
+                title,
+                paper,
+                size = titleSize,
+                italic = true,
+                lineHeight = titleSize * 1.02f,
+            )
+            Spacer(Modifier.height(5.dp))
+            Label(
+                "Plan · Track · Spend",
+                paper,
+                color = paper.inkFaint,
+                size = 10.sp,
+                tracking = 1.5.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeBalancePanel(
+    amount: String,
+    status: String,
+    paper: Paper,
+    wide: Boolean,
+    onSettle: () -> Unit,
+) {
+    val navy = Color(0xFF13243E)
+    val shape = RoundedCornerShape(20.dp)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .shadow(10.dp, shape)
+            .clip(shape)
+            .background(navy),
+    ) {
+        TravelGlobeArtwork(
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.CenterEnd,
+            modifier = Modifier.matchParentSize(),
+            opacity = 0.16f,
+        )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 22.dp, vertical = 18.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(7.dp).background(Color.White, CircleShape))
+                Spacer(Modifier.width(9.dp))
+                Body("Spent today", paper, color = Color.White, size = 13.sp)
+            }
+            Spacer(Modifier.height(3.dp))
+            Title(
+                amount,
+                paper,
+                color = Color.White,
+                size = if (amount.length > 14) 34.sp else if (wide) 48.sp else 44.sp,
+            )
+            Spacer(Modifier.height(7.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Body(status, paper, color = Color.White.copy(alpha = 0.68f), size = 12.sp)
+                Spacer(Modifier.weight(1f))
+                HomeSettleAction(paper, onSettle)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeSettleAction(paper: Paper, onClick: () -> Unit) {
+    val outline = Color.White.copy(alpha = 0.72f)
+    Row(
+        Modifier
+            .heightIn(min = 44.dp)
+            .clip(CircleShape)
+            .border(1.dp, outline, CircleShape)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 15.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Body("Settle today", paper, color = Color.White, size = 12.sp)
+        Spacer(Modifier.width(7.dp))
+        Body("→", paper, color = Color.White, size = 16.sp)
+    }
+}
+
+@Composable
+private fun HomeManualEntry(paper: Paper, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(50)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .clip(shape)
+            .background(paper.raised)
+            .border(1.dp, paper.edgeStrong, shape)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(21.dp).background(paper.ink, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Body("+", paper, color = paper.onBlue, size = 18.sp, lineHeight = 20.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Body("Add an expense manually", paper, color = paper.inkMid, size = 13.sp)
+    }
+}
+
+@Composable
+private fun HomeTripHeading(start: String, end: String, paper: Paper) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Label("II", paper, color = paper.blue, size = 9.sp, tracking = 1.4.sp)
+                Spacer(Modifier.width(10.dp))
+                Title("The Trip", paper, size = 19.sp)
+            }
+            Spacer(Modifier.height(6.dp))
+            Box(
+                Modifier
+                    .padding(start = 22.dp)
+                    .width(82.dp)
+                    .height(2.dp)
+                    .background(paper.blue),
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Body("$start  →  $end", paper, color = paper.inkMid, size = 11.sp)
+    }
+}
+
+@Composable
+private fun HomeShortcut(
+    glyph: Glyph,
+    title: String,
+    detail: String,
+    paper: Paper,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(15.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .shadow(3.dp, shape)
+            .clip(shape)
+            .background(paper.raised)
+            .border(1.dp, paper.edge.copy(alpha = 0.72f), shape)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(13.dp))
+                .background(paper.sunk),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(glyph, paper, size = 19.dp, color = paper.inkMid)
+        }
+        Spacer(Modifier.width(13.dp))
+        Column(Modifier.weight(1f)) {
+            Title(title, paper, size = 17.sp)
+            Spacer(Modifier.height(2.dp))
+            Label(detail, paper, color = paper.inkFaint, size = 9.sp, tracking = 0.6.sp)
+        }
+        Spacer(Modifier.width(8.dp))
+        Body("›", paper, color = paper.inkFaint, size = 26.sp)
     }
 }
 

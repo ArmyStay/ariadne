@@ -166,71 +166,77 @@ public class AppModel(
 
     public fun start() {
         scope.launch {
-            // Every step below is guarded on its own, and the route is decided
-            // even if all of them fail.
-            //
-            // This ordering is the whole fix for "the landing page is empty and
-            // the button does nothing". `outbox.resume()` runs a SELECT over a
-            // table that a stale database may not have, and it used to run before
-            // the route was chosen - so one SQLiteException left the app on its
-            // default screen with no trip state at all, looking like a form whose
-            // button was wired to nothing. A failure in the background work must
-            // never be able to prevent the app from showing a screen.
-            runCatching {
-                fxRates = store.allRates()
-                fx = FxTable(fxRates)
-            }.onFailure(::report)
-            runCatching { settings = store.settings() }.onFailure(::report)
-            // The stock the book is printed on comes from the store, not from a
-            // default: a person who chose night paper gets it back before the
-            // first page is drawn, so the app never flashes white at launch.
-            _state.value = _state.value.copy(theme = settings.theme)
-            _state.value = _state.value.copy(displayName = settings.displayName)
-            runCatching { outbox.resume() }.onFailure(::report)
-            runCatching { extraction.drain() }.onFailure(::report)
-            val trips = runCatching { store.trips() }.getOrElse {
-                report(it)
-                emptyList()
-            }
-            val active = trips.firstOrNull { !it.isClosed }
-            if (active == null) {
-                val today = clock.today()
-                val draft = TripDraft(
-                    startIso = today.iso,
-                    endIso = today.plusDays(6).iso,
-                    currency = settings.baseCurrency.code,
-                )
-                // No open trip. If the device has never held one, the first run
-                // opens on the welcome page; if every trip on disk is closed,
-                // the register is the right page - it is where those trips remain readable.
-                _state.value = _state.value.copy(
-                    route = startRoute(hasAnyTrip = trips.isNotEmpty(), hasOpenTrip = false),
-                    trips = trips,
-                    today = today,
-                    draft = draft,
-                )
-            } else {
-                runCatching { bindTrip(active) }.onFailure { error ->
-                    report(error)
-                    // The trip is on disk but could not be read. Say so on the
-                    // front door rather than showing an app with no trip in it.
-                    _state.value = _state.value.copy(
-                        route = Route.NewTrip,
-                        today = clock.today(),
-                        draft = TripDraft(
-                            startIso = clock.today().iso,
-                            endIso = clock.today().plusDays(6).iso,
-                            currency = settings.baseCurrency.code,
-                            error = "Your trip could not be opened. " +
-                                (error.message ?: "Unknown error"),
-                        ),
-                    )
+            try {
+                // Every step below is guarded on its own, and the route is decided
+                // even if all of them fail.
+                //
+                // This ordering is the whole fix for "the landing page is empty and
+                // the button does nothing". `outbox.resume()` runs a SELECT over a
+                // table that a stale database may not have, and it used to run before
+                // the route was chosen - so one SQLiteException left the app on its
+                // default screen with no trip state at all, looking like a form whose
+                // button was wired to nothing. A failure in the background work must
+                // never be able to prevent the app from showing a screen.
+                runCatching {
+                    fxRates = store.allRates()
+                    fx = FxTable(fxRates)
+                }.onFailure(::report)
+                runCatching { settings = store.settings() }.onFailure(::report)
+                // The stock the book is printed on comes from the store, not from a
+                // default: a person who chose night paper gets it back before the
+                // first page is drawn, so the app never flashes white at launch.
+                _state.value = _state.value.copy(theme = settings.theme)
+                _state.value = _state.value.copy(displayName = settings.displayName)
+                runCatching { outbox.resume() }.onFailure(::report)
+                runCatching { extraction.drain() }.onFailure(::report)
+                val trips = runCatching { store.trips() }.getOrElse {
+                    report(it)
+                    emptyList()
                 }
+                val active = trips.firstOrNull { !it.isClosed }
+                if (active == null) {
+                    val today = clock.today()
+                    val draft = TripDraft(
+                        startIso = today.iso,
+                        endIso = today.plusDays(6).iso,
+                        currency = settings.baseCurrency.code,
+                    )
+                    // No open trip. If the device has never held one, the first run
+                    // opens on the welcome page; if every trip on disk is closed,
+                    // the register is the right page - it is where those trips remain readable.
+                    _state.value = _state.value.copy(
+                        route = startRoute(hasAnyTrip = trips.isNotEmpty(), hasOpenTrip = false),
+                        trips = trips,
+                        today = today,
+                        draft = draft,
+                    )
+                } else {
+                    runCatching { bindTrip(active) }.onFailure { error ->
+                        report(error)
+                        // The trip is on disk but could not be read. Say so on the
+                        // front door rather than showing an app with no trip in it.
+                        _state.value = _state.value.copy(
+                            route = Route.NewTrip,
+                            today = clock.today(),
+                            draft = TripDraft(
+                                startIso = clock.today().iso,
+                                endIso = clock.today().plusDays(6).iso,
+                                currency = settings.baseCurrency.code,
+                                error = "Your trip could not be opened. " +
+                                    (error.message ?: "Unknown error"),
+                            ),
+                        )
+                    }
+                }
+                // Routes and the saved theme are now ready to appear together.
+                _state.value = _state.value.copy(isStartingUp = false)
+                // Rates last, and off the launch path: a slow or missing network
+                // cannot keep the startup page visible.
+                runCatching { refreshRates() }.onFailure(::report)
+                onStartedAction?.invoke()
+            } finally {
+                _state.value = _state.value.copy(isStartingUp = false)
             }
-            // Rates last, and off the launch path: the app is on screen before the
-            // first request goes out, and a slow or missing network cannot delay it.
-            runCatching { refreshRates() }.onFailure(::report)
-            onStartedAction?.invoke()
         }
     }
 
@@ -731,6 +737,7 @@ public class AppModel(
             index.rebuild(emptyList())
             _state.value = AppUiState(
                 route = Route.NewTrip,
+                isStartingUp = false,
                 // Deleting a trip must not reprint the book: the stock is a
                 // preference of the person, not of the record.
                 theme = settings.theme,

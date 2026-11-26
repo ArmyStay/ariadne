@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -36,7 +37,6 @@ import com.ariadne.design.Masthead
 import com.ariadne.design.Optical
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.Page
-import com.ariadne.design.ScrollingMargin
 import com.ariadne.design.Paper
 import com.ariadne.design.Rule
 import com.ariadne.design.SectionHead
@@ -68,125 +68,132 @@ public fun NewTripPage(
     val d = state.draft
 
     Page(paper = paper, wide = wide) {
-        // The front door carries no plate number: the book's plates are the pages
-        // of the trip, and this page is the door before them.
-        Masthead(
-            number = "",
-            eyebrow = if (state.trip == null) "Ariadne" else "another trip",
-            title = "Create a trip",
-            paper = paper,
-            italic = true,
-            wide = wide,
-            lede = "Give it a name and dates. A budget is optional.",
-        )
-
-        Spacer(Modifier.height(26.dp))
-
-        DraftField(
-            label = "the trip",
-            placeholder = "Bangkok & Home",
-            value = d.name,
-            paper = paper,
-            wide = wide,
-            serif = true,
-            onChange = { model.editDraft(name = it) },
-        )
-
-        DraftField(
-            label = "where",
-            placeholder = "Bangkok — or a coast, or a train",
-            value = d.place,
-            paper = paper,
-            wide = wide,
-            onChange = { model.editDraft(place = it) },
-        )
-
-        // Dates are read as a pair, so on a wide page they sit as a pair. On a
-        // phone they are stacked instead: two ISO dates at 200% type do not fit
-        // in half a measure, and a date clipped at the year is worse than one
-        // under the other. Each keeps its own label and rule, so the pair is still
-        // two facts rather than one merged field.
-        val from = @Composable {
-            DraftField(
-                label = "from",
-                placeholder = "2026-11-24",
-                value = d.startIso,
-                paper = paper,
-                wide = false,
-                numeric = true,
-                onChange = { model.editDraft(startIso = it) },
-            )
-        }
-        val to = @Composable {
-            DraftField(
-                label = "to",
-                placeholder = "2026-11-30",
-                value = d.endIso,
-                paper = paper,
-                wide = false,
-                numeric = true,
-                onChange = { model.editDraft(endIso = it) },
-            )
-        }
-        if (wide) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                Box(Modifier.weight(1f)) { from() }
-                Box(Modifier.weight(1f)) { to() }
-            }
-        } else {
-            from()
-            to()
-        }
-
-        // The currency is chosen from the catalogue the arithmetic already knows,
-        // not typed as three letters. It used to accept anything that fit, which
-        // meant a trip could be opened in a currency the app could not scale.
-        CurrencyField(
-            label = "currency",
-            code = d.currency,
-            paper = paper,
-            onChoose = { model.editDraft(currency = it) },
-        )
-
-        DraftField(
-            label = "budget, if you have one",
-            placeholder = "25000",
-            value = d.budget,
-            paper = paper,
-            wide = false,
-            numeric = true,
-            keyboard = KeyboardType.Number,
-            onChange = { model.editDraft(budget = it) },
-        )
-
-        if (d.error != null) {
-            Spacer(Modifier.height(14.dp))
-            Body(d.error, paper, color = paper.blue, size = 13.sp, lineHeight = 19.sp)
-        }
-
-        Spacer(Modifier.height(24.dp))
-
-        Row(
-            Modifier.fillMaxWidth().widthIn(max = if (wide) 460.dp else 10_000.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            Modifier
+                .fillMaxSize()
+                .imePadding()
+                .verticalScroll(rememberScrollState()),
         ) {
-            Box(Modifier.weight(1f)) {
-                Action("Create trip", paper, { model.commitDraft() }, accent = true)
-            }
-            QuietOpen(paper, model)
-        }
+            // The front door carries no plate number: the book's plates are the pages
+            // of the trip, and this page is the door before them.
+            Masthead(
+                number = "",
+                eyebrow = if (state.trip == null) "Ariadne" else "another trip",
+                title = "Create a trip",
+                paper = paper,
+                italic = true,
+                wide = wide,
+                lede = "Give it a name and dates. A budget is optional.",
+            )
 
-        Spacer(Modifier.height(30.dp))
-        Rule(paper, color = paper.edge)
-        Spacer(Modifier.height(10.dp))
-        Label(
-            "no account · no server · no sync",
-            paper,
-            color = paper.inkFaint,
-            size = 9.sp,
-            tracking = 1.5.sp,
-        )
+            Spacer(Modifier.height(26.dp))
+
+            DraftField(
+                label = "the trip",
+                placeholder = "Bangkok & Home",
+                value = d.name,
+                paper = paper,
+                wide = wide,
+                serif = true,
+                onChange = { model.editDraft(name = it) },
+            )
+
+            DraftField(
+                label = "where",
+                placeholder = "Bangkok — or a coast, or a train",
+                value = d.place,
+                paper = paper,
+                wide = wide,
+                onChange = { model.editDraft(place = it) },
+            )
+
+            // Dates are read as a pair, so on a wide page they sit as a pair. On a
+            // phone they are stacked instead: two ISO dates at 200% type do not fit
+            // in half a measure, and a date clipped at the year is worse than one
+            // under the other. Each keeps its own label and rule, so the pair is still
+            // two facts rather than one merged field.
+            val from = @Composable {
+                DraftField(
+                    label = "from",
+                    placeholder = "2026-11-24",
+                    value = d.startIso,
+                    paper = paper,
+                    wide = false,
+                    numeric = true,
+                    onChange = { model.editDraft(startIso = it) },
+                )
+            }
+            val to = @Composable {
+                DraftField(
+                    label = "to",
+                    placeholder = "2026-11-30",
+                    value = d.endIso,
+                    paper = paper,
+                    wide = false,
+                    numeric = true,
+                    onChange = { model.editDraft(endIso = it) },
+                )
+            }
+            if (wide) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                    Box(Modifier.weight(1f)) { from() }
+                    Box(Modifier.weight(1f)) { to() }
+                }
+            } else {
+                from()
+                to()
+            }
+
+            // The currency is chosen from the catalogue the arithmetic already knows,
+            // not typed as three letters. It used to accept anything that fit, which
+            // meant a trip could be opened in a currency the app could not scale.
+            CurrencyField(
+                label = "currency",
+                code = d.currency,
+                paper = paper,
+                onChoose = { model.editDraft(currency = it) },
+            )
+
+            DraftField(
+                label = "budget, if you have one",
+                placeholder = "25000",
+                value = d.budget,
+                paper = paper,
+                wide = false,
+                numeric = true,
+                keyboard = KeyboardType.Number,
+                onChange = { model.editDraft(budget = it) },
+            )
+
+            if (d.error != null) {
+                Spacer(Modifier.height(14.dp))
+                Body(d.error, paper, color = paper.blue, size = 13.sp, lineHeight = 19.sp)
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Row(
+                Modifier.fillMaxWidth().widthIn(max = if (wide) 460.dp else 10_000.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.weight(1f)) {
+                    Action("Create trip", paper, { model.commitDraft() }, accent = true)
+                }
+                QuietOpen(paper, model)
+            }
+
+            Spacer(Modifier.height(30.dp))
+            Rule(paper, color = paper.edge)
+            Spacer(Modifier.height(10.dp))
+            Label(
+                "no account · no server · no sync",
+                paper,
+                color = paper.inkFaint,
+                size = 9.sp,
+                tracking = 1.5.sp,
+            )
+        }
     }
 }
 

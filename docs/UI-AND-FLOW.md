@@ -119,6 +119,10 @@ obstruct the capture decision.
 
 ### 1.4 Where the app opens
 
+The app holds on a quiet startup page while settings and trips are read, so a
+returning person never sees the first-run welcome page flash before their saved
+destination appears.
+
 `startRoute(hasAnyTrip, hasOpenTrip)`:
 
 | Device state | Opens on |
@@ -243,20 +247,20 @@ Privacy and terms are in-app drafts that need review before publication.
 | --- | --- |
 | `route`, `history`, `canGoBack` | the shell |
 | `shutterOpen`, `sheetCaptureId` | the shell (overlays) |
-| `theme` | `AriadneApp` → `AriadneTheme` |
+| `theme`, `displayName` | `AriadneApp` → `AriadneTheme`; More, Settings |
 | `trip` | every page |
 | `today` | Home, Record, CloseDay, Preferences, Search |
-| `dayCards` | Home rail, Timeline, Record, Trip, Stats' "Close today" |
+| `dayCards` | Home, Timeline, Record, Stats' "Close today" |
 | `dayCaptures`, `dayTotalMinor`, `dayCurrency`, `dayPerCurrency`, `dayUnconverted`, `dayRateDates` | Home, Record, CloseDay, Detail |
-| `tripPerCurrency`, `tripTotalMinor`, `tripUnconverted` | Trip, Stats, Trip Card |
+| `tripPerCurrency`, `tripTotalMinor`, `tripUnconverted` | Timeline, Stats, Trip Card |
 | `stack`, `stackIndex`, `amountInput` | the current day's Close Day flow and Home |
-| `tripPending` | the Trip dock badge and shutter's trip-wide waiting action |
-| `dayCapturesAll`, `dayFigures` | Timeline, Trip, Stats, the sheet's lookup |
-| `categoryTotals` | Stats, Trip, Home |
+| `tripPending` | the Timeline dock badge and shutter's trip-wide waiting action |
+| `dayCapturesAll`, `dayFigures` | Home, Timeline, Stats, the sheet's lookup |
+| `categoryTotals` | Stats, Timeline, Home |
 | `detail`, `detailAmount/Merchant/Note/Category` | Detail, the sheet |
 | `storageDisclosure`, `rateDisclosure` | Preferences |
 | `searchQuery`, `searchResults` | Search |
-| `trips`, `activeTripId` | Trips, Trip, Home |
+| `trips`, `activeTripId` | Trips, Timeline, Home, More |
 | `draft` | NewTrip |
 | `railDocked` | every tab page |
 | `notice` | the notice bar |
@@ -312,32 +316,33 @@ exists. There is no demo-roll or demo-prefill action in this flow.
 
 ### 5.3 Home — `HomePage` in `TabPages.kt`, Today tab
 
-**Header.** `Masthead(01, "Ariadne", title = the trip's name | "No trips yet" | "No trip open")`.
+**Header.** `HomeHero`: the `01 — ARIADNE` plate, the current trip name in the large
+Instrument Serif italic, and `PLAN · TRACK · SPEND`, with the shared globe-and-flight
+artwork faded behind the title.
 
 **Rail (wide).** `today` = today's ISO or `—`; `days` = the trip's length; `closed N`;
 `waiting today` = `stack.size`; `on this day`.
 
 **Open trip, top to bottom:**
 
-1. the day's figure: currency symbol (22sp, `inkFaint`) + `Money.format` at 52sp (phone) /
-   68sp (wide);
-2. row: `finished today` (Label, `inkSoft`) — pill **TODAY SETTLED** (`PillTone.Quiet`)
-   or **N WAITING TODAY** (`PillTone.Blue`);
-3. the **TODAY SETTLED** or **N WAITING TODAY** pill; when the stack is non-empty,
-   **CLOSE DAY** (`openCloseDay(today)`);
-4. **ADD AN EXPENSE MANUALLY** opens the photo-free confirmed-entry form;
-5. `SectionHead("II", "the trip", trailing = "start → end")`, then four `NavRow`s:
+1. a dark, rounded daily-spend panel with the correctly scoped `dayTotalMinor`,
+   `Finished today` or the current day's waiting count, and **SETTLE TODAY**
+   (`openCloseDay(today)`). Globe artwork is repeated at low opacity inside the panel;
+2. an outlined pill action, **Add an expense manually**, opens the photo-free
+   confirmed-entry form;
+3. an underlined `The Trip` heading with the trip's start and end dates;
+4. four rounded `HomeShortcut` rows:
 
-| Row label (serif) | Detail (right, sans) | Lands on |
+| Row label (serif) | Detail (below, sans) | Lands on |
 | --- | --- | --- |
 | `Trips` | `the register` (one trip) / `N in the register` | `Trips` |
 | `Timeline` | `N of M days closed` | `Days` |
 | `The record` | `N kept today` | `Record(today)` |
 | `Search what you kept` | `by shop, price, day` | `Search` |
 
-6. a **recent records** section across the trip, with up to four newest items; manual
+5. a **recent records** section across the trip, with up to four newest items; manual
    entries use a `MANUAL` placeholder instead of a photograph;
-7. closing line: "No account. No sync. The record stays here."
+6. closing line: "No account. No sync. The record stays here."
 
 **No trip.** The Home text explains either first-run or all-trips-closed state, then
 **CREATE A TRIP** (`startEmptyTrip()`). With no trips, **OPEN THE TRIP REGISTER** is
@@ -507,72 +512,55 @@ still yours."* + **SEE THE CARD** + **THE REGISTER**.
 ### 5.11 Stats — `StatsPage` in `TabPages.kt`, Stats tab
 
 **Header.** `Masthead(03, eyebrow = trip name \| "Stats", title = "What it came to")`.
-**Rail:** `the trip` (its figure), `photographs` (count), `finished only`.
+**Rail:** `the trip` (its figure), `entries` (count), `finished only`.
 
 1. `the trip so far` + the trip's figure (50sp/64sp), animated to its value;
-2. a rule at `paper.ink`, then `finished photographs only`;
+2. a rule at `paper.ink`, then `finished entries only`;
 3. when a budget exists: `against a budget of` + the figure + `left`/`over` + the
    difference (blue when over);
-4. the note *"Only photographs that were finished. Anything still waiting across this trip
+5. the note *"Only entries that were finished. Anything still waiting across this trip
    is not in this figure, and is not counted as zero."*;
-5. `SectionHead("II", "what it was")` — a `Breakdown` by category (`Food`, `Transport`,
-   … or `Uncategorised`; `N photographs`; the figure; `of`), a `PatternLine` sentence
-   (*"Most of this trip so far went on food — 34% of it, across 6 photographs. Everything
+6. `SectionHead("II", "daily spending")` — a bar chart for up to the last seven trip days;
+7. `SectionHead("III", "what it was")` — a `Breakdown` by category (`Food`, `Transport`,
+   … or `Uncategorised`; `N entries`; the figure; `of`), a `PatternLine` sentence
+   (*"Most of this trip so far went on food — 34% of it, across 6 entries. Everything
    else is in the column above."*), and the note *"Nothing here is sorted for you. A
-   category is a claim you make on the photograph, and most photographs never need
+   category is a claim you make on an entry, and most entries never need
    one."*;
-6. `SectionHead("III", "by currency, before conversion")` — a row per currency with a
+8. `SectionHead("IV", "by currency, before conversion")` — a row per currency with a
    tick, the code and the figure, then `these are the amounts as they were paid, not
    converted`;
-7. if nothing is tallied: *"Nothing has been tallied yet. The figures appear here the
-   first time you finish a photograph at nightfall."*;
-8. **CLOSE TODAY** (`openCloseDay(today)`, accent; enabled only when the stack is
+9. if nothing is tallied: *"Nothing has been tallied yet. The figures appear here the
+   first time you confirm an entry."*;
+10. **CLOSE TODAY** (`openCloseDay(today)`, accent; enabled only when the stack is
    non-empty, today is open and the trip is open).
 
-### 5.12 Trip — `TripPage.kt`, Trip tab
+### 5.12 Trip — legacy route
 
-**Rail.** `spent`, `days closed` (`N of M`), `since`.
-
-1. `trip` label; the name (34sp/44sp italic); a place glyph + the place when set; the
-   dates `2026-11-24 — 2026-11-30 · 7 days`; a `closed` pill when closed;
-2. `spent` + the figure + `spent`; when a budget exists, `of ₹50,000.00 · ₹8,240.00 left`
-   (blue and `over` when negative); the `BudgetBar` with its pace tick; when ahead of
-   pace, `ahead of the trip's own pace`; **CHANGE THE BUDGET** or **SET A BUDGET** →
-   `Preferences`;
-3. a rule; `how far`; **N of M days closed** (22sp); a measured rule; **SEE THE DAYS** →
-   `Days`;
-4. a rule; `by currency, before conversion`: one row per `tripPerCurrency` subtotal;
-   empty: *"Nothing tallied yet. The first capture is a photograph,
-   not a form."*;
-5. `currency` + the paragraph *"Base INR · home INR. The original amount is never
-   converted away — it stays under the figure it became."* + **THE RATES** →
-   `Preferences`;
-6. `also on this device` (only with more than one trip) — a row per other trip
-   (`name`, `start — end`, `open`) → `switchTrip`;
-7. actions: **THE CARD** (closed) or **CLOSE THE TRIP INTO A CARD**; **START ANOTHER
-   TRIP** (`startNewTrip()`); **THE REGISTER**.
+`Route.Trip` is retained for old links and routes but draws `TimelinePage`. The separate
+`TripPage.kt` is no longer the active-trip overview; the overview is now at the top of
+Timeline (§5.4).
 
 ### 5.13 The register — `TripsPage.kt`, stacked
 
 **Header.** `Masthead("", eyebrow = "The register", title = "Trips", lede = "Every journey this device holds. One of them is open.", trailing = PageAction("Home"))`.
 
 - three shelf figures: `journeys`, `open`, `closed`;
-- the line *"One at a time. A photograph taken now belongs to the open journey."*;
+- the line *"One at a time. A new entry belongs to the open journey."*;
 - numbered rows: month blocks, the name, `no place` when unset, `15 Oct — 22 Oct`,
   the budget or `—`, and a state word — `closed`, `open`, or `open, the one photographs
   go into` (the active trip is the page's one blue element). The row's
   `contentDescription` is `"name, dates, state"`;
 - empty state: **No trips yet.** — *"A trip is the container the whole record hangs from:
-  its dates, its money, and every photograph you take during it."*;
-- **BEGIN A NEW TRIP** (`startNewTrip()`) and **OR OPEN THE DEMO ROLL**
-  (`startTripDemo()`).
+  its dates, its money, and every entry you add during it."*;
+- **BEGIN A NEW TRIP** (`startNewTrip()`). There is no demo-roll entry point.
 
 ### 5.14 The card — `TripCardPage.kt`, no bar
 
 A single column of type, with separate text-copy and PNG-export actions:
 
 - `A trip, kept`; the name; the dates; the days as rows with `closed`/`open`;
-- *"No figures recorded yet. The photographs are still the record."* when nothing is
+- *"No figures recorded yet. The entries are still the record."* when nothing is
   tallied, else the per-currency lines and `Total`;
 - the closing sentence — *"Every day closed. This is the whole of the trip: no account, no
   sync, and nothing about it left this device."* or *"N of M days closed. The card keeps
@@ -599,12 +587,14 @@ A single column of type, with separate text-copy and PNG-export actions:
 
 ### 5.16 Preferences — `PreferencesPage` in `TabPages.kt`
 
-**Header.** `Masthead(04, "Ariadne", title = "Preferences")`; it is reachable from the
-**PREFS** dock destination. Stacked entry points use the shell's **BACK TO [PARENT]**
+**Header.** `Masthead(04, "Ariadne", title = "Settings")`; it is reached from More.
+Stacked entry points use the shell's **BACK TO [PARENT]**
 action.
 **Rail:** `on device only`, `no account · no sync`.
 
-**I · the record**
+**I · your profile.** A display-name field (`Your name`) saved only on this device.
+
+**II · the record**
 
 | Row | Type | Note under it |
 | --- | --- | --- |
@@ -613,10 +603,10 @@ action.
 | `Dates` | read-out | today's ISO date + `, ISO order`; `—, ISO order` when no day is open |
 | `Paper` | three chips | `Light paper, always` · `Follows this device's light or dark setting` · `Night paper: the same design on dark stock` |
 
-The Paper chips read `Light`, `System`, `Night` and call `setTheme(...)`; the chosen one
-is drawn in `paper.blue`.
+The Paper chips read `Light`, `System`, `Night` and call `setTheme(...)`; fresh settings
+default to `Light`, and the chosen one is drawn in `paper.blue`.
 
-**II · the exchange.** One row per currency in use, plus `THB`, `USD`, `EUR`, `GBP`,
+**III · the exchange.** One row per currency in use, plus `THB`, `USD`, `EUR`, `GBP`,
 `JPY`. Each row, top to bottom:
 
 - a budget glyph, the currency **code** as a serif `Title` (e.g. `SGD`), a blue tick when
@@ -632,19 +622,40 @@ is drawn in `paper.blue`.
 With nothing foreign: *"Everything so far is already in the base currency."* A rejected
 rate is stated under the list (`state.rateError`).
 
-**III · what leaves this device.** A `Storage` read-out (`Local to this build`) followed by
+**IV · what leaves this device.** A `Storage` read-out (`Local to this build`) followed by
 platform-specific `storageDisclosure` and `rateDisclosure` text. This states where the
 record and photographs are kept, whether data persists across launches, and whether an
 exchange-rate request sends anything off-device. If a failure was recorded, Preferences
-shows its message explicitly.
+shows its message explicitly. **EXPORT ALL DATA AS A ZIP ARCHIVE** opens the local export
+flow.
 
-**IV · this trip.** The trip's name (or `No trip`), the place (or `no place set`), then
+**V · this trip.** The trip's name (or `No trip`), the place (or `no place set`), then
 icon rows: **SEE THE TRIP'S PAGE**; **CLOSE THE TRIP INTO A CARD** (`closeTripIntoCard()`)
 or **SEE THE CARD** when already closed; **DELETE THIS TRIP** (`armTripDeletion()`) with
 the paragraph *"Deletes its photographs and its record. Nothing is kept anywhere else, so
 this is the one action in the app you cannot take back."* Armed, the block becomes
 `this deletes everything, now` (blue label) and **DELETE FOR GOOD** (`deleteTripNow()`) /
 **KEEP IT** (`armTripDeletion()`).
+
+### 5.17 More, manual entry, export, and legal pages
+
+**More.** **TRIPS**, **ADD MANUALLY**, and **SETTINGS & PROFILE**, followed by **PRIVACY
+POLICY** and **TERMS OF USE** under About Ariadne.
+
+**Manual entry.** A form for amount, currency, date within the open trip, optional
+merchant/place, category, and note. Saving creates a `CONFIRMED` entry with no photo
+(`photoPath = ""`); it is not queued for OCR. Invalid amount, currency, or out-of-trip
+date is shown inline. Home and Stats label manual records as entries rather than photos.
+
+**Data export.** Settings opens a local ZIP save/share/download surface. The archive
+contains `data/ariadne.json`, `data/trips.csv`, `data/days.csv`, `data/captures.csv`,
+and `README.txt`; receipt photos are included when the target has readable local files.
+The JSON contains settings, trips, days, captures, exchange rates, and photo-entry paths
+inside the archive. No server is involved.
+
+**Legal.** Privacy policy and terms are in-app drafts explicitly marked for review. They
+are not publication-ready: the repository does not supply an organization, jurisdiction,
+or contact details.
 
 ---
 
@@ -668,12 +679,11 @@ name, else `Receipt · 21:09`, else `Receipt`. Never a raw OCR line, never "Unti
 **Dates.** ISO (`2026-11-27`) in fields and rows; spoken form `27 Nov` in sentences;
 times as 24-hour `HH:MM`.
 
-**Empty states (verbatim).** `No trips yet.` · `nothing kept` (a day on the timeline) ·
+**Empty states (verbatim).** `No trips yet.` · `Photographs and manual expenses will appear here as you keep them.` · `nothing kept` (a day on the timeline) ·
 `Nothing kept on this day. An empty day is still part of the trip — it is the one you
 spent walking.` · `Nothing by that name.` · `Nothing has been tallied yet. The figures
-appear here the first time you finish a photograph at nightfall.` · `Nothing tallied yet.
-The first capture is a photograph, not a form.` · `Everything so far is already in the
-base currency.` · `Nothing left to settle` · `No figures recorded yet. The photographs are
+appear here the first time you confirm an entry.` · `Everything so far is already in the
+base currency.` · `Nothing left to settle` · `No figures recorded yet. The entries are
 still the record.`
 
 **Error copy.** *"The trip could not be saved. … — nothing was lost; try again."* ·
@@ -688,8 +698,7 @@ number` (rate field) · `no rate on file — this currency is not being converte
 (`"Currency SGD"`, `"Currency SGD, the one on this photograph"`,
 `"Currency SGD, not changeable on a closed trip"`) · register rows,
 `"name, dates, state"` · stacked dock destination descriptions include the actual history
-parent, such as `"Preferences, stacked over Today"`. Preferences is a `PREFS` dock
-destination rather than a Home masthead action.
+parent, such as `"Preferences, stacked over More"`. Settings is reached from More.
 
 ---
 
@@ -706,7 +715,7 @@ over-budget figure. Night paper is the same design on dark stock.
 **Rules.** 1dp hairlines are the structural device. No shadows. Corners are 1–2dp; only
 the FAB, the badges and the shutter's ring are round.
 
-**Motion.** `Reveal` (Home's five rows, staggered) and `animatedLong` (Stats' figure)
+**Motion.** `Reveal` (Home's rows, staggered) and `animatedLong` (Stats' figure)
 respect reduced motion and settle on the first frame when it is on.
 
 **Theme.** Light / System / Night, chosen in Preferences, persisted in settings.
@@ -744,11 +753,10 @@ frame for a plate**; on Wasm nothing survives a reload; only Android can fetch a
   sheet and opens `Detail`, so only a restored route lands here.
 - `Route.Settings` → `PreferencesPage` (retired name).
 
-**Not implemented anywhere in the UI:** deleting a single photograph (trips can be
-deleted, captures cannot); editing a capture's date; voice capture; SMS import; bill
-splitting; accounts, sync, analytics; sharing beyond copying the card's text; multiple
-photographs per capture; crop or rotate; a "More" tab; an in-app settings icon on Home
-(settings is the `Prefs` page action); onboarding steps (it is one page with two exits).
+**Not implemented anywhere in the UI:** deleting a single entry (trips can be deleted,
+captures cannot); editing an entry's date; voice capture; SMS import; bill splitting;
+accounts, sync, analytics; multiple photographs per entry; crop or rotate; importing an
+archive back into Ariadne. Local ZIP export and Trip Card PNG/text sharing are implemented.
 
 ---
 
@@ -760,12 +768,11 @@ photographs per capture; crop or rotate; a "More" tab; an in-app settings icon o
    foot lines of Onboarding and New trip ("nothing leaves this device") now say "no sync";
    and the README's claim that the manifest declares no `INTERNET` permission is
    corrected — it does, for that one request.
-2. **Stats' "by currency, before conversion" reads `state.perCurrency`**, which
-   `refreshDay()` fills from *the opened day* — so under a trip-wide total it can show a
-   day's money. Recorded, not fixed.
-3. **Home's rail and the Today badge count different scopes** — `stack.size` (the opened
-   day) versus `tripPending` (every pending capture in the trip). They disagree on a trip
-   with older unsettled days. Recorded, not fixed.
+2. ~~**Stats' "by currency, before conversion" reads day totals under a trip-wide total.**~~
+   **Fixed.** Stats reads `tripPerCurrency`; day totals remain scoped to Home and Record.
+3. ~~**Waiting counts could conflate today's stack with the trip-wide queue.**~~
+   **Fixed.** Home labels `waiting today`; the Timeline badge and shutter description say
+   `waiting across this trip`.
 
 ---
 
@@ -773,12 +780,13 @@ photographs per capture; crop or rotate; a "More" tab; an in-app settings icon o
 
 | Claim | Status |
 | --- | --- |
-| `:core:model` tests | 47 green (run without Gradle via `tools/bootstrap-toolchain.sh`) |
-| `:core:fx` tests | 38 green, same way |
-| The shared tree compiles (syntax, conflicting declarations, non-exhaustive `when`s) | checked with `kotlinc` over `core/*` + `ui/app` + `preview` |
-| All four targets build; shared tests pass | done by CI: `jvmTest`, `:app:android:assembleDebug`, `:app:wasm:wasmJsBrowserDistribution`, desktop |
+| `:ui:app:jvmTest` | passed locally, including archive ZIP and manual-entry export cases |
+| `:app:android:compileDebugKotlin` | passed locally |
+| `:app:desktop:compileKotlinJvm` | passed locally |
+| `:app:wasm:compileKotlinWasmJs` | passed locally |
+| iOS compile | not run on this Windows machine |
 | `FlowCheck` (stack, overlays, undo, the sheet's pair) | written; **never executed** |
-| Any screen rendered, measured, contrast-checked, or read at 200% | **no** |
+| Any screen rendered, measured, contrast-checked, or read at 200% | **not yet; human/device review remains** |
 | Stills | `preview/Shots.kt` defines them; `docs/shots/` holds only the pre-redesign archive |
 
 The gate for every visual claim on this page is `tools/verify-ui.sh` (and

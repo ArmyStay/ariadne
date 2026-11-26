@@ -198,14 +198,14 @@ internal object DataArchiveZip {
     fun daysCsv(days: List<DayCard>): String = buildString {
         appendLine("id,trip_id,date,closed_at")
         days.forEach { day ->
-                appendLine(
-                    listOf(
-                        day.id,
-                        day.tripId,
-                        day.localDate.iso,
-                        day.closedAt?.toString().orEmpty(),
-                    ).joinToString(",") { csv(it) },
-                )
+            appendLine(
+                listOf(
+                    day.id,
+                    day.tripId,
+                    day.localDate.iso,
+                    day.closedAt?.toString().orEmpty(),
+                ).joinToString(",") { csv(it) },
+            )
         }
     }
 

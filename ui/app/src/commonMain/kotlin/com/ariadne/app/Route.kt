@@ -190,6 +190,7 @@ public data class Notice(
 
 public data class AppUiState(
     public val route: Route = Route.Onboarding,
+    public val isStartingUp: Boolean = true,
     /**
      * Where Back goes, oldest first.
      *

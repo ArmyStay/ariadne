@@ -19,9 +19,8 @@ import kotlinx.browser.window
 /**
  * The judge's entry point: a browser, nothing installed.
  *
- * No on-device OCR in Wasm by design — this path runs on typed amounts and the
- * demo roll, so extraction failing costs the visitor nothing and the whole app
- * still works offline once the page is loaded.
+ * No OCR engine is bundled in Wasm. Manual entry remains available, and a host
+ * page may provide the optional browser recognition hook below.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
@@ -51,9 +50,8 @@ private class WasmServices : PlatformServices {
         "This build does not fetch rates online. Rates you enter last only for this page session; the date shown is the saved rate's effective date."
 
     override fun store(): com.ariadne.store.Store =
-        // The IndexedDB-backed worker driver is wired on Dec 2 with the Pages
-        // deploy; until then the browser build keeps the trip in memory so the
-        // whole flow is explorable with no server and no storage permission.
+        // Browser data is session-local in this build; the disclosure explains
+        // that reloads clear the record.
         com.ariadne.store.InMemoryStore()
 
     override fun recognizer(): TextRecognizer = WasmBrowserRecognizer()
@@ -130,7 +128,7 @@ private fun ByteArray.toBase64(): String {
  *
  * To enable, the host page may define `window.ariadneRecognize(imagePathOrUrl)` returning
  * a Promise or value resolving to a string or array of lines. When unavailable/failing,
- * the app falls back to typed amounts (demo/manual entry remains usable).
+ * the app falls back to manual amount entry.
  */
 private class WasmBrowserRecognizer : TextRecognizer {
     override suspend fun recognize(imagePath: String): OcrResult = try {

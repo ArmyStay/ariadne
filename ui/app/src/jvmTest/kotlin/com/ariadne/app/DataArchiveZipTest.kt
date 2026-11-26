@@ -1,7 +1,5 @@
 package com.ariadne.app
 
-import java.io.ByteArrayInputStream
-import java.util.zip.ZipInputStream
 import com.ariadne.model.Capture
 import com.ariadne.model.CaptureState
 import com.ariadne.model.CurrencyCode
@@ -9,6 +7,8 @@ import com.ariadne.model.DayCard
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Settings
 import com.ariadne.model.Trip
+import java.io.ByteArrayInputStream
+import java.util.zip.ZipInputStream
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull

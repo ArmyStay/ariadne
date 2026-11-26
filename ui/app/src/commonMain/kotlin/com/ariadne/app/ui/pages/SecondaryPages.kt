@@ -296,10 +296,26 @@ public fun LegalPage(state: AppUiState, paper: Paper, wide: Boolean, terms: Bool
             )
             Spacer(Modifier.height(22.dp))
             if (terms) {
-                    LegalSection("Using Ariadne", "Ariadne stores the trips and expenses you choose to enter. You decide what to record, confirm, edit, export, or delete.", paper)
-                    LegalSection("Figures and exchange rates", "Text recognition is a suggestion, not a verified amount. Check each amount before relying on it. Exchange rates may be unavailable or out of date; the app shows the rate date where one is used.", paper)
-                    LegalSection("Your copy", "This build keeps its records on the device and does not provide account sync. Export an archive if you want a separate copy. Deleting a trip removes its local record and photographs.", paper)
-                    LegalSection("Review required", "These draft terms do not identify a legal operator, jurisdiction, support contact, warranty, or dispute process. They must be reviewed and completed before publication.", paper)
+                LegalSection(
+                    "Using Ariadne",
+                    "Ariadne stores the trips and expenses you choose to enter. You decide what to record, confirm, edit, export, or delete.",
+                    paper,
+                )
+                LegalSection(
+                    "Figures and exchange rates",
+                    "Text recognition is a suggestion, not a verified amount. Check each amount before relying on it. Exchange rates may be unavailable or out of date; the app shows the rate date where one is used.",
+                    paper,
+                )
+                LegalSection(
+                    "Your copy",
+                    "This build keeps its records on the device and does not provide account sync. Export an archive if you want a separate copy. Deleting a trip removes its local entries and available photographs.",
+                    paper,
+                )
+                LegalSection(
+                    "Review required",
+                    "These draft terms do not identify a legal operator, jurisdiction, support contact, warranty, or dispute process. They must be reviewed and completed before publication.",
+                    paper,
+                )
             } else {
                 LegalSection("What stays here", state.storageDisclosure, paper)
                 LegalSection("Network requests", state.rateDisclosure, paper)

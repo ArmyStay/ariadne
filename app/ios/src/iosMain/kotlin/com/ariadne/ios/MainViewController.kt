@@ -80,44 +80,6 @@ private class IosTripCardImageExporter(
         val data = bytes.usePinned { pinned ->
             NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
         }
-
-        @OptIn(ExperimentalForeignApi::class)
-        private class IosDataArchiveExporter(
-            private val hostController: () -> UIViewController,
-        ) : DataArchiveExporter {
-            override suspend fun saveZip(fileName: String, bytes: ByteArray): Boolean {
-                val path = NSTemporaryDirectory() + fileName
-                val data = bytes.usePinned { pinned ->
-                    NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
-                }
-                check(data.writeToFile(path, atomically = true)) {
-                    "The Ariadne archive could not be written to temporary storage."
-                }
-                val activity = UIActivityViewController(listOf(NSURL.fileURLWithPath(path)), null)
-                val host = hostController()
-                activity.popoverPresentationController?.apply {
-                    sourceView = host.view
-                    sourceRect = CGRectMake(
-                        host.view.bounds.size.width / 2.0,
-                        host.view.bounds.size.height / 2.0,
-                        0.0,
-                        0.0,
-                    )
-                }
-                return suspendCoroutine { continuation ->
-                    activity.completionWithItemsHandler = { _, completed, _, error ->
-                        if (error != null) {
-                            continuation.resumeWithException(
-                                IllegalStateException(error.localizedDescription ?: "Ariadne archive sharing failed."),
-                            )
-                        } else {
-                            continuation.resume(completed)
-                        }
-                    }
-                    host.presentViewController(activity, animated = true, completion = null)
-                }
-            }
-        }
         check(data.writeToFile(path, atomically = true)) {
             "The Trip Card PNG could not be written to temporary storage."
         }
@@ -138,6 +100,44 @@ private class IosTripCardImageExporter(
                 if (error != null) {
                     continuation.resumeWithException(
                         IllegalStateException(error.localizedDescription ?: "Trip Card sharing failed."),
+                    )
+                } else {
+                    continuation.resume(completed)
+                }
+            }
+            host.presentViewController(activity, animated = true, completion = null)
+        }
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private class IosDataArchiveExporter(
+    private val hostController: () -> UIViewController,
+) : DataArchiveExporter {
+    override suspend fun saveZip(fileName: String, bytes: ByteArray): Boolean {
+        val path = NSTemporaryDirectory() + fileName
+        val data = bytes.usePinned { pinned ->
+            NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
+        }
+        check(data.writeToFile(path, atomically = true)) {
+            "The Ariadne archive could not be written to temporary storage."
+        }
+        val activity = UIActivityViewController(listOf(NSURL.fileURLWithPath(path)), null)
+        val host = hostController()
+        activity.popoverPresentationController?.apply {
+            sourceView = host.view
+            sourceRect = CGRectMake(
+                host.view.bounds.size.width / 2.0,
+                host.view.bounds.size.height / 2.0,
+                0.0,
+                0.0,
+            )
+        }
+        return suspendCoroutine { continuation ->
+            activity.completionWithItemsHandler = { _, completed, _, error ->
+                if (error != null) {
+                    continuation.resumeWithException(
+                        IllegalStateException(error.localizedDescription ?: "Ariadne archive sharing failed."),
                     )
                 } else {
                     continuation.resume(completed)

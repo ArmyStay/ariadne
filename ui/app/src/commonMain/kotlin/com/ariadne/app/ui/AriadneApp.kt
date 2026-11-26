@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
@@ -19,6 +20,7 @@ import com.ariadne.design.Bone
 import com.ariadne.design.Label
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
+import com.ariadne.design.Title
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
@@ -161,39 +163,43 @@ public fun AriadneApp(
                         easing = Motion.Ease,
                     )
                     Crossfade(
-                        targetState = route,
+                        targetState = if (state.isStartingUp) null else route,
                         animationSpec = spec,
                         label = "route",
                     ) { target ->
-                        // A few points of sideways drift as the page arrives: the
-                        // app is a book, so pages turn across, not up.
-                        val drift = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(Motion.Drift) }
-                        androidx.compose.runtime.LaunchedEffect(target) { drift.animateTo(0f, spec) }
-                        Column(Modifier.fillMaxSize()) {
-                            val parent = state.history.lastOrNull()
-                            if (parent != null && target.needsParentBack()) {
-                                QuietAction(
-                                    "Back to ${parent.backLabel()}",
-                                    paper,
-                                    { model.back() },
-                                    modifier = Modifier.padding(
-                                        start = if (wide) Bone.MarginWide else Bone.Margin,
-                                        top = 8.dp,
-                                        bottom = 4.dp,
-                                    ),
-                                    color = paper.inkSoft,
-                                )
-                            }
-                            Box(Modifier.weight(1f)) {
-                                Box(Modifier.offset(x = drift.value.dp)) {
-                                    // Each surface gets its own budget for the one blue
-                                    // action. Keyed by route: a page turn must not charge
-                                    // the outgoing page's blue to the incoming one.
-                                    CompositionLocalProvider(
-                                        LocalAccentBudget provides rememberAccentBudget(target),
-                                        LocalSurfaceId provides target,
-                                    ) {
-                                        Destination(target, state, model, paper, wide, onShutter)
+                        if (target == null) {
+                            StartupPage(paper)
+                        } else {
+                            // A few points of sideways drift as the page arrives: the
+                            // app is a book, so pages turn across, not up.
+                            val drift = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(Motion.Drift) }
+                            androidx.compose.runtime.LaunchedEffect(target) { drift.animateTo(0f, spec) }
+                            Column(Modifier.fillMaxSize()) {
+                                val parent = state.history.lastOrNull()
+                                if (parent != null && target.needsParentBack()) {
+                                    QuietAction(
+                                        "Back to ${parent.backLabel()}",
+                                        paper,
+                                        { model.back() },
+                                        modifier = Modifier.padding(
+                                            start = if (wide) Bone.MarginWide else Bone.Margin,
+                                            top = 8.dp,
+                                            bottom = 4.dp,
+                                        ),
+                                        color = paper.inkSoft,
+                                    )
+                                }
+                                Box(Modifier.weight(1f)) {
+                                    Box(Modifier.offset(x = drift.value.dp)) {
+                                        // Each surface gets its own budget for the one blue
+                                        // action. Keyed by route: a page turn must not charge
+                                        // the outgoing page's blue to the incoming one.
+                                        CompositionLocalProvider(
+                                            LocalAccentBudget provides rememberAccentBudget(target),
+                                            LocalSurfaceId provides target,
+                                        ) {
+                                            Destination(target, state, model, paper, wide, onShutter)
+                                        }
                                     }
                                 }
                             }
@@ -245,6 +251,22 @@ public fun AriadneApp(
             }
         }
     }
+    }
+}
+
+@Composable
+private fun StartupPage(paper: Paper) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Title("Ariadne", paper, size = 34.sp)
+            Spacer(Modifier.height(12.dp))
+            Rule(paper, Modifier.width(28.dp).height(Bone.Hairline), color = paper.blue)
+            Spacer(Modifier.height(14.dp))
+            Label("Opening your record", paper, color = paper.inkSoft, size = 9.sp)
+        }
     }
 }
 
