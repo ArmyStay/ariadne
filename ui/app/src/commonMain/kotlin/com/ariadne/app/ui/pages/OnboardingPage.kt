@@ -126,7 +126,7 @@ public fun OnboardingPage(model: AppModel, paper: Paper, wide: Boolean) {
 
                 Spacer(Modifier.height(40.dp))
                 Label(
-                    "No account · no server · nothing leaves this device",
+                    "No account · no server · no sync",
                     paper,
                     color = paper.inkFaint,
                     size = 9.sp,

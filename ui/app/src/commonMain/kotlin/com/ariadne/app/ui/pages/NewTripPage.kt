@@ -208,7 +208,7 @@ public fun NewTripPage(
         Rule(paper, color = paper.edge)
         Spacer(Modifier.height(10.dp))
         Label(
-            "no account · no server · nothing leaves this device",
+            "no account · no server · no sync",
             paper,
             color = paper.inkFaint,
             size = 9.sp,
