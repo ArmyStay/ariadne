@@ -1219,6 +1219,74 @@ public class AppModel(
         )
     }
 
+    /**
+     * What the typed figure will become, for the two figures the sheet prints.
+     *
+     * Deliberately a pure read of the current state: the sheet asks on every
+     * keystroke, so this must not touch the store, the network or the clock's
+     * expensive paths. The rate is the same one [saveDetail] will pin, looked up for
+     * today rather than for the capture's day — because the figure has not been
+     * saved yet, and today is the day it will be.
+     */
+    public fun sheetPreview(): SheetPreview? {
+        val state = _state.value
+        val trip = state.trip ?: return null
+        val capture = state.detail ?: return null
+        val typed = state.detailAmount
+        val from = capture.currency ?: trip.baseCurrency
+        // The pair is shown for the machine's reading too, not only for a typed
+        // figure: the whole point is knowing what the suggestion is worth before
+        // saying yes to it.
+        val money = if (typed.isNotEmpty()) {
+            Money.parseOrNull(typed, from) ?: return null
+        } else {
+            capture.amountMinor?.let(Money::ofMinor) ?: return null
+        }
+        if (from == trip.baseCurrency) {
+            return SheetPreview(typed = typed, from = from, base = money, rateLabel = null, sameCurrency = true)
+        }
+        val scaled = fx.rateOrNull(from, trip.baseCurrency, state.today ?: clock.today())
+            ?: return SheetPreview(typed = typed, from = from, base = null, rateLabel = null, sameCurrency = false)
+        val converted = fx.convertAt(money, from, trip.baseCurrency, scaled)
+        return SheetPreview(
+            typed = typed,
+            from = from,
+            base = if (converted.applied) converted.amount else null,
+            rateLabel = "1 ${from.code} \u2248 ${formatScaled(scaled)} ${trip.baseCurrency.code}",
+            sameCurrency = false,
+        )
+    }
+
+    /**
+     * Read the photograph again.
+     *
+     * The amount the right-hand machine found is a suggestion, and when it is wrong
+     * the person currently has to retype it. This re-runs the same extraction the
+     * shutter ran, against the same file, and leaves the sheet holding whatever came
+     * back — a new suggestion, nothing, or a failure, all of which the sheet already
+     * knows how to show. A figure the person typed is not preserved: the whole point
+     * of the tap is that the machine's reading replaces the field.
+     */
+    public fun reExtractCurrent() {
+        val capture = _state.value.detail ?: return
+        if (_state.value.trip?.isClosed == true) return
+        if (_state.value.busy) return
+        scope.launch {
+            _state.value = _state.value.copy(busy = true)
+            runCatching { extraction.extractOne(capture.id, capture.photoPath) }.onFailure(::report)
+            val fresh = runCatching { store.findById(capture.id) }.getOrNull()
+            runCatching { refreshDay(capture.localDate) }
+            _state.value.trip?.let { loadTripDays(it) }
+            _state.value = _state.value.copy(
+                busy = false,
+                detail = fresh ?: _state.value.detail,
+                detailAmount = "",
+                detailMerchant = fresh?.merchant ?: "",
+                detailCategory = fresh?.category,
+            )
+        }
+    }
+
     /** Leave the detail page for wherever it was opened from. */
     public fun closeDetail() {
         // Back, not a guessed destination: the detail page no longer has to

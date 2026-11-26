@@ -87,6 +87,18 @@ fun main(args: Array<String>) {
         // path so the plate is a real one.
         Shot("04-sheet", 440, 900, route = { it.capturePlaceholder() }, settle = 1),
         Shot("04-sheet-desktop", 1200, 800, route = { it.capturePlaceholder() }, settle = 1),
+        // The sheet with a figure in it: the pair, the rate and the field live at
+        // the same time, which is the point of the block.
+        Shot(
+            "04-sheet-typed", 440, 900, settle = 4,
+            route = { m ->
+                if (m.state.value.sheetCaptureId == null) {
+                    m.capturePlaceholder()
+                } else if (m.state.value.detailAmount.isEmpty()) {
+                    "18.41".forEach { m.editDetailAmount(it) }
+                }
+            },
+        ),
         // The standalone page, which is now only reached when there is no trip to
         // file a photograph into.
         Shot("04-capture-no-trip", 440, 900, route = { it.go(Route.Capture) }),

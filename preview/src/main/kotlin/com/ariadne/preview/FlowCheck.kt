@@ -138,6 +138,24 @@ fun main() {
             model.state.value.detail?.id == captureId &&
             model.state.value.detailAmount.isEmpty(),
     )
+    // ---- the sheet says what the figure will become -----------------------
+    //
+    // The pair the sheet prints — what was paid, and what it is worth in the trip's
+    // currency — is a derivation, so it can be checked without a screen: nothing
+    // typed means nothing to convert, and a typed figure names its own currency.
+    check("with nothing typed there is nothing to convert", model.sheetPreview() == null)
+    "18.41".forEach { c -> model.editDetailAmount(c) }
+    val preview = model.sheetPreview()
+    val sheetCurrency = model.state.value.detail?.currency ?: model.state.value.trip?.baseCurrency
+    check("the sheet can say what the figure will become", preview?.typed == "18.41")
+    check("and names the currency the figure is in", preview?.from == sheetCurrency)
+    check(
+        "a pair in the trip's own currency needs no rate",
+        preview?.sameCurrency != true || preview?.base != null,
+    )
+    repeat("18.41".length) { model.clearDetailAmountDigit() }
+    check("clearing the field clears the pair", model.sheetPreview() == null)
+
     model.keepFrameForLater()
     settle()
     check("adding the amount later closes the sheet", model.state.value.sheetCaptureId == null)

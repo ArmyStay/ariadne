@@ -1,11 +1,13 @@
 package com.ariadne.app
 
 import com.ariadne.model.Capture
+import com.ariadne.model.CurrencyCode
 import com.ariadne.model.Category
 import com.ariadne.model.CategoryTotal
 import com.ariadne.model.DayCard
 import com.ariadne.model.DaySummary
 import com.ariadne.model.LocalDay
+import com.ariadne.model.Money
 import com.ariadne.model.Settings
 import com.ariadne.model.Trip
 import com.ariadne.model.entryStatus
@@ -337,3 +339,27 @@ public data class AppUiState(
     public val canGoBack: Boolean
         get() = shutterOpen || sheetCaptureId != null || history.isNotEmpty()
 }
+
+/**
+ * What the sheet's typed figure will become, worked out before it is saved.
+ *
+ * The sheet shows two figures side by side — what was paid, and what that is worth
+ * in the trip's currency — with the rate that joins them printed underneath. That
+ * pair used to exist only *after* saving, on the detail page, which meant the person
+ * typed a number in Bangkok and found out what it had cost them in rupees later.
+ *
+ * This is a derivation, not state: computed from the typed text, the capture's
+ * currency, the trip's base currency and the rate table for today. [base] is null
+ * when no rate is on file, which is a real answer — the sheet then says the amount
+ * will be counted in its own currency rather than inventing a conversion.
+ */
+public data class SheetPreview(
+    public val typed: String,
+    public val from: CurrencyCode,
+    /** The figure in the trip's base currency, or null when there is no rate. */
+    public val base: Money?,
+    /** "1 SGD ≈ 74.6298 INR", printed under the pair. */
+    public val rateLabel: String?,
+    /** The amount already is in the trip's currency: there is nothing to convert. */
+    public val sameCurrency: Boolean,
+)
