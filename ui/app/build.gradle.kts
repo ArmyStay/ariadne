@@ -15,6 +15,11 @@ kotlin {
     }
 
     sourceSets {
+        jvmTest {
+            // Headless Compose UI tests run on JVM — the KMP contest kit's
+            // "runComposeUiTest for headless UI tests" feature.
+            dependencies { implementation(libs.compose.uiTest) }
+        }
         commonMain.dependencies {
             implementation(project(":core:model"))
             implementation(project(":core:time"))
@@ -25,6 +30,8 @@ kotlin {
             implementation(project(":core:store"))
             implementation(project(":core:design"))
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.napier)
+            implementation(libs.androidx.datastore.preferences.core)
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
