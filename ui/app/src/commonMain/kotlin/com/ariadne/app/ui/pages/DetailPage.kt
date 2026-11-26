@@ -38,15 +38,15 @@ import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
+import com.ariadne.design.Glyph
+import com.ariadne.design.Icon
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.Masthead
 import com.ariadne.design.Paper
-import com.ariadne.design.Plate
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
-import com.ariadne.design.Subject
 import com.ariadne.design.Title
 import com.ariadne.model.Category
 import com.ariadne.model.CurrencyCode
@@ -189,7 +189,7 @@ public fun DetailPage(
                         }
                         Spacer(Modifier.height(20.dp))
                     }
-                    Keypad(paper, model)
+                    if (!capture.hasUnconfirmedAmount) Keypad(paper, model)
                 }
             }
 
@@ -211,11 +211,11 @@ private fun Photograph(
         // has a page of its own, and wrong on a phone where the figure, the
         // currency and the keypad all have to fit under the same plate.
         Box(Modifier.fillMaxWidth().aspectRatio(ratio).border(Bone.Hairline, paper.edge)) {
-            Plate(
-                subject = Subject.forMerchant(merchant),
+            PhotoPreview(
+                photoPath = photoPath,
+                caption = merchant ?: "Photograph",
                 paper = paper,
                 modifier = Modifier.fillMaxSize(),
-                caption = photoPath.removePrefix("demo:"),
             )
         }
         Spacer(Modifier.height(10.dp))
@@ -250,11 +250,30 @@ private fun Fields(
                 weight = FontWeight.Medium,
             )
         }
+        if (capture.hasUnconfirmedAmount) {
+            val extractedAmount = capture.amountMinor?.let {
+                com.ariadne.model.Money.ofMinor(it).formatWithSymbol(capture.currency ?: currency)
+            }
+            if (extractedAmount != null) {
+                Spacer(Modifier.height(8.dp))
+                Body(
+                    "Is it $extractedAmount?",
+                    paper,
+                    serif = true,
+                    color = paper.inkSoft,
+                    size = 15.sp,
+                )
+                Spacer(Modifier.height(8.dp))
+                Action("Yes, save it", paper, { model.saveDetail() }, accent = true)
+                Spacer(Modifier.height(8.dp))
+                OutlineAction("No, let me enter it", paper, { model.rejectDetailExtractedAmount() })
+            }
+        }
         Spacer(Modifier.height(14.dp))
         Rule(paper)
         Spacer(Modifier.height(14.dp))
         if (keypad) {
-            Keypad(paper, model)
+            if (!capture.hasUnconfirmedAmount) Keypad(paper, model)
             Spacer(Modifier.height(10.dp))
         }
 
@@ -305,9 +324,11 @@ private fun Fields(
 
         Spacer(Modifier.height(28.dp))
 
-        Action("Save", paper, { model.saveDetail() }, accent = true)
-        Spacer(Modifier.height(10.dp))
-        OutlineAction("Keep it without an amount", paper, { model.saveDetail(keepWithoutAmount = true) })
+        if (!capture.hasUnconfirmedAmount) {
+            Action("Save", paper, { model.saveDetail() }, accent = true)
+            Spacer(Modifier.height(10.dp))
+            OutlineAction("Keep it without an amount", paper, { model.saveDetail(keepWithoutAmount = true) })
+        }
         Spacer(Modifier.height(10.dp))
         QuietAction("Leave it open", paper, { model.openRecord(capture.localDate) }, color = paper.inkSoft)
     }
@@ -426,14 +447,15 @@ private fun Keypad(paper: Paper, model: AppModel) {
                         Numeral(digit.toString(), paper, size = 19.sp, weight = FontWeight.Medium)
                     }
                 }
+                if (r == rows.lastIndex) {
+                    Box(Modifier.width(Bone.Hairline).height(48.dp).background(paper.edge))
+                    Box(
+                        Modifier.weight(1f).height(48.dp).androidTap { model.clearDetailAmountDigit() }
+                            .semantics { contentDescription = "Backspace" },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Glyph.Backspace, paper, size = 18.dp) }
+                }
             }
-        }
-        Rule(paper)
-        Box(
-            Modifier.fillMaxWidth().height(42.dp).androidTap { model.clearDetailAmountDigit() },
-            contentAlignment = Alignment.Center,
-        ) {
-            Label("Delete", paper, color = paper.inkSoft)
         }
     }
 }

@@ -767,6 +767,29 @@ public class AppModel(
         }
     }
 
+    public fun rejectCurrentExtractedAmount() {
+        val capture = _state.value.current ?: return
+        if (!capture.hasUnconfirmedAmount) return
+
+        _state.value = _state.value.copy(
+            stack = _state.value.stack.map {
+                if (it.id == capture.id) it.copy(amountMinor = null) else it
+            },
+            amountInput = "",
+        )
+        scope.launch {
+            store.updateDetails(
+                id = capture.id,
+                amountMinor = null,
+                currencyCode = capture.currency?.code,
+                merchant = capture.merchant,
+                markedNoAmount = false,
+                confirmedAt = null,
+            )
+            refreshDay(capture.localDate)
+        }
+    }
+
     /** Marks every remaining capture in the current stack as "no amount" and confirms it in one pass. */
     public fun confirmRestAsNoAmount() {
         val stack = _state.value.stack
@@ -795,9 +818,13 @@ public class AppModel(
         }
     }
 
-    /** True when a card in the Nightfall stack can be confirmed without typing an amount. */
+    /** True when a card can be confirmed without typing or reviewing an extracted amount. */
     public fun isReadyToConfirm(capture: Capture): Boolean =
-        !capture.markedNoAmount && capture.amountMinor != null && capture.state != CaptureState.QUEUED && capture.state != CaptureState.EXTRACTING
+        !capture.markedNoAmount &&
+            capture.amountMinor != null &&
+            !capture.hasUnconfirmedAmount &&
+            capture.state != CaptureState.QUEUED &&
+            capture.state != CaptureState.EXTRACTING
 
     /** Confirms every ready card in the current stack in one action. */
     public fun confirmReadyInStack() {
@@ -899,6 +926,26 @@ public class AppModel(
 
     public fun clearDetailAmountDigit() {
         _state.value = _state.value.copy(detailAmount = _state.value.detailAmount.dropLast(1))
+    }
+
+    public fun rejectDetailExtractedAmount() {
+        val capture = _state.value.detail ?: return
+        if (!capture.hasUnconfirmedAmount) return
+        _state.value = _state.value.copy(
+            detail = capture.copy(amountMinor = null),
+            detailAmount = "",
+        )
+        scope.launch {
+            store.updateDetails(
+                id = capture.id,
+                amountMinor = null,
+                currencyCode = capture.currency?.code,
+                merchant = capture.merchant,
+                markedNoAmount = false,
+                confirmedAt = null,
+            )
+            refreshDay(capture.localDate)
+        }
     }
 
     public fun editDetailMerchant(text: String) {

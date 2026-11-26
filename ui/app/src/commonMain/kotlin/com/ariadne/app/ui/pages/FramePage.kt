@@ -80,7 +80,12 @@ public fun FramePage(
                 .aspectRatio(if (wide) 1.4f else 1f)
                 .border(Bone.Hairline, paper.edge),
         ) {
-            PhotographPlaceholder(paper, capture?.merchant ?: "just taken", Modifier.fillMaxSize())
+            PhotoPreview(
+                photoPath = capture?.photoPath.orEmpty(),
+                caption = capture?.merchant ?: "just taken",
+                paper = paper,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
 
         Spacer(Modifier.height(16.dp))

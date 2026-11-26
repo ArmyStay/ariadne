@@ -86,6 +86,12 @@ If you want samples shown in docs/README, copy **redacted** images to `docs/` (o
    ```
    The `connectedDebugAndroidTest` task runs all instrumented tests in the app module. It does not accept Gradle’s JVM `--tests` option; the test-class project-property form was also rejected by this project’s Gradle invocation, so use the unfiltered task.
 4. The fixture test exercises **image file → `MlKitTextRecognizer` → `ReceiptParser`** with fuzzy/normalised checks based on matching expected files. Synthetic images without a matching `.expected.txt` or `.meta.json` are ignored; if no matching image fixtures are packaged, the fixture test is skipped. On a phone without Google Play Services, this validates bundled ML Kit behavior as long as dependencies remain bundled-only.
+5. Gradle may remove the app/test APKs after the connected test task finishes. To keep the app installed for a manual smoke test, install it separately after testing:
+   ```powershell
+   .\gradlew.bat :app:android:installDebug
+   adb shell monkey -p com.ariadne.app 1
+   ```
+   The test runner package is temporary; the `installDebug` task installs the regular app APK.
 
 ### C. Run on an Android emulator (if no device / for CI-like checks)
 1. Install Android Studio (SDK Manager + AVD Manager) or command-line tools.
@@ -109,8 +115,9 @@ If you want samples shown in docs/README, copy **redacted** images to `docs/` (o
 ### E. App-level manual smoke test (phone/emulator)
 ```powershell
 .\gradlew.bat :app:android:installDebug
+adb shell monkey -p com.ariadne.app 1
 ```
-Then open Ariadne, capture/import a real receipt, confirm extraction completes or fails gracefully, and that Nightfall/edit flows remain usable.
+If Ariadne disappears after `connectedDebugAndroidTest`, that is test-task cleanup rather than an app crash; run `installDebug` again after the test. Then open Ariadne, capture/import a real receipt, confirm extraction completes or fails gracefully, and that Nightfall/edit flows remain usable.
 
 ---
 

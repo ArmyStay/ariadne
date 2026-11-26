@@ -19,6 +19,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,6 +30,8 @@ import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
+import com.ariadne.design.Glyph
+import com.ariadne.design.Icon
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
@@ -166,7 +170,7 @@ public fun NightfallPage(
                 // The decision never scrolls away: two taps finish a card, so both
                 // taps have to be on screen at the same time as the number.
                 Decisions(state, model, paper, wide = false)
-                Keypad(paper, model)
+                if (!capture.hasUnconfirmedAmount) Keypad(paper, model)
             }
         }
     }
@@ -266,9 +270,32 @@ private fun Decisions(
     typed: String = "",
 ) {
     val readyCount = state.stack.count { model.isReadyToConfirm(it) }
+    val extractedAmount = state.current
+        ?.takeIf(Capture::hasUnconfirmedAmount)
+        ?.let { capture ->
+            capture.amountMinor?.let { minor ->
+                Money.ofMinor(minor).formatWithSymbol(capture.currency ?: CurrencyCode.of(state.dayCurrency))
+            }
+        }
     Column(Modifier.fillMaxWidth()) {
+        if (extractedAmount != null) {
+            Body(
+                "Is it $extractedAmount?",
+                paper,
+                serif = true,
+                color = paper.inkSoft,
+                size = 16.sp,
+            )
+            Spacer(Modifier.height(10.dp))
+        }
         if (wide) {
-            Action("Confirm", paper, { model.confirmCurrent() }, accent = true)
+            if (extractedAmount != null) {
+                Action("Yes, save it", paper, { model.confirmCurrent() }, accent = true)
+                Spacer(Modifier.height(8.dp))
+                OutlineAction("No, let me enter it", paper, { model.rejectCurrentExtractedAmount() })
+            } else {
+                Action("Confirm", paper, { model.confirmCurrent() }, accent = true)
+            }
             if (readyCount > 1) {
                 Spacer(Modifier.height(8.dp))
                 OutlineAction(
@@ -335,15 +362,28 @@ private fun Decisions(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Box(Modifier.weight(1f)) {
-                    OutlineAction(
-                        "No amount",
-                        paper,
-                        { model.confirmCurrent(noAmount = true) },
-                    )
-                }
-                Box(Modifier.weight(1.4f)) {
-                    Action("Confirm", paper, { model.confirmCurrent() }, accent = true)
+                if (extractedAmount != null) {
+                    Box(Modifier.weight(1f)) {
+                        OutlineAction(
+                            "No, enter it",
+                            paper,
+                            { model.rejectCurrentExtractedAmount() },
+                        )
+                    }
+                    Box(Modifier.weight(1f)) {
+                        Action("Yes, save", paper, { model.confirmCurrent() }, accent = true)
+                    }
+                } else {
+                    Box(Modifier.weight(1f)) {
+                        OutlineAction(
+                            "No amount",
+                            paper,
+                            { model.confirmCurrent(noAmount = true) },
+                        )
+                    }
+                    Box(Modifier.weight(1.4f)) {
+                        Action("Confirm", paper, { model.confirmCurrent() }, accent = true)
+                    }
                 }
             }
             if (state.stack.size > 1) {
@@ -406,14 +446,15 @@ private fun Keypad(paper: Paper, model: AppModel) {
                         Numeral(digit.toString(), paper, size = 21.sp, weight = FontWeight.Medium)
                     }
                 }
+                if (r == rows.lastIndex) {
+                    Box(Modifier.width(Bone.Hairline).height(50.dp).background(paper.edge))
+                    Box(
+                        Modifier.weight(1f).height(50.dp).androidTap { model.backspace() }
+                            .semantics { contentDescription = "Backspace" },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Glyph.Backspace, paper, size = 18.dp) }
+                }
             }
-        }
-        Rule(paper)
-        Box(
-            Modifier.fillMaxWidth().height(44.dp).androidTap { model.backspace() },
-            contentAlignment = Alignment.Center,
-        ) {
-            Label("Delete", paper, color = paper.inkSoft)
         }
     }
 }
@@ -421,11 +462,11 @@ private fun Keypad(paper: Paper, model: AppModel) {
 @Composable
 private fun PhotographOf(capture: Capture, paper: Paper, modifier: Modifier) {
     Box(modifier.border(Bone.Hairline, paper.edge)) {
-        Plate(
-            subject = Subject.forMerchant(capture.merchant),
+        PhotoPreview(
+            photoPath = capture.photoPath,
+            caption = capture.merchant ?: "Photograph",
             paper = paper,
             modifier = Modifier.fillMaxSize(),
-            caption = capture.photoPath.removePrefix("demo:"),
         )
     }
 }

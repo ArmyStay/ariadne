@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -121,8 +122,8 @@ private fun TabPage(
             ) { content() }
             // The bar hangs in the margin, level with the text it measures and
             // never on top of it.
-            Box(Modifier.fillMaxHeight().padding(start = 18.dp)) {
-                ScrollRail(scroll, paper, Modifier.fillMaxHeight())
+            Box(Modifier.fillMaxHeight().padding(start = 10.dp)) {
+                ScrollRail(scroll, paper, Modifier.fillMaxHeight().offset(x = 4.dp))
             }
         }
     }
