@@ -7,18 +7,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.roundToIntSize
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
@@ -26,8 +31,6 @@ import com.ariadne.app.Route
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.FigureRow
-import com.ariadne.design.Glyph
-import com.ariadne.design.Icon
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.ScrollingMargin
@@ -37,6 +40,8 @@ import com.ariadne.design.Rule
 import com.ariadne.design.Title
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.Money
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 /**
  * Page 7 — Trip card.
@@ -52,6 +57,36 @@ import com.ariadne.model.Money
 public fun TripCardPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
     val trip = state.trip ?: return
     val closed = state.dayCards.count { it.isClosed }
+    val tripTotal = state.tripTotalMinor
+    val exporter = LocalTripCardImageExporter.current
+    val cardLayer = rememberGraphicsLayer()
+    val scope = rememberCoroutineScope()
+    var exporting by remember { mutableStateOf(false) }
+    var exportMessage by remember { mutableStateOf<String?>(null) }
+    val exportCard = {
+        if (!exporting && exporter != null) {
+            exporting = true
+            scope.launch {
+                exportMessage = null
+                try {
+                    val png = cardLayer.toImageBitmap().toPngBytes()
+                    val name = trip.name
+                        .replace(Regex("[\\\\/:*?\"<>|\\r\\n]"), "-")
+                        .trim()
+                        .ifEmpty { "Trip" }
+                    val saved = exporter.savePng("Ariadne - $name.png", png)
+                    exportMessage = if (saved) "Trip Card image saved." else "Save cancelled."
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    model.tripCardExportFailed(failure)
+                    exportMessage = "The Trip Card image could not be saved."
+                } finally {
+                    exporting = false
+                }
+            }
+        }
+    }
 
     // The card is a printed object on its own stock: the keepsake ground is a
     // warmer paper than the rest of the book, and the card itself is the one
@@ -64,35 +99,27 @@ public fun TripCardPage(state: AppUiState, model: AppModel, paper: Paper, wide: 
         vertical = 28.dp,
         ground = paper.tripGround,
     ) { _ ->
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            QuietAction("Back to the record", paper, { model.go(Route.Record(state.today)) })
-            // Share copies the card as text, built from the same state the page is
-            // showing, so the shared numbers cannot disagree with the printed ones.
-            //
-            // It is the page's one blue action, and the only one: the same act used
-            // to appear twice, as an ink corner and again as a blue bar at the foot,
-            // which made a keepsake look like a dialog with two buttons.
-            Row(
-                Modifier
-                    .heightIn(min = 48.dp)
-                    .androidTap { model.copyCardToClipboard() },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    if (state.cardCopied) Glyph.Done else Glyph.Share,
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            QuietAction(
+                if (state.cardCopied) "Text copied" else "Copy text",
+                paper,
+                { model.copyCardToClipboard() },
+            )
+            if (exporter != null) {
+                QuietAction(
+                    if (exporting) "Saving..." else "Save PNG",
                     paper,
-                    size = 14.dp,
-                    color = if (state.cardCopied) paper.inkMid else paper.blue,
-                )
-                Spacer(Modifier.width(7.dp))
-                Label(
-                    if (state.cardCopied) "Copied" else "Share the card",
-                    paper,
-                    color = if (state.cardCopied) paper.inkMid else paper.blue,
-                    size = 10.sp,
-                    tracking = 1.5.sp,
+                    { exportCard() },
+                    color = paper.blue,
                 )
             }
+        }
+        exportMessage?.let {
+            Body(it, paper, color = paper.inkSoft, size = 11.sp)
         }
 
         Spacer(Modifier.height(20.dp))
@@ -101,6 +128,12 @@ public fun TripCardPage(state: AppUiState, model: AppModel, paper: Paper, wide: 
         Column(
             Modifier
                 .fillMaxWidth()
+                .drawWithContent {
+                    cardLayer.record(this, layoutDirection, size.roundToIntSize()) {
+                        this@drawWithContent.drawContent()
+                    }
+                    drawLayer(cardLayer)
+                }
                 .background(paper.raised)
                 .border(Bone.Hairline, paper.edge)
                 .padding(horizontal = if (wide) 56.dp else 26.dp, vertical = 40.dp),
@@ -135,22 +168,22 @@ public fun TripCardPage(state: AppUiState, model: AppModel, paper: Paper, wide: 
             Rule(paper)
             Spacer(Modifier.height(18.dp))
 
-            if (state.perCurrency.isEmpty()) {
+            if (state.tripPerCurrency.isEmpty()) {
                 Body(
-                    "No figures recorded yet. The photographs are still the record.",
+                    "No figures recorded yet. The entries are still the record.",
                     paper,
                     serif = true,
                     color = paper.inkSoft,
                 )
             } else {
-                state.perCurrency.forEach { (code, minor) ->
+                state.tripPerCurrency.forEach { (code, minor) ->
                     FigureRow(code, Money.ofMinor(minor).format(CurrencyCode.of(code)), paper)
                 }
                 Spacer(Modifier.height(6.dp))
                 Rule(paper, color = paper.ink)
                 FigureRow(
                     "Total",
-                    Money.ofMinor(state.dayTotalMinor).formatWithSymbol(trip.baseCurrency),
+                    Money.ofMinor(tripTotal).formatWithSymbol(trip.baseCurrency),
                     paper,
                     emphasised = true,
                 )

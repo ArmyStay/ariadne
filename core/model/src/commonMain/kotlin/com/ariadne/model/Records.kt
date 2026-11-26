@@ -170,8 +170,9 @@ public data class Rate(
 public data class Settings(
     public val baseCurrency: CurrencyCode = CurrencyCode.of("INR"),
     public val homeCurrency: CurrencyCode = CurrencyCode.of("INR"),
-    public val theme: Theme = Theme.SYSTEM,
+    public val theme: Theme = Theme.LIGHT,
     public val ocrProvider: OcrProvider = OcrProvider.ON_DEVICE,
+    public val displayName: String = "",
 ) {
     public enum class Theme { LIGHT, DARK, SYSTEM }
     public enum class OcrProvider { ON_DEVICE, CLOUD_BYOK, NONE }

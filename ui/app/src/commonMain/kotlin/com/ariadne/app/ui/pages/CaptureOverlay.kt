@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.design.Bone
+import com.ariadne.design.Body
 import com.ariadne.design.Glyph
 import com.ariadne.design.Icon
 import com.ariadne.design.Label
@@ -65,9 +65,10 @@ public fun CaptureOverlay(
 
     // The library, on the same overlay: a receipt you already have is the same
     // intent as one in front of you.
-    val import = rememberPhotoImport(
-        onBytes = { model.importPhoto(it) },
+    val import = rememberPhotoImportMany(
+        onBytes = { model.importPhotos(it) },
         onUnavailable = {},
+        onFailure = model::photoImportFailed,
     )
 
     Column(
@@ -91,23 +92,19 @@ public fun CaptureOverlay(
         Spacer(Modifier.height(14.dp))
         Rule(paper)
 
-        Spacer(Modifier.weight(0.5f))
-
-        // The plate: square, hairline-framed, tap anywhere on it to keep the frame.
-        // The same geometry it will have in the sheet and in the record, so the
-        // shutter and the print are visibly the same object.
+        // Let the camera preview use the available space instead of nesting a
+        // square frame around the camera's own preview.
         Box(
             Modifier
                 .align(Alignment.CenterHorizontally)
-                .then(if (wide) Modifier.width(520.dp) else Modifier.fillMaxWidth())
-                .aspectRatio(1f)
+                .then(if (wide) Modifier.width(760.dp) else Modifier.fillMaxWidth())
+                .weight(1f)
                 .semantics { contentDescription = "Viewfinder. Tap to keep the photograph." }
                 .pointerInput(fire) { detectTapGestures(onTap = { fire() }) },
         ) {
             CameraPlate(paper, Modifier.fillMaxSize(), live = true, onFrame = onFrame)
         }
 
-        Spacer(Modifier.height(10.dp))
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Label(
                 if (cameraAvailable()) {
@@ -121,8 +118,6 @@ public fun CaptureOverlay(
                 tracking = 1.2.sp,
             )
         }
-
-        Spacer(Modifier.weight(0.5f))
 
         Row(
             Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -138,9 +133,9 @@ public fun CaptureOverlay(
             Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                 QuietAction(
                     if (state.tripPending.isEmpty()) {
-                        "nothing waiting"
+                        "nothing waiting across this trip"
                     } else {
-                        "${state.tripPending.size} waiting"
+                        "${state.tripPending.size} waiting across this trip"
                     },
                     paper,
                     { model.closeShutter(); model.openCloseDay(state.today) },
@@ -152,6 +147,10 @@ public fun CaptureOverlay(
         Spacer(Modifier.height(6.dp))
         Rule(paper)
         Spacer(Modifier.height(10.dp))
+        state.captureError?.let {
+            Body(it, paper, color = paper.inkMid, size = 12.sp)
+            Spacer(Modifier.height(8.dp))
+        }
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,

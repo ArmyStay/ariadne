@@ -246,9 +246,10 @@ public class AriadneStore(
             Settings(
                 baseCurrency = CurrencyCode.of(row.baseCurrency),
                 homeCurrency = CurrencyCode.of(row.homeCurrency),
-                theme = runCatching { Settings.Theme.valueOf(row.theme) }.getOrDefault(Settings.Theme.SYSTEM),
+                theme = runCatching { Settings.Theme.valueOf(row.theme) }.getOrDefault(Settings.Theme.LIGHT),
                 ocrProvider = runCatching { Settings.OcrProvider.valueOf(row.ocrProvider) }
                     .getOrDefault(Settings.OcrProvider.ON_DEVICE),
+                displayName = row.displayName,
             )
         } ?: Settings()
     }
@@ -259,6 +260,7 @@ public class AriadneStore(
             homeCurrency = settings.homeCurrency.code,
             theme = settings.theme.name,
             ocrProvider = settings.ocrProvider.name,
+            displayName = settings.displayName,
         )
         bump()
     }

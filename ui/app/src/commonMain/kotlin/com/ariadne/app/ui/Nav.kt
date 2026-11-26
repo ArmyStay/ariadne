@@ -34,7 +34,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * The bottom bar: four destinations and the shutter.
+ * The bottom dock: four primary destinations with the shutter in its own seat.
  *
  * This replaces a bar that was drawn from scratch as a filled path with a notch cut
  * out of it for a circular shutter. It was the most distinctive thing on the
@@ -48,10 +48,10 @@ import kotlin.math.sin
  * FAB sits in space the bar reserved for it and no label is ever underneath it.
  */
 public enum class Tab(public val label: String) {
-    Today("Today"),
-    Days("Days"),
-    Trip("Trip"),
+    Home("Home"),
+    Timeline("Timeline"),
     Stats("Stats"),
+    More("More"),
 }
 
 @Composable
@@ -79,13 +79,13 @@ public fun AriadneBar(
             containerColor = paper.raised,
             tonalElevation = 0.dp,
         ) {
-            BarItem(Tab.Today, selected, paper, waiting) { onSelect(Tab.Today) }
-            BarItem(Tab.Days, selected, paper, 0) { onSelect(Tab.Days) }
+            BarItem(Tab.Home, selected, paper, 0) { onSelect(Tab.Home) }
+            BarItem(Tab.Timeline, selected, paper, waiting) { onSelect(Tab.Timeline) }
             // The shutter's seat. An empty item rather than a notch: the bar keeps
             // its rhythm, the FAB sits in reserved space, and nothing overlaps.
             Box(Modifier.weight(1f)) {}
-            BarItem(Tab.Trip, selected, paper, 0) { onSelect(Tab.Trip) }
             BarItem(Tab.Stats, selected, paper, 0) { onSelect(Tab.Stats) }
+            BarItem(Tab.More, selected, paper, 0) { onSelect(Tab.More) }
         }
 
         // The one control that is always one tap away, docked rather than floating
@@ -102,7 +102,7 @@ public fun AriadneBar(
                 .semantics {
                     contentDescription = when {
                         !captureEnabled -> "A closed trip takes no photographs"
-                        waiting > 0 -> "Take a photograph. $waiting waiting for an amount"
+                        waiting > 0 -> "Take a photograph. $waiting waiting across this trip"
                         else -> "Take a photograph"
                     }
                 },
@@ -131,7 +131,7 @@ private fun androidx.compose.foundation.layout.RowScope.BarItem(
         icon = {
             Box {
                 TabGlyph(tab, if (active) paper.ink else paper.inkSoft)
-                if (tab == Tab.Today && waiting > 0) {
+                if (tab == Tab.Timeline && waiting > 0) {
                     // A numeral, not a dot: six photographs waiting is information,
                     // and "something is happening" is not.
                     Box(
@@ -141,7 +141,11 @@ private fun androidx.compose.foundation.layout.RowScope.BarItem(
                             .background(paper.blue, CircleShape)
                             .padding(horizontal = 4.dp, vertical = 1.dp),
                     ) {
-                        Label("$waiting", paper, color = paper.onBlue, size = 9.sp)
+                        Box(Modifier.semantics {
+                            contentDescription = "$waiting waiting across this trip"
+                        }) {
+                            Label("$waiting", paper, color = paper.onBlue, size = 9.sp)
+                        }
                     }
                 }
             }
@@ -166,7 +170,7 @@ private fun androidx.compose.foundation.layout.RowScope.BarItem(
     )
 }
 
-/** Four glyphs cut from the same plate: today, a run of days, the trip, the bars. */
+/** Four destination glyphs cut from the same plate. */
 @Composable
 private fun TabGlyph(tab: Tab, color: Color) {
     Canvas(Modifier.size(22.dp).clearAndSetSemantics {}) {
@@ -174,14 +178,14 @@ private fun TabGlyph(tab: Tab, color: Color) {
         val h = size.height
         val s = Stroke(width = 1.4.dp.toPx())
         when (tab) {
-            Tab.Today -> {
+            Tab.Home -> {
                 // A sun over a horizon: the day you are in.
                 drawCircle(color, radius = w * 0.20f, center = Offset(w * 0.5f, h * 0.36f), style = s)
                 drawLine(color, Offset(w * 0.12f, h * 0.74f), Offset(w * 0.88f, h * 0.74f), s.width)
                 drawLine(color, Offset(w * 0.26f, h * 0.88f), Offset(w * 0.74f, h * 0.88f), s.width)
             }
 
-            Tab.Days -> {
+            Tab.Timeline -> {
                 val p = Path().apply {
                     moveTo(w * 0.08f, h * 0.28f)
                     lineTo(w * 0.92f, h * 0.28f)
@@ -195,25 +199,16 @@ private fun TabGlyph(tab: Tab, color: Color) {
                 drawLine(color, Offset(w * 0.70f, h * 0.16f), Offset(w * 0.70f, h * 0.34f), s.width)
             }
 
-            Tab.Trip -> {
-                val p = Path().apply {
-                    moveTo(w * 0.08f, h * 0.36f)
-                    lineTo(w * 0.92f, h * 0.36f)
-                    lineTo(w * 0.92f, h * 0.84f)
-                    lineTo(w * 0.08f, h * 0.84f)
-                    close()
-                }
-                drawPath(p, color, style = s)
-                // The handle.
-                drawLine(color, Offset(w * 0.34f, h * 0.36f), Offset(w * 0.34f, h * 0.22f), s.width)
-                drawLine(color, Offset(w * 0.34f, h * 0.22f), Offset(w * 0.66f, h * 0.22f), s.width)
-                drawLine(color, Offset(w * 0.66f, h * 0.22f), Offset(w * 0.66f, h * 0.36f), s.width)
-            }
-
             Tab.Stats -> {
                 drawLine(color, Offset(w * 0.16f, h * 0.86f), Offset(w * 0.16f, h * 0.58f), s.width)
                 drawLine(color, Offset(w * 0.5f, h * 0.86f), Offset(w * 0.5f, h * 0.24f), s.width)
                 drawLine(color, Offset(w * 0.84f, h * 0.86f), Offset(w * 0.84f, h * 0.46f), s.width)
+            }
+
+            Tab.More -> {
+                drawCircle(color, w * 0.08f, Offset(w * 0.18f, h * 0.50f))
+                drawCircle(color, w * 0.08f, Offset(w * 0.50f, h * 0.50f))
+                drawCircle(color, w * 0.08f, Offset(w * 0.82f, h * 0.50f))
             }
         }
     }
@@ -242,19 +237,21 @@ private fun ApertureGlyph(color: Color) {
 
 /** Which destination a route belongs to, or none for a page stacked over all. */
 public fun Route.tab(): Tab? = when (this) {
-    Route.Home -> Tab.Today
-    Route.Days, is Route.Record, is Route.CloseDay -> Tab.Days
-    Route.Trip, is Route.TripCard -> Tab.Trip
+    Route.Home -> Tab.Home
+    Route.Days, Route.Trip, is Route.Record, is Route.CloseDay -> Tab.Timeline
     Route.Stats -> Tab.Stats
-    // Stacked over every destination, or a moment with no bar at all.
-    Route.Trips, Route.Preferences, Route.Settings, Route.Search, is Route.Detail,
+    Route.More -> Tab.More
+    Route.Trips, Route.Search, is Route.Detail, Route.ManualEntry,
+    is Route.TripCard -> Tab.More
+    Route.DataExport, Route.PrivacyPolicy, Route.Terms,
     Route.Onboarding, Route.NewTrip, Route.Capture, is Route.Frame -> null
+    Route.Preferences, Route.Settings -> Tab.More
 }
 
 /** Where a destination leads. */
 public fun Tab.route(): Route = when (this) {
-    Tab.Today -> Route.Home
-    Tab.Days -> Route.Days
-    Tab.Trip -> Route.Trip
+    Tab.Home -> Route.Home
+    Tab.Timeline -> Route.Days
     Tab.Stats -> Route.Stats
+    Tab.More -> Route.More
 }

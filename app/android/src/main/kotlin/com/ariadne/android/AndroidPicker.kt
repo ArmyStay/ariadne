@@ -52,7 +52,13 @@ internal fun rememberAndroidPhotoPicker(context: Context): PhotoPicker {
         if (waiting == null) return@rememberLauncherForActivityResult
         // Decoding is the expensive half and it happens off the composition
         // thread, exactly as the single picker does it.
-        Thread { waiting.complete(uris.mapNotNull { readPhoto(context, it) }) }.start()
+        Thread {
+            try {
+                waiting.complete(uris.mapNotNull { readPhoto(context, it) })
+            } catch (failure: Exception) {
+                waiting.completeExceptionally(failure)
+            }
+        }.start()
     }
     launchMany.value = {
         multiLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -67,7 +73,13 @@ internal fun rememberAndroidPhotoPicker(context: Context): PhotoPicker {
         } else {
             // Off the composition thread: decoding a large photograph takes long
             // enough to drop frames, and this is a page someone is looking at.
-            Thread { waiting.complete(readPhoto(context, uri)) }.start()
+            Thread {
+                try {
+                    waiting.complete(readPhoto(context, uri))
+                } catch (failure: Exception) {
+                    waiting.completeExceptionally(failure)
+                }
+            }.start()
         }
     }
     launch.value = {
@@ -113,17 +125,17 @@ internal fun rememberAndroidPhotoPicker(context: Context): PhotoPicker {
 private const val MAX_PHOTOS = 12
 
 /** Read, bound and re-encode the chosen photograph. Null if it cannot be read. */
-private fun readPhoto(context: Context, uri: Uri): ByteArray? = runCatching {
+private fun readPhoto(context: Context, uri: Uri): ByteArray? {
     val raw = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-        ?: return@runCatching null
-    if (raw.isEmpty()) return@runCatching null
+        ?: return null
+    if (raw.isEmpty()) return null
     // A format this device cannot decode is still a photograph: keep the bytes
     // rather than telling the person their picture is not a picture.
-    val decoded = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return@runCatching raw
+    val decoded = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return raw
     val scaled = scaleDown(decoded, 1600)
     val out = ByteArrayOutputStream()
     scaled.compress(Bitmap.CompressFormat.JPEG, 88, out)
     if (scaled !== decoded) scaled.recycle()
     decoded.recycle()
-    out.toByteArray().takeIf { it.isNotEmpty() } ?: raw
-}.getOrNull()
+    return out.toByteArray().takeIf { it.isNotEmpty() } ?: raw
+}

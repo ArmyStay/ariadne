@@ -58,23 +58,8 @@ import com.ariadne.model.symbol
 /**
  * The capture sheet: the photograph, and the sheet that fills in what it was.
  *
- * The structure is the one a paper receipt implies, and it is the same order the
- * best version of this screen has always used:
- *
- *   1. **the print and the moment** — a thumbnail of what was photographed, the day
- *      and time it was taken, and the figure as it stands;
- *   2. **the pair** — what was paid, and what that is worth in the trip's currency,
- *      with the rate that joins them printed underneath. This is the block that was
- *      missing: the conversion only existed *after* saving, so a figure typed in
- *      Bangkok became rupees somewhere the person never saw it happening;
- *   3. **read it again** — one action that re-runs extraction on the same file,
- *      because a wrong suggestion should cost one tap, not a retyped receipt;
- *   4. **the amount** — the currency's symbol, the field, the keypad, and the
- *      sentence that says what will happen on save;
- *   5. **currency, category, where, remember it by** — each one labelled, each one
- *      optional, none of them a form;
- *   6. **the day** — printed, not editable: a photograph's day is a fact about when
- *      it was taken, and an app that lets you move it is offering to falsify a record.
+ * The first decision is deliberately small: keep the photograph and add the amount
+ * later, or open the complete editor. OCR suggestions stay unconfirmed for Close Day.
  *
  * The sheet is drawn from the same parts as every other page — hairline edges, paper
  * ground, ink type, one blue action. A Material modal sheet would have brought its own
@@ -91,24 +76,6 @@ public fun FramePage(
     val capture = state.dayCapturesAll.values.flatten().firstOrNull { it.id == captureId }
         ?: state.detail?.takeIf { it.id == captureId }
         ?: state.stack.firstOrNull { it.id == captureId }
-
-    val currency = capture?.currency ?: state.trip?.baseCurrency ?: CurrencyCode.of("INR")
-    // The chips are the catalogue's shortlist, the same one the full page offers:
-    // the capture's own currency first, then the trip's two, then the defaults.
-    val options = CurrencyCatalog.shortlist(
-        currency.code,
-        state.trip?.baseCurrency?.code,
-        state.trip?.homeCurrency?.code,
-    )
-    // Read once here and passed down as primitives, so a digit typed into the
-    // amount does not recompose the photograph behind it.
-    val typed = state.detailAmount
-    val merchant = state.detailMerchant
-    val category = state.detailCategory
-    val note = state.detailNote
-    // The pair, worked out from what is typed right now. Null until there is a
-    // figure to convert, which is why the block is not drawn before then.
-    val preview = model.sheetPreview()
 
     if (capture == null) {
         // A route can outlive its row (the photograph was deleted from another
@@ -134,24 +101,9 @@ public fun FramePage(
                     .weight(1f)
                     .verticalScroll(rememberScrollState()),
             ) {
-                key(typed, merchant, category, note, currency) {
-                    SheetFields(
-                        capture = capture,
-                        typed = typed,
-                        merchant = merchant,
-                        category = category,
-                        note = note,
-                        preview = preview,
-                        busy = state.busy,
-                        model = model,
-                        paper = paper,
-                        currency = currency,
-                        base = state.trip?.baseCurrency ?: currency,
-                        options = options,
-                    )
-                }
+                QuickCaptureDetails(capture, model, paper)
                 Spacer(Modifier.height(18.dp))
-                SheetActions(capture, typed, model, paper)
+                SheetActions(capture, model, paper)
                 Spacer(Modifier.height(26.dp))
             }
         }
@@ -219,28 +171,13 @@ public fun FramePage(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Bone.Margin),
             ) {
-                key(typed, merchant, category, note, currency) {
-                    SheetFields(
-                        capture = capture,
-                        typed = typed,
-                        merchant = merchant,
-                        category = category,
-                        note = note,
-                        preview = preview,
-                        busy = state.busy,
-                        model = model,
-                        paper = paper,
-                        currency = currency,
-                        base = state.trip?.baseCurrency ?: currency,
-                        options = options,
-                    )
-                }
+                QuickCaptureDetails(capture, model, paper)
                 Spacer(Modifier.height(20.dp))
             }
 
             // The two answers, pinned where a thumb is, never below the fold.
             Column(Modifier.fillMaxWidth().padding(horizontal = Bone.Margin)) {
-                SheetActions(capture, typed, model, paper)
+                SheetActions(capture, model, paper)
                 Spacer(Modifier.height(12.dp))
             }
         }
@@ -248,26 +185,45 @@ public fun FramePage(
 }
 
 /**
- * The two answers and the way out of them: save with a figure, keep it for later, or
- * open the whole page. Pinned to the foot in both layouts, so a long sheet never puts
- * its own save button below the fold.
+ * The two immediate choices: keep the photograph for Close Day, or open the full
+ * editor. Pinned to the foot in both layouts.
  */
 @Composable
-private fun SheetActions(capture: Capture, typed: String, model: AppModel, paper: Paper) {
-    if (typed.isNotEmpty()) {
-        Action("Save ${typed}", paper, { model.saveDetail() }, accent = true)
-        Spacer(Modifier.height(6.dp))
-        QuietAction("Add the amount later", paper, { model.keepFrameForLater() })
-    } else {
-        Action("Add the amount later", paper, { model.keepFrameForLater() }, accent = true)
-    }
-    Spacer(Modifier.height(4.dp))
+private fun SheetActions(capture: Capture, model: AppModel, paper: Paper) {
+    Action("Keep for later", paper, { model.keepFrameForLater() }, accent = true)
+    Spacer(Modifier.height(6.dp))
     QuietAction(
-        "open the whole page",
+        "Open the full editor",
         paper,
         { model.openFrame(capture.id) },
-        color = paper.inkFaint,
+        color = paper.inkSoft,
     )
+}
+
+@Composable
+private fun QuickCaptureDetails(capture: Capture, model: AppModel, paper: Paper) {
+    Label("Photograph kept", paper, color = paper.inkFaint, tracking = 1.2.sp)
+    Spacer(Modifier.height(8.dp))
+    Title(model.titleOf(capture), paper, size = 23.sp)
+    Spacer(Modifier.height(8.dp))
+    Body(
+        "No amount is needed now. You can finish it at Close Day.",
+        paper,
+        color = paper.inkSoft,
+        size = 14.sp,
+        lineHeight = 20.sp,
+    )
+    capture.amountMinor?.takeIf { capture.hasUnconfirmedAmount }?.let { amount ->
+        Spacer(Modifier.height(10.dp))
+        Body(
+            "Found ${Money.ofMinor(amount).formatWithSymbol(capture.currency ?: CurrencyCode.of("INR"))}. " +
+                "Confirm it at Close Day.",
+            paper,
+            serif = true,
+            color = paper.inkMid,
+            size = 13.sp,
+        )
+    }
 }
 
 /**

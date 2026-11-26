@@ -82,7 +82,6 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             eyebrow = "The record",
             title = "Remember a thing",
             paper = paper,
-            trailing = { PageAction("Record", paper, { model.go(Route.Record(state.today)) }) },
         )
 
         Spacer(Modifier.height(26.dp))

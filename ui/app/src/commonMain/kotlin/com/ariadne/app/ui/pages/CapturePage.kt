@@ -61,9 +61,10 @@ public fun CapturePage(
     // The picker is shared with the front page; see rememberPhotoImport. A target
     // with no picker falls through to the host's fallback rather than presenting
     // a control that silently does nothing.
-    val import = rememberPhotoImport(
-        onBytes = { model.importPhoto(it) },
+    val import = rememberPhotoImportMany(
+        onBytes = { model.importPhotos(it) },
         onUnavailable = onImport,
+        onFailure = model::photoImportFailed,
     )
     // With a camera, the shutter fires the sensor and the bytes come back through
     // onFrame. Without one, the caller's placeholder path runs instead.

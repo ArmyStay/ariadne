@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * The app's single state holder.
@@ -44,8 +45,15 @@ public class AppModel(
     private val newId: () -> String,
     /** Where rates come from. Null on a platform with no network, or in a test. */
     private val rateSource: com.ariadne.fx.RateSource? = null,
+    private val storageDisclosure: String = "This preview keeps data in memory for this session only.",
+    private val rateDisclosure: String = "Rates are entered manually and kept in the current preview session.",
 ) {
-    private val _state = MutableStateFlow(AppUiState())
+    private val _state = MutableStateFlow(
+        AppUiState(
+            storageDisclosure = storageDisclosure,
+            rateDisclosure = rateDisclosure,
+        ),
+    )
 
     /**
      * How deep Back may go.
@@ -177,6 +185,7 @@ public class AppModel(
             // default: a person who chose night paper gets it back before the
             // first page is drawn, so the app never flashes white at launch.
             _state.value = _state.value.copy(theme = settings.theme)
+            _state.value = _state.value.copy(displayName = settings.displayName)
             runCatching { outbox.resume() }.onFailure(::report)
             runCatching { extraction.drain() }.onFailure(::report)
             val trips = runCatching { store.trips() }.getOrElse {
@@ -192,11 +201,8 @@ public class AppModel(
                     currency = settings.baseCurrency.code,
                 )
                 // No open trip. If the device has never held one, the first run
-                // opens on the title page, which states the inversion in four
-                // sentences and offers two ways in: the demo roll (a trip with
-                // photographs already in it) or a blank form with the dates
-                // already filled. If every trip on disk is closed, the register
-                // is the right page - it is where those trips are still readable.
+                // opens on the welcome page; if every trip on disk is closed,
+                // the register is the right page - it is where those trips remain readable.
                 _state.value = _state.value.copy(
                     route = startRoute(hasAnyTrip = trips.isNotEmpty(), hasOpenTrip = false),
                     trips = trips,
@@ -258,6 +264,145 @@ public class AppModel(
             runCatching { store.saveSettings(settings) }.onFailure(::report)
         }
     }
+
+    public fun editProfileName(name: String) {
+        val updated = settings.copy(displayName = name.take(40))
+        settings = updated
+        _state.value = _state.value.copy(displayName = updated.displayName)
+        scope.launch {
+            runCatching { store.saveSettings(updated) }.onFailure(::report)
+        }
+    }
+
+    /**
+     * Saves a photo-free expense as already confirmed. It never enters the OCR
+     * outbox, and its empty photo path is rendered as a manual record marker.
+     */
+    public fun saveManualEntry(
+        amountText: String,
+        currencyCode: String,
+        dateText: String,
+        merchant: String,
+        category: Category?,
+        note: String,
+    ): String? {
+        val trip = _state.value.trip ?: return "Create or open a trip before adding an expense."
+        if (trip.isClosed) return "This trip is closed. Open another trip to add an expense."
+        val currency = CurrencyCode.parseOrNull(currencyCode)
+            ?: return "Choose a supported currency."
+        if (amountText.none { it.isDigit() }) return "Enter an amount."
+        val amount = Money.parseOrNull(amountText, currency)
+            ?: return "Enter an amount using ${currency.code}'s decimal places."
+        val day = LocalDay.parseOrNull(dateText.trim())
+            ?: return "Enter the date as YYYY-MM-DD."
+        if (day < trip.startDate || day > trip.endDate) {
+            return "Choose a date within this trip (${trip.startDate.iso} to ${trip.endDate.iso})."
+        }
+        scope.launch {
+            _state.value = _state.value.copy(busy = true)
+            val createdAt = clock.nowMillis()
+            try {
+                val capture = Capture(
+                    id = newId(),
+                    tripId = trip.id,
+                    localDate = day,
+                    photoPath = "",
+                    createdAt = createdAt,
+                    state = CaptureState.CONFIRMED,
+                    amountMinor = amount.minorUnits,
+                    currency = currency,
+                    merchant = merchant.trim().take(60).ifBlank { null },
+                    confirmedAt = createdAt,
+                    category = category,
+                    note = note.trim().take(140).ifBlank { null },
+                )
+                store.insert(capture)
+                pinRate(capture, capture.amountMinor, currency)
+                index.rebuild(store.confirmedForTrip(trip.id))
+                refreshDay(day)
+                loadTripDays(trip)
+                _state.value = _state.value.copy(busy = false)
+                go(Route.Home)
+                say("Manual expense saved.")
+            } catch (failure: CancellationException) {
+                throw failure
+            } catch (failure: Exception) {
+                report(failure)
+                _state.value = _state.value.copy(busy = false)
+                say("The manual expense could not be saved.")
+            }
+        }
+        return null
+    }
+
+    /** Build the full local archive and pass it to the target's save surface. */
+    public fun exportData(exporter: DataArchiveExporter?) {
+        if (exporter == null) {
+            say("Data export is not available in this build.")
+            return
+        }
+        if (_state.value.busy) return
+        scope.launch {
+            _state.value = _state.value.copy(busy = true)
+            try {
+                val trips = store.trips()
+                val days = trips.flatMap { store.dayCards(it.id) }
+                val captures = trips.flatMap { store.capturesForTrip(it.id) }
+                val rates = store.allRates()
+                val photoEntries = mutableMapOf<String, String>()
+                val archiveFiles = mutableListOf<ArchiveFile>()
+                captures.forEach { capture ->
+                    val path = capture.photoPath
+                    if (path.isNotBlank() && !path.startsWith("demo:") && files != null) {
+                        val photo = files.read(path)
+                            ?: error("Receipt photo ${capture.id} could not be read; no archive was saved.")
+                        val entryName =
+                            "photos/${archiveSafeName(capture.tripId)}/${archiveSafeName(capture.id)}.jpg"
+                        photoEntries[capture.id] = entryName
+                        archiveFiles += ArchiveFile(entryName, photo)
+                    }
+                }
+                val exportSettings = store.settings()
+                archiveFiles += ArchiveFile(
+                    "data/ariadne.json",
+                    DataArchiveZip.manifest(exportSettings, trips, days, captures, rates, photoEntries)
+                        .encodeToByteArray(),
+                )
+                archiveFiles += ArchiveFile(
+                    "data/trips.csv",
+                    DataArchiveZip.tripsCsv(trips).encodeToByteArray(),
+                )
+                archiveFiles += ArchiveFile(
+                    "data/captures.csv",
+                    DataArchiveZip.capturesCsv(captures, photoEntries).encodeToByteArray(),
+                )
+                archiveFiles += ArchiveFile(
+                    "data/days.csv",
+                    DataArchiveZip.daysCsv(days).encodeToByteArray(),
+                )
+                archiveFiles += ArchiveFile(
+                    "README.txt",
+                    (
+                        "Ariadne local archive. Structured data is in data/ariadne.json and CSV files. " +
+                            "Receipt images, when available, are in photos/."
+                        ).encodeToByteArray(),
+                )
+                val bytes = DataArchiveZip.encode(archiveFiles)
+                val saved = exporter.saveZip("ariadne-export-${clock.today().iso}.zip", bytes)
+                if (saved) say("Your Ariadne archive is ready.")
+            } catch (failure: CancellationException) {
+                throw failure
+            } catch (failure: Exception) {
+                report(failure)
+                say(failure.message ?: "The data archive could not be created.")
+            } finally {
+                _state.value = _state.value.copy(busy = false)
+            }
+        }
+    }
+
+    private fun archiveSafeName(value: String): String =
+        value.filter { it.isLetterOrDigit() || it == '-' || it == '_' }.ifBlank { "record" }
 
     public suspend fun bindTrip(trip: Trip) {
         val day = clock.today().coerceInto(trip)
@@ -355,59 +500,96 @@ public class AppModel(
         if (trip.isClosed) return
         val day = clock.today().coerceInto(trip)
         scope.launch {
-            val id = newId()
-            // Photo first, then the row: a row pointing at a file that was never
-            // written is a hole in the record, and this is the one ordering that
-            // cannot produce it.
-            val path = if (bytes.isNotEmpty() && files != null) {
-                runCatching { files.write(trip.id, day, id, bytes) }.getOrNull()
-                    ?: com.ariadne.store.PhotoPaths.capturePath(trip.id, day, id)
-            } else {
-                com.ariadne.store.PhotoPaths.capturePath(trip.id, day, id)
-            }
-            store.insert(
-                Capture(
-                    id = id,
-                    tripId = trip.id,
-                    localDate = day,
-                    photoPath = path,
-                    createdAt = clock.nowMillis(),
-                    state = CaptureState.QUEUED,
-                ),
-            )
-            // Extraction picks it up on the next drain; the shutter is already back.
-            extraction.drain()
-            refreshDay(day)
-            // A photograph taken abroad is the moment a rate first matters. Policy
-            // decides whether this is actually a request; a cached rate is enough.
-            runCatching { refreshRates() }.onFailure(::report)
-            // A batch import files its photographs and leaves the person where they
-            // are: the tray they just filled is the answer, not a sheet for the last
-            // photograph in the pile.
-            if (!openSheet) {
-                // The camera closes behind a batch too: the tray is the answer.
-                _state.value = _state.value.copy(shutterOpen = false)
+            val capture = try {
+                persistPhotograph(trip, day, bytes)
+            } catch (failure: CancellationException) {
+                throw failure
+            } catch (failure: Exception) {
+                captureFailed(failure)
                 return@launch
             }
-            // The sheet over the photograph is the editor, so it opens with the
-            // editor's state already loaded: the shutter gets out of the way and
-            // the amount field is live on the same tap. Nothing is pre-filled from
-            // extraction — a suggestion is offered, never typed in.
-            val saved = store.findById(id)
-            // The frame becomes the sheet over the page the camera was opened on.
-            // The route is deliberately untouched: nothing navigated, so there is
-            // nothing to navigate back from.
-            _state.value = _state.value.copy(
-                shutterOpen = false,
-                sheetCaptureId = id,
-                detail = saved,
-                detailOrigin = DetailOrigin.Record,
-                detailAmount = "",
-                detailMerchant = saved?.merchant ?: "",
-                detailNote = "",
-                detailCategory = saved?.category,
-            )
+
+            _state.value = if (openSheet) {
+                _state.value.copy(
+                    shutterOpen = false,
+                    sheetCaptureId = capture.id,
+                    detail = capture,
+                    detailOrigin = DetailOrigin.Record,
+                    detailAmount = "",
+                    detailMerchant = capture.merchant ?: "",
+                    detailNote = "",
+                    detailCategory = capture.category,
+                    captureError = null,
+                )
+            } else {
+                _state.value.copy(shutterOpen = false, captureError = null)
+            }
+
+            // The kept photograph is visible before OCR begins. A slow recognizer
+            // must not turn a zero-decision shutter into a wait screen.
+            extraction.drain()
+            refreshDay(day)
+            runCatching { refreshRates() }.onFailure(::report)
+            if (openSheet) {
+                val saved = store.findById(capture.id)
+                _state.value = _state.value.copy(
+                    detail = saved,
+                    detailMerchant = saved?.merchant ?: "",
+                    detailCategory = saved?.category,
+                )
+            }
         }
+    }
+
+    private suspend fun persistPhotograph(trip: Trip, day: LocalDay, bytes: ByteArray): Capture {
+        val id = newId()
+        val path = if (bytes.isEmpty()) {
+            com.ariadne.store.PhotoPaths.capturePath(trip.id, day, id)
+        } else {
+            val photoFiles = files
+                ?: throw IllegalStateException("Photo storage is unavailable on this platform.")
+            photoFiles.write(trip.id, day, id, bytes)
+        }
+        val capture = Capture(
+            id = id,
+            tripId = trip.id,
+            localDate = day,
+            photoPath = path,
+            createdAt = clock.nowMillis(),
+            state = CaptureState.QUEUED,
+        )
+        try {
+            store.insert(capture)
+        } catch (failure: Exception) {
+            if (bytes.isNotEmpty()) {
+                try {
+                    files?.delete(path)
+                } catch (cleanupFailure: Exception) {
+                    report(cleanupFailure)
+                }
+            }
+            throw failure
+        }
+        return capture
+    }
+
+    private fun captureFailed(failure: Exception) {
+        report(failure)
+        val message = "The photograph could not be kept. Try again."
+        _state.value = _state.value.copy(captureError = message)
+        say(message)
+    }
+
+    public fun photoImportFailed(failure: Exception) {
+        report(failure)
+        val message = "That photograph could not be read. Choose it again."
+        _state.value = _state.value.copy(captureError = message)
+        say(message)
+    }
+
+    public fun tripCardExportFailed(failure: Exception) {
+        report(failure)
+        say("The Trip Card image could not be saved.")
     }
 
     /** The demo path, still one call so the judged route stays short. */
@@ -442,15 +624,42 @@ public class AppModel(
      * a person who picked one thing probably wants to type the figure now.
      */
     public fun importPhotos(photos: List<ByteArray>) {
-        if (photos.isEmpty()) return
-        if (photos.size == 1) {
-            capturePhoto(photos.first())
+        val selected = photos.filter { it.isNotEmpty() }
+        if (selected.isEmpty()) return
+        if (selected.size == 1) {
+            capturePhoto(selected.first())
             return
         }
-        photos.forEachIndexed { index, bytes ->
-            // The last one is given the sheet only if the caller asked for a batch of
-            // exactly one, which is handled above; a real batch never interrupts.
-            capturePhoto(bytes, openSheet = false)
+        val trip = _state.value.trip ?: return
+        if (trip.isClosed) return
+        val day = clock.today().coerceInto(trip)
+        scope.launch {
+            var saved = 0
+            var failed = 0
+            selected.forEach { bytes ->
+                try {
+                    persistPhotograph(trip, day, bytes)
+                    saved++
+                } catch (failure: CancellationException) {
+                    throw failure
+                } catch (failure: Exception) {
+                    captureFailed(failure)
+                    failed++
+                }
+            }
+            if (saved > 0) {
+                extraction.drain()
+                refreshDay(day)
+                runCatching { refreshRates() }.onFailure(::report)
+            }
+            _state.value = _state.value.copy(shutterOpen = false, captureError = null)
+            say(
+                when {
+                    saved == 0 -> "None of the selected photographs could be kept."
+                    failed == 0 -> "$saved photographs added to the waiting stack."
+                    else -> "$saved photographs kept; $failed could not be saved."
+                },
+            )
         }
     }
 
@@ -512,7 +721,9 @@ public class AppModel(
                     // Every capture, not only the finished ones: a photo whose
                     // row goes with the trip would otherwise sit in the folder forever.
                     store.capturesForTrip(trip.id).forEach { capture ->
-                        files.delete(capture.photoPath)
+                        if (capture.photoPath.isNotBlank() && !capture.photoPath.startsWith("demo:")) {
+                            files.delete(capture.photoPath)
+                        }
                     }
                 }
             }
@@ -556,7 +767,7 @@ public class AppModel(
 
     public fun tripCardText(): String {
         val trip = _state.value.trip ?: return ""
-        val total = _state.value.categoryTotals.sumOf { it.baseMinor }
+        val total = _state.value.tripTotalMinor
         val closed = _state.value.dayCards.count { it.isClosed }
         val totalText = Money.ofMinor(total).formatWithSymbol(trip.baseCurrency)
         return buildString {
@@ -811,6 +1022,21 @@ public class AppModel(
         val scaled = fx.rateOrNull(from, trip.baseCurrency, _state.value.today ?: clock.today())
             ?: return null
         return "1 ${from.code} = ${formatScaled(scaled)} ${trip.baseCurrency.code}"
+    }
+
+    /** The effective date of the saved rate currently used for this currency pair. */
+    public fun rateDateLabel(code: String): String? {
+        val trip = _state.value.trip ?: return null
+        val from = com.ariadne.model.CurrencyCode.parseOrNull(code.trim().uppercase()) ?: return null
+        if (from == trip.baseCurrency) return null
+        val date = _state.value.today ?: clock.today()
+        val direct = fxRates
+            .filter { it.base == from && it.quote == trip.baseCurrency && it.date <= date }
+            .maxByOrNull { LocalDay.toEpochDay(it.date) }
+        val selected = direct ?: fxRates
+            .filter { it.base == trip.baseCurrency && it.quote == from && it.date <= date }
+            .maxByOrNull { LocalDay.toEpochDay(it.date) }
+        return selected?.date?.iso
     }
 
     /** Every foreign currency this trip's captures actually used. */
@@ -1588,12 +1814,12 @@ public class AppModel(
             go(Route.Capture)
             return
         }
-        _state.value = _state.value.copy(shutterOpen = true)
+        _state.value = _state.value.copy(shutterOpen = true, captureError = null)
     }
 
     /** Put the camera away without taking anything. */
     public fun closeShutter() {
-        _state.value = _state.value.copy(shutterOpen = false)
+        _state.value = _state.value.copy(shutterOpen = false, captureError = null)
     }
 
     /** Put the sheet away. The photograph stays in the record, where it was filed. */
@@ -1651,6 +1877,8 @@ public class AppModel(
             dayCapturesAll = byDay.mapKeys { it.key },
             dayFigures = figures,
             tripUnconverted = tripTally.unconverted.mapKeys { it.key.code }.mapValues { it.value },
+            tripPerCurrency = tripTally.perCurrency.mapKeys { it.key.code }.mapValues { it.value },
+            tripTotalMinor = tripTally.baseTotal.minorUnits,
         )
     }
 
@@ -1675,7 +1903,7 @@ public class AppModel(
             stackIndex = indexNow,
             dayTotalMinor = tally.baseTotal.minorUnits,
             dayCurrency = trip.baseCurrency.code,
-            perCurrency = tally.perCurrency.mapKeys { it.key.code }.mapValues { it.value },
+            dayPerCurrency = tally.perCurrency.mapKeys { it.key.code }.mapValues { it.value },
             dayUnconverted = tally.unconverted.mapKeys { it.key.code }.mapValues { it.value },
             dayRateDates = tally.rateDates.mapKeys { it.key.code }.mapValues { it.value.iso },
             // Aggregated here, from the same finished captures the trip total is

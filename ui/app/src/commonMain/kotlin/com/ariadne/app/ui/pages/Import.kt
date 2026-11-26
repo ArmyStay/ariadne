@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.staticCompositionLocalOf
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**
@@ -59,6 +60,7 @@ public fun pickerAvailable(): Boolean = LocalPhotoPicker.current != null
 public fun rememberPhotoImport(
     onBytes: (ByteArray) -> Unit,
     onUnavailable: () -> Unit,
+    onFailure: (Exception) -> Unit = {},
 ): () -> Unit {
     val picker = LocalPhotoPicker.current
     val scope = rememberCoroutineScope()
@@ -67,7 +69,14 @@ public fun rememberPhotoImport(
             onUnavailable()
         } else {
             scope.launch {
-                val bytes = runCatching { picker.pick() }.getOrNull()
+                val bytes = try {
+                    picker.pick()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    onFailure(failure)
+                    null
+                }
                 if (bytes != null && bytes.isNotEmpty()) onBytes(bytes)
             }
         }
@@ -85,6 +94,7 @@ public fun rememberPhotoImport(
 public fun rememberPhotoImportMany(
     onBytes: (List<ByteArray>) -> Unit,
     onUnavailable: () -> Unit,
+    onFailure: (Exception) -> Unit = {},
 ): () -> Unit {
     val picker = LocalPhotoPicker.current
     val scope = rememberCoroutineScope()
@@ -93,7 +103,14 @@ public fun rememberPhotoImportMany(
             onUnavailable()
         } else {
             scope.launch {
-                val bytes = runCatching { picker.pickMany() }.getOrNull().orEmpty()
+                val bytes = try {
+                    picker.pickMany()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    onFailure(failure)
+                    emptyList()
+                }
                 val photos = bytes.filter { it.isNotEmpty() }
                 if (photos.isNotEmpty()) onBytes(photos)
             }

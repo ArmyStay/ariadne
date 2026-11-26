@@ -165,5 +165,5 @@ selectSettings:
 SELECT * FROM settings WHERE id = 1;
 
 upsertSettings:
-INSERT OR REPLACE INTO settings(id, baseCurrency, homeCurrency, theme, ocrProvider)
-VALUES (1, ?, ?, ?, ?);
+INSERT OR REPLACE INTO settings(id, baseCurrency, homeCurrency, theme, ocrProvider, displayName)
+VALUES (1, ?, ?, ?, ?, ?);

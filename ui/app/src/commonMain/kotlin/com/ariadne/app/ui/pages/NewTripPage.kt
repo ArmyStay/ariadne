@@ -73,11 +73,11 @@ public fun NewTripPage(
         Masthead(
             number = "",
             eyebrow = if (state.trip == null) "Ariadne" else "another trip",
-            title = "Where to",
+            title = "Create a trip",
             paper = paper,
             italic = true,
             wide = wide,
-            lede = "A name, the dates, and a figure to stay under. The fence is optional.",
+            lede = "Give it a name and dates. A budget is optional.",
         )
 
         Spacer(Modifier.height(26.dp))
@@ -172,36 +172,9 @@ public fun NewTripPage(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.weight(1f)) {
-                Action("Open the trip", paper, { model.commitDraft() }, accent = true)
+                Action("Create trip", paper, { model.commitDraft() }, accent = true)
             }
             QuietOpen(paper, model)
-        }
-
-        Spacer(Modifier.height(28.dp))
-        SectionHead("II", "or start with something in it", paper)
-
-        Body(
-            "Five photographs of one Bangkok afternoon, already taken — you land on the trip " +
-                "with five photographs waiting for an amount.",
-            paper,
-            color = paper.inkFaint,
-            size = 13.sp,
-            lineHeight = 20.sp,
-        )
-        Spacer(Modifier.height(16.dp))
-        // Stacked on a phone, side by side on a wide page: two outlined bars in a row
-        // at 440dp leaves the second one hanging off the measure.
-        if (wide) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlineAction("Demo roll", paper, { model.commitDraft(withDemoRoll = true) })
-                OutlineAction("Prefill from demo", paper, { model.fillDraftFromDemo() })
-            }
-        } else {
-            Column {
-                OutlineAction("Demo roll", paper, { model.commitDraft(withDemoRoll = true) })
-                Spacer(Modifier.height(10.dp))
-                OutlineAction("Prefill from demo", paper, { model.fillDraftFromDemo() })
-            }
         }
 
         Spacer(Modifier.height(30.dp))

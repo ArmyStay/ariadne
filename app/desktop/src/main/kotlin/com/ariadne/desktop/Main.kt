@@ -11,6 +11,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.ariadne.app.AppGraph
 import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
+import com.ariadne.app.ui.pages.LocalDataArchiveExporter
 import com.ariadne.core.time.SystemClock
 import com.ariadne.extract.TextRecognizer
 import java.io.File
@@ -37,7 +38,11 @@ fun main() {
             // camera is on Android: the page asks "which image?", the target
             // answers with whatever its platform calls a picker.
             ProvideDesktopPhotoPicker(null) {
-                AriadneApp(model = graph.model, wide = true)
+                androidx.compose.runtime.CompositionLocalProvider(
+                    LocalDataArchiveExporter provides DesktopDataArchiveExporter,
+                ) {
+                    AriadneApp(model = graph.model, wide = true)
+                }
             }
         }
     }
@@ -45,6 +50,13 @@ fun main() {
 
 private class DesktopServices : PlatformServices {
     private val dbFile = File(System.getProperty("user.home"), ".ariadne/ariadne.db")
+    private val photosDirectory = File(dbFile.parentFile, "photographs")
+
+    override val storageDisclosure: String =
+        "Trips and rates are stored in the local database under .ariadne; receipt photographs are kept beside it on this device. Nothing is synced."
+
+    override val rateDisclosure: String =
+        "This build does not fetch rates online. Rates you enter are kept locally, and the date shown is the saved rate's effective date."
 
     override fun store(): com.ariadne.store.Store = com.ariadne.store.AriadneStore(
         driver = run {
@@ -91,14 +103,19 @@ private class DesktopServices : PlatformServices {
         ).value
         val trip = columnsOf("trip")
         val capture = columnsOf("capture")
+        val settings = columnsOf("settings")
         // An empty table list means the file is new, which is fine: openOrMigrate
         // has already created it by the time this runs.
-        (trip.isEmpty() || "place" in trip) && (capture.isEmpty() || "category" in capture)
+        (trip.isEmpty() || "place" in trip) &&
+            (capture.isEmpty() || "category" in capture) &&
+            (settings.isEmpty() || "displayName" in settings)
     } catch (e: Exception) {
         false
     }
 
     override fun recognizer(): TextRecognizer = TesseractTextRecognizer()
+
+    override fun files(): com.ariadne.app.PhotoFiles = DesktopFiles(photosDirectory)
 
     override fun close() = Unit
 }

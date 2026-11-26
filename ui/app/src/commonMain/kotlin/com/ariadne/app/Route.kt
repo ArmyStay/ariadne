@@ -12,7 +12,7 @@ import com.ariadne.model.Settings
 import com.ariadne.model.Trip
 import com.ariadne.model.entryStatus
 
-/** Every surface in the app. There are six, and none of them is a spreadsheet. */
+/** Every route in the app, including the four primary dock destinations. */
 /**
  * The four places in the bar. Everything else is stacked on top of one of them.
  *
@@ -22,7 +22,7 @@ import com.ariadne.model.entryStatus
  * the place onto the stack.
  */
 public fun Route.isDestination(): Boolean =
-    this == Route.Home || this == Route.Days || this == Route.Trip || this == Route.Stats
+    this == Route.Home || this == Route.Days || this == Route.Stats || this == Route.More
 
 /**
  * Where a launch lands, decided once, from two facts.
@@ -51,8 +51,22 @@ public fun startRoute(hasAnyTrip: Boolean, hasOpenTrip: Boolean): Route = when {
  * short and the surfaces are few, so the routing table should be readable in full.
  */
 public sealed interface Route {
-    /** 1. The shelf of trips. */
+    /** The archive of past and current trips. */
     public data object Trips : Route
+
+    /** The fourth dock destination: a quiet index for secondary actions. */
+    public data object More : Route
+
+    /** Photo-free expense entry. */
+    public data object ManualEntry : Route
+
+    /** The local data archive flow. */
+    public data object DataExport : Route
+
+    /** Informational legal page, explicitly marked as a draft until reviewed. */
+    public data object PrivacyPolicy : Route
+
+    public data object Terms : Route
 
     /** 2. First run: what this is, in one page. */
     public data object Onboarding : Route
@@ -65,7 +79,7 @@ public sealed interface Route {
      */
     public data object NewTrip : Route
 
-    /** 3. One trip as an object: dates, progress, currencies. */
+    /** Legacy route retained as a Timeline alias. */
     public data object Trip : Route
 
     /** 4. The shutter. */
@@ -112,23 +126,16 @@ public sealed interface Route {
     // These are tabs, not pages: the routed surfaces above still stack on top of
     // them. Capture is a fifth destination but has no tab — it is the shutter.
 
-    /** The shelf, with today's figure on it. */
+    /** Today's record, recent expenses, and the active trip. */
     public data object Home : Route
 
-    /** The trip as a run of days, with today's week in a strip at the top. */
+    /** The active trip overview and its days. */
     public data object Days : Route
 
     /** What it came to. */
     public data object Stats : Route
 
-    /**
-     * Preferences: the stock, the currencies, the exchange.
-     *
-     * "Preferences" is the one canonical name for this surface. The Home action
-     * that opens it is printed `PREFS`, because that is the word a printed index
-     * would use at that size; the route, the page title and the code all say
-     * Preferences.
-     */
+    /** Settings and local profile details, reached from More. */
     public data object Preferences : Route
 }
 
@@ -200,7 +207,8 @@ public data class AppUiState(
      * written back when it is changed; the palette itself lives in `:core:design`
      * and has done since the first commit — this is only what finally selects it.
      */
-    public val theme: Settings.Theme = Settings.Theme.SYSTEM,
+    public val theme: Settings.Theme = Settings.Theme.LIGHT,
+    public val displayName: String = "",
     public val trip: Trip? = null,
     public val today: LocalDay? = null,
     public val dayCards: List<DayCard> = emptyList(),
@@ -210,7 +218,11 @@ public data class AppUiState(
     public val amountInput: String = "",
     public val dayTotalMinor: Long = 0,
     public val dayCurrency: String = "INR",
-    public val perCurrency: Map<String, Long> = emptyMap(),
+    public val dayPerCurrency: Map<String, Long> = emptyMap(),
+    /** Confirmed money across the whole trip, kept in each receipt's currency. */
+    public val tripPerCurrency: Map<String, Long> = emptyMap(),
+    /** Confirmed trip total after conversion to the trip's base currency. */
+    public val tripTotalMinor: Long = 0,
     /**
      * Money on this day that has no rate, in its own currency.
      *
@@ -280,6 +292,10 @@ public data class AppUiState(
 
     /** A refused exchange rate, in one line, for the field that refused it. */
     public val rateError: String? = null,
+    /** Platform-specific explanation of where trip and photograph data is kept. */
+    public val storageDisclosure: String = "This preview keeps data in memory for this session only.",
+    /** How rates reach this target, including whether automatic fetching is available. */
+    public val rateDisclosure: String = "Rates are entered manually and kept in the current preview session.",
 
     /**
      * The last error the app caught, as one line, for the diagnostic on
@@ -290,6 +306,9 @@ public data class AppUiState(
 
     /** The last thing that happened, if it is still worth worth saying. */
     public val notice: Notice? = null,
+
+    /** Capture or import failure shown on the shutter while it remains open. */
+    public val captureError: String? = null,
 
     /**
      * The camera, open over whatever page is showing.

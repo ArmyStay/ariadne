@@ -23,6 +23,7 @@ public fun PhotoPreview(
 ) {
     val renderer = LocalPhotoImageRenderer.current
     when {
+        photoPath.isEmpty() -> PhotographPlaceholder(paper, "Manual expense · no photograph", modifier)
         photoPath.startsWith("demo:") -> Plate(
             subject = Subject.forMerchant(caption),
             paper = paper,

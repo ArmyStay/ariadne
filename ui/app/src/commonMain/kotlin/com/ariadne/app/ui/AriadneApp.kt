@@ -57,6 +57,10 @@ import com.ariadne.app.ui.pages.TimelinePage
 import com.ariadne.app.ui.pages.TripCardPage
 import com.ariadne.app.ui.pages.TripsPage
 import com.ariadne.app.ui.pages.TripPage
+import com.ariadne.app.ui.pages.MorePage
+import com.ariadne.app.ui.pages.ManualEntryPage
+import com.ariadne.app.ui.pages.DataExportPage
+import com.ariadne.app.ui.pages.LegalPage
 import com.ariadne.design.AriadneTheme
 import com.ariadne.design.LocalAccentBudget
 import com.ariadne.design.LocalMotionPreference
@@ -69,7 +73,7 @@ import com.ariadne.model.Settings
 import androidx.compose.foundation.isSystemInDarkTheme
 
 /**
- * The app: four tab destinations, five pages that stack on top of them, one state
+ * The app: four tab destinations, pages that stack on top of them, one state
  * object, one `when`.
  *
  * The tab bar is part of the shell rather than of each page, so it cannot drift
@@ -165,15 +169,33 @@ public fun AriadneApp(
                         // app is a book, so pages turn across, not up.
                         val drift = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(Motion.Drift) }
                         androidx.compose.runtime.LaunchedEffect(target) { drift.animateTo(0f, spec) }
-                        Box(Modifier.offset(x = drift.value.dp)) {
-                            // Each surface gets its own budget for the one blue
-                            // action. Keyed by route: a page turn must not charge
-                            // the outgoing page's blue to the incoming one.
-                            CompositionLocalProvider(
-                                LocalAccentBudget provides rememberAccentBudget(target),
-                                LocalSurfaceId provides target,
-                            ) {
-                                Destination(target, state, model, paper, wide, onShutter)
+                        Column(Modifier.fillMaxSize()) {
+                            val parent = state.history.lastOrNull()
+                            if (parent != null && target.needsParentBack()) {
+                                QuietAction(
+                                    "Back to ${parent.backLabel()}",
+                                    paper,
+                                    { model.back() },
+                                    modifier = Modifier.padding(
+                                        start = if (wide) Bone.MarginWide else Bone.Margin,
+                                        top = 8.dp,
+                                        bottom = 4.dp,
+                                    ),
+                                    color = paper.inkSoft,
+                                )
+                            }
+                            Box(Modifier.weight(1f)) {
+                                Box(Modifier.offset(x = drift.value.dp)) {
+                                    // Each surface gets its own budget for the one blue
+                                    // action. Keyed by route: a page turn must not charge
+                                    // the outgoing page's blue to the incoming one.
+                                    CompositionLocalProvider(
+                                        LocalAccentBudget provides rememberAccentBudget(target),
+                                        LocalSurfaceId provides target,
+                                    ) {
+                                        Destination(target, state, model, paper, wide, onShutter)
+                                    }
+                                }
                             }
                         }
                     }
@@ -182,7 +204,7 @@ public fun AriadneApp(
                 // What just happened, in one line, above whatever is at the foot of
                 // the page — including the bar, because an undo offer must be the
                 // last thing between the person and the change they want back.
-                state.notice?.let { notice ->
+                state.notice?.takeIf { state.sheetCaptureId == null && !state.shutterOpen }?.let { notice ->
                     NoticeBar(
                         notice = notice,
                         paper = paper,
@@ -191,38 +213,35 @@ public fun AriadneApp(
                     )
                 }
 
-                // The camera and the sheet are overlays, not routes: they cover the
-                // page they were raised from, and putting them away returns to it
-                // exactly as it was. The sheet draws after the camera so a capture
-                // never shows the viewfinder for a frame underneath.
-                if (state.shutterOpen) {
-                    CaptureOverlay(
-                        state = state,
-                        model = model,
-                        paper = paper,
-                        wide = wide,
-                        onFrame = { bytes -> if (bytes.isNotEmpty()) model.capturePhoto(bytes) },
-                    )
-                }
-
-                state.sheetCaptureId?.let { id ->
-                    FramePage(state, model, paper, wide, id)
-                }
-
-                if (route.showsTabBar()) {
+                if (route.showsTabBar() && !state.shutterOpen && state.sheetCaptureId == null) {
                     AriadneBar(
                         paper = paper,
                         selected = route.tab(),
-                        // A stacked page is announced as stacked from Home rather
-                        // than as Home: a screen reader should hear where the bar
-                        // is, not be told the person is on a tab they are not on.
-                        barDescription = route.stackedFrom(),
+                        // A stacked page is announced with its actual parent, not
+                        // as though the underlying destination were selected.
+                        barDescription = route.stackedFrom(state.history.lastOrNull()),
                         onSelect = { tab -> model.go(tab.route()) },
                         onCapture = { model.openCapture() },
                         waiting = state.tripPending.size,
                         captureEnabled = state.trip?.isClosed == false,
                     )
                 }
+            }
+
+            // These are true covers of the current page, not extra full-height
+            // children in its column. They keep the camera, sheet and dock from
+            // pushing one another off-screen or competing for the same decision.
+            if (state.shutterOpen) {
+                CaptureOverlay(
+                    state = state,
+                    model = model,
+                    paper = paper,
+                    wide = wide,
+                    onFrame = { bytes -> if (bytes.isNotEmpty()) model.capturePhoto(bytes) },
+                )
+            }
+            state.sheetCaptureId?.let { id ->
+                FramePage(state, model, paper, wide, id)
             }
         }
     }
@@ -248,10 +267,14 @@ private fun Destination(
         // The four tabs.
         Route.Home -> HomePage(state, model, paper, wide)
         Route.Days -> TimelinePage(state, model, paper, wide)
+        Route.Trip -> TimelinePage(state, model, paper, wide)
         Route.Stats -> StatsPage(state, model, paper, wide)
         Route.Preferences -> PreferencesPage(state, model, paper, wide, state.failureNote)
-
-        Route.Trip -> TripPage(state, model, paper, wide)
+        Route.More -> MorePage(state, model, paper, wide)
+        Route.ManualEntry -> ManualEntryPage(state, model, paper, wide)
+        Route.DataExport -> DataExportPage(state, model, paper, wide)
+        Route.PrivacyPolicy -> LegalPage(state, paper, wide, terms = false)
+        Route.Terms -> LegalPage(state, paper, wide, terms = true)
 
         Route.Capture -> CapturePage(
             state = state,
@@ -296,10 +319,40 @@ private fun Destination(
  * A screen reader should hear where the bar belongs, not be told the person is on
  * a destination they are not on.
  */
-private fun Route.stackedFrom(): String? = when (this) {
-    Route.Trips -> "Trips, stacked over Today"
-    Route.Preferences, Route.Settings -> "Preferences, stacked over Today"
+private fun Route.stackedFrom(parent: Route?): String? = when (this) {
+    Route.Trips -> "Trips, stacked over ${parent?.backLabel() ?: "the current page"}"
+    Route.ManualEntry -> "Manual entry, stacked over ${parent?.backLabel() ?: "the current page"}"
+    Route.DataExport -> "Data export, stacked over ${parent?.backLabel() ?: "the current page"}"
+    Route.Preferences, Route.Settings ->
+        "Preferences, stacked over ${parent?.backLabel() ?: "the current page"}"
     else -> null
+}
+
+private fun Route.needsParentBack(): Boolean = when (this) {
+    Route.Home, Route.Days, Route.Trip, Route.Stats, Route.More, Route.Capture, is Route.Frame -> false
+    else -> true
+}
+
+private fun Route.backLabel(): String = when (this) {
+    Route.Home -> "Home"
+    Route.Days, Route.Trip -> "Timeline"
+    Route.Stats -> "Stats"
+    Route.More -> "More"
+    Route.Trips -> "the register"
+    Route.Preferences, Route.Settings -> "Preferences"
+    Route.Search -> "Search"
+    is Route.Record -> "the record"
+    is Route.CloseDay -> "Close day"
+    is Route.Detail -> "the photograph"
+    is Route.TripCard -> "the trip card"
+    Route.NewTrip -> "new trip"
+    Route.ManualEntry -> "manual entry"
+    Route.DataExport -> "data export"
+    Route.PrivacyPolicy -> "privacy"
+    Route.Terms -> "terms"
+    Route.Onboarding -> "the first page"
+    Route.Capture -> "the shutter"
+    is Route.Frame -> "the photograph"
 }
 
 /**

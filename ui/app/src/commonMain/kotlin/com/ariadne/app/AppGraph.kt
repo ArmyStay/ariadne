@@ -86,6 +86,8 @@ public class AppGraph(
             // and the queue agree without a sequence table.
             newId = { "c-${clock.nowMillis()}-${idCounter++}" },
             rateSource = platform.rateSource(),
+            storageDisclosure = platform.storageDisclosure,
+            rateDisclosure = platform.rateDisclosure,
         ).also { m -> m.onFailure = { lastFailure = it } }
     }
 
@@ -120,6 +122,14 @@ public class AppGraph(
 public interface PlatformServices {
     public fun store(): Store
     public fun recognizer(): com.ariadne.extract.TextRecognizer
+
+    /** What this build actually persists locally, stated for Preferences. */
+    public val storageDisclosure: String
+        get() = "This preview keeps data in memory for this session only."
+
+    /** How exchange rates are sourced and retained on this target. */
+    public val rateDisclosure: String
+        get() = "Rates are entered manually and kept in the current preview session."
 
     /** Where photographs are written. Null for a target that has no file system. */
     public fun files(): PhotoFiles? = null
