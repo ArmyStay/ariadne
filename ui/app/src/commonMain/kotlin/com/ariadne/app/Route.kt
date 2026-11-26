@@ -162,6 +162,23 @@ public data class TripDraft(
  */
 public enum class DetailOrigin { Record, Search }
 
+/**
+ * A line at the foot of the page that says what just happened.
+ *
+ * It exists for the one thing a ledger of photographs cannot do silently: taking a
+ * correction back. An edit overwrites a figure the person may have read a hundred
+ * times; without a way to undo it, the only safe edit is no edit. [actionLabel] is
+ * null for notices that are statements rather than offers.
+ *
+ * [id] changes on every notice so the UI can key on it and a screen reader
+ * announces a new line rather than a changed one.
+ */
+public data class Notice(
+    public val text: String,
+    public val actionLabel: String? = null,
+    public val id: Long = 0,
+)
+
 public data class AppUiState(
     public val route: Route = Route.Onboarding,
     /**
@@ -268,6 +285,9 @@ public data class AppUiState(
      * down somewhere a person can find rather than only in a console.
      */
     public val failureNote: String? = null,
+
+    /** The last thing that happened, if it is still worth saying. */
+    public val notice: Notice? = null,
 ) {
     public val current: Capture? get() = stack.getOrNull(stackIndex)
     public val remaining: Int get() = (stack.size - stackIndex).coerceAtLeast(0)

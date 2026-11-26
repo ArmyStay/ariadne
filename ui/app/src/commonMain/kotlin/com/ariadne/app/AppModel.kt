@@ -1216,6 +1216,82 @@ public class AppModel(
     }
 
     /**
+     * What a photograph looked like before the last edit, so the edit can be taken
+     * back exactly — including the rate its figure was pinned at, which is the part
+     * a partial undo would silently move.
+     */
+    private data class EditSnapshot(
+        val id: String,
+        val day: LocalDay,
+        val amountMinor: Long?,
+        val currency: String?,
+        val merchant: String?,
+        val category: String?,
+        val note: String?,
+        val rateScaled: Long?,
+        val rateDate: String?,
+        val state: CaptureState,
+    )
+
+    private var lastEdit: EditSnapshot? = null
+    private var noticeSeq = 0L
+
+    /** Say the last thing that happened, and forget it after long enough to act. */
+    private fun say(text: String, actionLabel: String? = null) {
+        noticeSeq += 1
+        val id = noticeSeq
+        _state.value = _state.value.copy(notice = Notice(text, actionLabel, id))
+        // Long enough to read and reach, short enough that a stale offer never sits
+        // there claiming to undo something three edits ago.
+        scope.launch {
+            kotlinx.coroutines.delay(9_000)
+            if (_state.value.notice?.id == id) _state.value = _state.value.copy(notice = null)
+        }
+    }
+
+    /** Put the notice away. The offer goes with it: no undo for a notice you closed. */
+    public fun dismissNotice() {
+        _state.value = _state.value.copy(notice = null)
+        lastEdit = null
+    }
+
+    /**
+     * Take the last edit back.
+     *
+     * Restores the row as it was — amount, currency, merchant, category, note, the
+     * pinned rate and the queue state — and re-derives the day and the index from
+     * the store rather than patching the UI's copy. One write per column group, in
+     * the order the record has always used.
+     */
+    public fun undoLastEdit() {
+        val snapshot = lastEdit ?: return
+        lastEdit = null
+        _state.value = _state.value.copy(notice = null)
+        scope.launch {
+            store.updateDetail(
+                id = snapshot.id,
+                amountMinor = snapshot.amountMinor,
+                currencyCode = snapshot.currency,
+                merchant = snapshot.merchant,
+                category = snapshot.category,
+                note = snapshot.note,
+            )
+            store.recordRate(snapshot.id, snapshot.rateScaled, snapshot.rateDate)
+            store.updateState(snapshot.id, snapshot.state)
+            val restored = store.findById(snapshot.id)
+            index.rebuild(store.confirmedForTrip(_state.value.trip?.id ?: return@launch))
+            refreshDay(snapshot.day)
+            _state.value = _state.value.copy(
+                detail = restored,
+                detailAmount = restored?.let { amountBuffer(it) } ?: "",
+                detailMerchant = restored?.merchant ?: "",
+                detailNote = restored?.note ?: "",
+                detailCategory = restored?.category,
+            )
+        }
+    }
+
+    /**
      * Saves and steps back. An empty amount field clears the figure rather than
      * writing a zero: "I did not record this" and "this cost nothing" are
      * different claims and the record keeps them apart.
@@ -1228,6 +1304,21 @@ public class AppModel(
         if (_state.value.trip?.isClosed == true) return
         val currency = capture.currency ?: _state.value.trip?.baseCurrency ?: CurrencyCode.of("INR")
         val parsed = if (keepWithoutAmount) null else Money.parseOrNull(_state.value.detailAmount, currency)
+        // The pre-image, taken before anything is written. Without it an edit is a
+        // one-way door, and a one-way door on a figure someone already read is the
+        // reason people stop trusting a ledger.
+        val before = EditSnapshot(
+            id = capture.id,
+            day = capture.localDate,
+            amountMinor = capture.amountMinor,
+            currency = capture.currency?.code,
+            merchant = capture.merchant,
+            category = capture.category?.name,
+            note = capture.note,
+            rateScaled = capture.rateScaled,
+            rateDate = capture.rateDate?.iso,
+            state = capture.state,
+        )
         scope.launch {
             store.updateDetail(
                 id = capture.id,
@@ -1254,6 +1345,8 @@ public class AppModel(
                 detail = saved,
                 detailCategory = saved?.category,
             )
+            lastEdit = before
+            say("Saved", "Undo")
         }
     }
 

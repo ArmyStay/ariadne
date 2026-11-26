@@ -1,108 +1,75 @@
 package com.ariadne.app.ui.pages
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.key
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.ui.text.font.FontWeight
 import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
-import com.ariadne.design.ScrollRail
-import com.ariadne.design.Label
-import com.ariadne.design.LinkAction
-import com.ariadne.design.Motion
-import com.ariadne.design.NavRow
-import com.ariadne.design.Reveal
-import com.ariadne.design.SectionBreak
-import com.ariadne.design.Rule
-import com.ariadne.design.Numeral
-import com.ariadne.design.motionSpec
-import com.ariadne.design.OutlineAction
-import com.ariadne.design.Masthead
-import com.ariadne.design.Page
-import com.ariadne.design.PageHeader
-import com.ariadne.design.RailFigure
-import com.ariadne.design.SectionHead
 import com.ariadne.design.Glyph
-import com.ariadne.design.animatedLong
-import com.ariadne.design.Grid
 import com.ariadne.design.Icon
-import com.ariadne.design.PageAction
+import com.ariadne.design.Label
+import com.ariadne.design.OutlineAction
 import com.ariadne.design.Paper
-import com.ariadne.design.Panel
 import com.ariadne.design.Pill
 import com.ariadne.design.PillTone
-import com.ariadne.design.Plate
 import com.ariadne.design.QuietAction
-import com.ariadne.design.Subject
-import com.ariadne.design.Tick
+import com.ariadne.design.Rule
 import com.ariadne.design.Title
-import com.ariadne.model.Capture
-import com.ariadne.model.CurrencyCode
-import com.ariadne.model.LocalDay
-import com.ariadne.model.Money
-import com.ariadne.model.DaySummary
 import com.ariadne.model.Settings
-import com.ariadne.model.dayRange
-import com.ariadne.model.symbol
-
 
 /**
- * The four destinations in the bottom bar, as single views.
+ * Preferences — the things that are actually decisions.
  *
- * They are not "screens" in the routed sense — the routed pages (a trip, a day,
- * the card) still sit on top of these. Each one is a scroller with a headline, a
- * figure and a list, in the reference's language: white panels on paper, hairline
- * rules, tracked-out labels, one blue action.
+ * The old page was a numbered form: "I — the record", "II — the exchange",
+ * "III — what leaves this device", "IV — this trip", with a Masthead plate number
+ * above it. Four sections of a form is a form, and a form is what this page is not:
+ * it holds two real choices (the two currencies), one reading preference (which
+ * paper), a set of exchange rates that are typed rather than chosen, and the trip's
+ * own closing actions.
+ *
+ * So it is now five short blocks with names and rules between them, and every row
+ * says whether it can be changed:
+ *
+ *   - **Money** — base and home currency, the only two settings with real
+ *     consequences for the figures everywhere else.
+ *   - **Paper** — light, night, or the device's own answer.
+ *   - **The exchange** — one line per currency in use, each a sentence the person
+ *     can check against a board at the airport: "1 THB = 2.5 INR".
+ *   - **This device** — what leaves it (nothing) and the last failure, if any.
+ *   - **This trip** — its page, its card, and the two-tap deletion.
+ *
+ * A row that cannot be changed is printed as a read-out and says so. A row that
+ * looks like a setting and does nothing is decoration wearing a control's clothes.
  */
-
-// Home and the Days tab live in their own files (`TodayPage.kt`, `DaysPage.kt`):
-// they are the two surfaces the redesign rewrote first, and they are not
-// shapes the other tabs share.
-
-// Stats, Today and the Days tab each have their own file. What is left in this
-// file is Preferences — the one surface that is still a long form rather than a
-// page of figures, and the next thing to be rewritten.
-
-// ── 4. Preferences ──────────────────────────────────────────────────────────
-
 @Composable
 public fun PreferencesPage(
     state: AppUiState,
@@ -112,8 +79,8 @@ public fun PreferencesPage(
     lastFailure: String? = null,
 ) {
     TabPage(
-        paper,
-        wide,
+        paper = paper,
+        wide = wide,
         railDocked = state.railDocked,
         onToggleRail = { model.toggleRail() },
         rail = {
@@ -122,25 +89,41 @@ public fun PreferencesPage(
             Label("no account · no sync", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
         },
     ) {
-        Masthead(
-            number = "04",
-            eyebrow = "Ariadne",
-            title = "Preferences",
-            paper = paper,
-            wide = wide,
-            trailing = { PageAction("Done", paper, { model.go(Route.Home) }) },
-        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Label("ariadne", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+                Spacer(Modifier.height(8.dp))
+                Title("Preferences", paper, size = if (wide) 40.sp else 30.sp, italic = true)
+            }
+            // The bar is hidden on this page (it is not one of the four), so Back
+            // lives here. The system gesture does the the same thing.
+            // Back through the stack, and to Today if this page was somehow
+            // arrived at first: a page with no exit is worse than a page with a
+            // guess for one.
+            QuietAction("Back", paper, {
+                if (!model.back()) model.go(Route.Home)
+            }, color = paper.inkSoft)
+        }
 
+        Spacer(Modifier.height(24.dp))
+        Rule(paper, color = paper.edgeStrong)
+        Spacer(Modifier.height(20.dp))
+
+        // ── money ───────────────────────────────────────────────────────────
+        Label("money", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+        Spacer(Modifier.height(6.dp))
+        Body(
+            "Two currencies, and every figure in the book follows them.",
+            paper,
+            serif = true,
+            color = paper.inkSoft,
+            size = 14.sp,
+            lineHeight = 20.sp,
+        )
         Spacer(Modifier.height(14.dp))
 
-        // Every row below is a read-out of something real, and the two that can be
-        // changed are the two that are actually changeable. A row that says
-        // "Date format — 2026-11-23" with no way to set it would be decoration
-        // pretending to be a setting; the ones that cannot change say so instead.
-        SectionHead("I", "the record", paper)
-
-        // Both currencies come from the same catalogue the New trip page uses, so
-        // there is one vocabulary for choosing money in the whole app.
+        // Both come from the same catalogue the New trip page uses, so there is one
+        // vocabulary for choosing money in the whole app.
         CurrencyField(
             label = "Base currency",
             code = state.trip?.baseCurrency?.code ?: "INR",
@@ -157,28 +140,64 @@ public fun PreferencesPage(
             paper = paper,
             onChoose = { model.editTripHomeCurrency(it) },
         )
-        PrefReadout(Glyph.Date, "Dates", "${state.today?.iso ?: "2026-11-23"}, ISO order", paper)
-        PrefPaper(paper, state.theme) { model.setTheme(it) }
 
-        // ── The exchange rate ────────────────────────────────────────────────
+        Spacer(Modifier.height(8.dp))
+        Readout(
+            glyph = Glyph.Date,
+            label = "Dates",
+            value = "${state.today?.iso ?: "—"}, ISO order",
+            note = "Fixed on purpose: a date that can be reordered is a date that can be misread",
+            paper = paper,
+        )
+
+        Spacer(Modifier.height(24.dp))
+        Rule(paper)
+        Spacer(Modifier.height(20.dp))
+
+        // ── paper ───────────────────────────────────────────────────────────
+        Label("paper", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+        Spacer(Modifier.height(14.dp))
+        PaperChoice(paper, state.theme) { model.setTheme(it) }
+
+        Spacer(Modifier.height(24.dp))
+        Rule(paper)
+        Spacer(Modifier.height(20.dp))
+
+        // ── the exchange ────────────────────────────────────────────────────
         //
-        // Not decoration: without a rate a foreign amount cannot be converted,
-        // and every total silently under-reports. The figures are exact scaled
-        // integers all the way down; this is the only place a human types one.
-        Spacer(Modifier.height(26.dp))
-        SectionHead("II", "the exchange", paper)
+        // Not decoration: without a rate a foreign amount cannot be converted, and
+        // every total silently under-reports. The figures are exact scaled integers
+        // all the way down; this is the only place a human types one.
+        Label("the exchange", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+        Spacer(Modifier.height(6.dp))
+        Body(
+            "A rate is true on a day. The rate a figure was converted at is pinned to that " +
+                "photograph, so changing one here never rewrites a total you have already read.",
+            paper,
+            serif = true,
+            color = paper.inkSoft,
+            size = 14.sp,
+            lineHeight = 20.sp,
+        )
+        Spacer(Modifier.height(6.dp))
 
         val inUse = model.currenciesInUse()
         val foreign = (inUse + listOf("THB", "USD", "EUR", "GBP", "JPY"))
             .filter { it != state.trip?.baseCurrency?.code }
             .distinct()
 
-        // One open field at a time. Two live keyboards' worth of ruled boxes on
-        // one page is a form; the page is a ledger with one line you can edit.
+        // One open field at a time. Two live keyboards' worth of ruled boxes on one
+        // page is a form; this page is a ledger with one line you can edit.
         var openCode by remember { mutableStateOf<String?>(null) }
 
         if (foreign.isEmpty()) {
-            Body("Everything so far is already in the base currency.", paper, color = paper.inkFaint, size = 12.sp)
+            Spacer(Modifier.height(10.dp))
+            Body(
+                "Everything so far is already in the base currency.",
+                paper,
+                color = paper.inkFaint,
+                size = 12.sp,
+            )
         } else {
             foreign.forEachIndexed { index, code ->
                 // Keyed so an opened row's typed text belongs to that currency and
@@ -213,27 +232,39 @@ public fun PreferencesPage(
             Body(state.rateError, paper, color = paper.inkMid, size = 12.sp)
         }
 
-        Spacer(Modifier.height(26.dp))
-        SectionHead("III", "what leaves this device", paper)
+        Spacer(Modifier.height(24.dp))
+        Rule(paper)
+        Spacer(Modifier.height(20.dp))
 
-        PrefReadout(Glyph.Ledger, "Reading", "On device only", paper)
+        // ── this device ─────────────────────────────────────────────────────
+        Label("this device", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
         Spacer(Modifier.height(12.dp))
+        Readout(
+            glyph = Glyph.Ledger,
+            label = "Reading",
+            value = "On device only",
+            note = null,
+            paper = paper,
+        )
+        Spacer(Modifier.height(10.dp))
         Body(
             "Nothing leaves. There is no account to sign into and no server to sign into it " +
                 "from. Photographs are stored in the app's private folder, the record lives in " +
-                "a local database, and there is no network call in the product at all.",
+                "a local database, and the only network call the product makes is the one that " +
+                "fetches an exchange rate.",
             paper,
             color = paper.inkMid,
             size = 14.sp,
             lineHeight = 21.sp,
         )
 
-        // The honest diagnostic. If anything threw and was swallowed - which is
-        // exactly how a dead button happens - it is written here rather than
-        // living only in a console nobody has attached to.
+        // The honest diagnostic. If anything threw and was swallowed — which is
+        // exactly how a dead button happens — it is written here rather than living
+        // only in a console nobody has attached to.
         if (lastFailure != null) {
-            Spacer(Modifier.height(22.dp))
-            SectionBreak("something failed", paper, top = 0.dp)
+            Spacer(Modifier.height(20.dp))
+            Label("something failed", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+            Spacer(Modifier.height(8.dp))
             Label(lastFailure, paper, color = paper.inkSoft, size = 9.sp, tracking = 0.6.sp)
             Spacer(Modifier.height(6.dp))
             Body(
@@ -246,44 +277,48 @@ public fun PreferencesPage(
             )
         }
 
-        Spacer(Modifier.height(28.dp))
-        SectionHead("IV", "this trip", paper)
+        Spacer(Modifier.height(24.dp))
+        Rule(paper)
+        Spacer(Modifier.height(20.dp))
 
+        // ── this trip ───────────────────────────────────────────────────────
+        Label("this trip", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+        Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Glyph.Trip, paper, size = 16.dp)
-            Spacer(Modifier.width(10.dp))
-            Title(state.trip?.name ?: "No trip", paper, size = 17.sp)
-            Spacer(Modifier.weight(1f))
-            Label(
-                state.trip?.place ?: "no place set",
-                paper,
-                color = paper.inkFaint,
-                size = 9.sp,
-                tracking = 1.3.sp,
-            )
+            Column(Modifier.weight(1f)) {
+                Title(state.trip?.name ?: "No trip", paper, size = 18.sp)
+                Spacer(Modifier.height(3.dp))
+                Label(
+                    state.trip?.place ?: "no place set",
+                    paper,
+                    color = paper.inkFaint,
+                    size = 9.sp,
+                    tracking = 1.1.sp,
+                )
+            }
+            if (state.trip?.isClosed == true) Pill("closed", paper, PillTone.Quiet)
         }
         Spacer(Modifier.height(14.dp))
 
-        IconAction(Glyph.Ledger, "See the trip's page", paper) { model.go(Route.Trip) }
+        QuietAction("the trip's page", paper, { model.go(Route.Trip) }, color = paper.inkMid)
+        Spacer(Modifier.height(6.dp))
         if (state.trip?.isClosed == true) {
             // Closing is not a thing a closed trip can do again; the card is where
             // the finished record lives.
-            IconAction(Glyph.Done, "See the card", paper) {
+            QuietAction("the card", paper, {
                 state.trip?.let { model.go(Route.TripCard(it.id)) }
-            }
+            }, color = paper.inkMid)
         } else {
-            IconAction(Glyph.Done, "Close the trip into a card", paper) { model.closeTripIntoCard() }
+            QuietAction("close the trip into a card", paper, { model.closeTripIntoCard() }, color = paper.inkMid)
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(24.dp))
         Rule(paper, color = paper.edge)
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(16.dp))
 
         if (!state.deleteArmed) {
-            IconAction(Glyph.Remove, "Delete this trip", paper, color = paper.inkMid) {
-                model.armTripDeletion()
-            }
-            Spacer(Modifier.height(6.dp))
+            QuietAction("Delete this trip", paper, { model.armTripDeletion() }, color = paper.inkMid)
+            Spacer(Modifier.height(8.dp))
             Body(
                 "Deletes its photographs and its record. Nothing is kept anywhere else, so this " +
                     "is the one action in the app you cannot take back.",
@@ -293,8 +328,8 @@ public fun PreferencesPage(
                 lineHeight = 18.sp,
             )
         } else {
-            // Armed. The copy says exactly what will go, and the only way out that
-            // is not deletion is the quieter of the two controls.
+            // Armed. The copy says exactly what will go, and the only way out that is
+            // not deletion is the quieter of the two controls.
             Label("this deletes everything, now", paper, color = paper.blue, size = 9.sp, tracking = 1.6.sp)
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -303,7 +338,7 @@ public fun PreferencesPage(
             }
         }
 
-        Spacer(Modifier.height(96.dp))
+        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -315,7 +350,7 @@ public fun PreferencesPage(
  * means, which is the difference between a setting and a riddle.
  */
 @Composable
-private fun PrefPaper(
+private fun PaperChoice(
     paper: Paper,
     theme: Settings.Theme,
     onChoose: (Settings.Theme) -> Unit,
@@ -332,7 +367,7 @@ private fun PrefPaper(
     }
     Column {
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 15.dp),
+            Modifier.fillMaxWidth().padding(bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(Glyph.Paper, paper, size = 16.dp, color = paper.inkSoft)
@@ -353,7 +388,7 @@ private fun PrefPaper(
                     Modifier
                         .heightIn(min = 44.dp)
                         .border(Bone.Hairline, if (chosen) paper.blue else paper.edge)
-                        .androidTap { onChoose(value) }
+                        .rowTap { onChoose(value) }
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -367,7 +402,6 @@ private fun PrefPaper(
                 }
             }
         }
-        Rule(paper)
     }
 }
 
@@ -375,12 +409,12 @@ private fun PrefPaper(
  * One exchange rate, as a sentence.
  *
  * "1 THB = [ 2.5 ] INR" is the form a traveller can check against a receipt or a
- * board at the airport. The alternative - two abstract numbers - is what an
+ * board at the airport. The alternative — two abstract numbers — is what an
  * engineer would write and what nobody can verify.
  *
- * When a rate is on file the field shows it and the row carries the pair; when
- * one is not, the row says so plainly, because a missing rate is the difference
- * between a total that is right and a total that is quietly wrong.
+ * When a rate is on file the field shows it and the row carries the pair; when one
+ * is not, the row says so plainly, because a missing rate is the difference between
+ * a total that is right and a total that is quietly wrong.
  */
 @Composable
 private fun RateRow(
@@ -408,17 +442,14 @@ private fun RateRow(
         }
     }
 
-    Column(Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(26.dp)) {
-                Icon(Glyph.Budget, paper, size = 15.dp, color = paper.inkSoft)
-            }
             Title(code, paper, size = 17.sp)
             Spacer(Modifier.width(10.dp))
             if (used) {
-                // Marks the currencies this trip actually holds, so the list is
-                // not four speculative rows.
-                Tick(paper, width = 14.dp, color = paper.blue)
+                // Marks the currencies this trip actually holds, so the list is not
+                // five speculative rows.
+                Label("in use", paper, color = paper.blue, size = 9.sp, tracking = 1.2.sp)
             }
             Spacer(Modifier.weight(1f))
             if (label != null) {
@@ -437,8 +468,8 @@ private fun RateRow(
                     },
                     paper,
                     color = paper.inkSoft,
-                    size = 9.5.sp,
-                    tracking = 1.2.sp,
+                    size = 9.sp,
+                    tracking = 1.1.sp,
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(10.dp))
@@ -463,12 +494,12 @@ private fun RateRow(
                             refused = false
                         },
                         singleLine = true,
-                        textStyle = androidx.compose.ui.text.TextStyle(
+                        textStyle = TextStyle(
                             fontFamily = Bone.Sans,
                             fontSize = 16.sp,
                             color = paper.ink,
                         ),
-                        cursorBrush = androidx.compose.ui.graphics.SolidColor(paper.ink),
+                        cursorBrush = SolidColor(paper.ink),
                         modifier = Modifier.fillMaxWidth().focusRequester(focus),
                     )
                     if (text.isEmpty()) {
@@ -494,43 +525,39 @@ private fun RateRow(
                 // Every state of a rate row is information, so every state is legible.
                 // inkGhost is for line work, never for a sentence.
                 color = paper.inkSoft,
-                size = 9.5.sp,
-                tracking = 1.2.sp,
+                size = 9.sp,
+                tracking = 1.1.sp,
             )
         }
     }
 }
 
-/** A setting that is a fact, not a choice. It says so rather than pretending. */
+/**
+ * A setting that is a fact, not a choice.
+ *
+ * It says so rather than pretending: the value is printed, the note explains why it
+ * cannot move, and there is nothing to tap. A row that looks like a control and does
+ * nothing when pressed is worse than a row that never claimed to be one.
+ */
 @Composable
-private fun PrefReadout(glyph: Glyph, label: String, value: String, paper: Paper) {
-    // Same block as the index rows on the front page: glyph in the hanging
-    // margin, title, a figure set in the sans face. A read-out is simply a row
-    // that does nothing when tapped, which is why it is the shared one with a
-    // no-op rather than a second copy that looks almost the same.
-    NavRow(glyph, label, value, paper, onClick = {})
-    Rule(paper)
-}
-
-/** An icon and a tracked label that is a control. Nothing about it is a link blue. */
-@Composable
-private fun IconAction(
+private fun Readout(
     glyph: Glyph,
-    text: String,
+    label: String,
+    value: String,
+    note: String?,
     paper: Paper,
-    color: androidx.compose.ui.graphics.Color? = null,
-    onClick: () -> Unit,
 ) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp)
-            .androidTap(onClick),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(glyph, paper, size = 16.dp, color = color ?: paper.inkSoft)
-        Spacer(Modifier.width(12.dp))
-        Label(text, paper, color = color ?: paper.ink, size = 10.sp, tracking = 1.5.sp)
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(glyph, paper, size = 15.dp, color = paper.inkFaint)
+            Spacer(Modifier.width(12.dp))
+            Label(label, paper, color = paper.inkSoft, size = 9.sp, tracking = 1.2.sp)
+            Spacer(Modifier.weight(1f))
+            Label(value, paper, color = paper.inkMid, size = 10.sp, tracking = 0.4.sp)
+        }
+        if (note != null) {
+            Spacer(Modifier.height(4.dp))
+            Label(note, paper, color = paper.inkFaint, size = 9.sp, tracking = 0.4.sp)
+        }
     }
 }
-

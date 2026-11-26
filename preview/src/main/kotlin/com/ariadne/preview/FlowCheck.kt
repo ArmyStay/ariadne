@@ -160,6 +160,20 @@ fun main() {
     check("an amount typed in reaches the record", edited?.amountMinor == 4_099L)
     check("a merchant typed in reaches the record", edited?.merchant == "Shrine")
 
+    // ---- an edit can be taken back ---------------------------------------
+    //
+    // Undo has to restore the row as it was, not merely blank a field: the amount,
+    // the merchant, the queue state and the pinned rate all belonged to the
+    // photograph before the edit, and all of them belong to it again after.
+    check("saving offers its own undo", model.state.value.notice?.actionLabel == "Undo")
+    model.undoLastEdit()
+    settle()
+    val undone = graph.store.findCapture(captureId)
+    check("undo restores the figure the edit replaced", undone?.amountMinor == null)
+    check("undo restores the merchant", undone?.merchant == null)
+    check("undo puts the queue state back", undone?.state == com.ariadne.model.CaptureState.QUEUED)
+    check("and the offer goes with the undo", model.state.value.notice == null)
+
     // ---- the demo path still works in one call ---------------------------
     model.startTripDemo()
     settle()

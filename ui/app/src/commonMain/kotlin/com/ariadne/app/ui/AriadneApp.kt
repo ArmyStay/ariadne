@@ -5,6 +5,20 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.sp
+import com.ariadne.design.Bone
+import com.ariadne.design.Label
+import com.ariadne.design.QuietAction
+import com.ariadne.design.Rule
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
@@ -158,6 +172,18 @@ public fun AriadneApp(
                     }
                 }
 
+                // What just happened, in one line, above whatever is at the foot of
+                // the page — including the bar, because an undo offer must be the
+                // last thing between the person and the change they want back.
+                state.notice?.let { notice ->
+                    NoticeBar(
+                        notice = notice,
+                        paper = paper,
+                        onAction = { model.undoLastEdit() },
+                        onDismiss = { model.dismissNotice() },
+                    )
+                }
+
                 if (route.showsTabBar()) {
                     AriadneBar(
                         paper = paper,
@@ -277,6 +303,50 @@ private fun handleKey(event: KeyEvent, model: AppModel, route: Route): Boolean {
             val name = event.key.toString()
             val ch = name.removePrefix("Key(").removeSuffix(")").firstOrNull()
             if (ch != null && (ch in '0'..'9' || ch == '.')) { model.typeAmount(ch); true } else false
+        }
+    }
+}
+
+/**
+ * The line at the foot of the page: what just happened, and the way back if there
+ * is one.
+ *
+ * Not a Material `Snackbar`: that brings a dark rounded surface and an elevation
+ * into a book made of hairlines and paper, and it floats over the bar rather than
+ * sitting on the page. This is a ruled strip in the app's own language, with the
+ * text on the left and the one action on the right. It is a live region for a
+ * screen reader, so an undo offer is announced when it appears rather than being
+ * something only sighted users get.
+ */
+@Composable
+private fun NoticeBar(
+    notice: com.ariadne.app.Notice,
+    paper: Paper,
+    onAction: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().background(paper.raised)) {
+        Rule(paper, color = paper.edgeStrong)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }
+                .padding(horizontal = com.ariadne.design.Bone.Margin, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Label(
+                notice.text,
+                paper,
+                color = paper.inkSoft,
+                size = 10.sp,
+                tracking = 1.2.sp,
+                modifier = Modifier.weight(1f),
+            )
+            if (notice.actionLabel != null) {
+                QuietAction(notice.actionLabel, paper, onAction, color = paper.blue)
+                Spacer(Modifier.width(12.dp))
+            }
+            QuietAction("close", paper, onDismiss, color = paper.inkFaint)
         }
     }
 }
