@@ -93,8 +93,19 @@ is deterministic: the same source rectangle, the same alpha ramp
 
 ## Deliberately not matched
 
-The reference's bottom bar is a floating rounded pill labelled **HOME / TIMELINE / STATS /
-MORE**, with the camera button above its right end. This build keeps the flat bar with four
-labels and the shutter in the gap, as it has since phase 3, because that was an explicit
-decision about the shell and this phase is about the timeline. Matching the bar is a
-separate change, and a one-line one, if it is wanted.
+The reference's bottom bar is a floating rounded pill with the camera button above its
+right end. The bar's **labels** no longer differ: `main` renamed the four destinations to
+**HOME / TIMELINE / STATS / MORE** in the export pass this branch merges. What stays
+different is the bar's *shape* — flat, square-cornered, with the shutter in the gap it
+reserves — which was an explicit decision about the shell and is not something a page
+rebuild should quietly reverse.
+
+## Merciful note: this branch merges main
+
+`main` moved while this was being written: `d6f6fe0` added local data export, manual
+entry, a More destination and its own (smaller) pass at this same timeline. This branch
+merges that commit rather than rebasing over it, so the PR shows only the timeline change,
+and the two versions of the page were reconciled by hand: the reference layout wins, and
+the data `main` had added to that page — `trip.place` in the meta line, `tripTotalMinor`
+as the figure, `budget` under it, and "Trip total" instead of "Spent so far" on a closed
+trip — is carried into it.
