@@ -41,6 +41,7 @@ import com.ariadne.design.RailFigure
 import com.ariadne.design.Rule
 import com.ariadne.design.Title
 import com.ariadne.model.Capture
+import com.ariadne.model.BudgetPlan
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.DaySummary
 import com.ariadne.model.Money
@@ -151,7 +152,7 @@ public fun TodayPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         ConversionNote(state.dayRateDates, state.dayUnconverted, paper)
 
         Spacer(Modifier.height(16.dp))
-        BudgetPace(state, trip.budgetMinor, paper)
+        BudgetPace(state, model, trip.budgetMinor, paper)
 
         Spacer(Modifier.height(22.dp))
 
@@ -330,18 +331,33 @@ private fun NeedsAnAmount(state: AppUiState, model: AppModel, paper: Paper) {
  * the same voice as "under today", because this is a record and not a scold.
  */
 @Composable
-private fun BudgetPace(state: AppUiState, budgetMinor: Long?, paper: Paper) {
+private fun BudgetPace(
+    state: AppUiState,
+    model: AppModel,
+    budgetMinor: Long?,
+    paper: Paper,
+) {
     val trip = state.trip ?: return
-    if (budgetMinor == null) {
-        QuietAction("Set a budget", paper, { /* Trip page owns the field */ }, color = paper.inkFaint)
+    if (budgetMinor == null || budgetMinor <= 0L) {
+        // A control that pretends to set a budget and does nothing is worse than a
+        // control that says where the budget is set. This one goes there.
+        QuietAction("Set a budget", paper, { model.go(Route.Preferences) }, color = paper.inkFaint)
         return
     }
     val days = remember(trip.startDate, trip.endDate) {
         dayRange(trip.startDate, trip.endDate).size.coerceAtLeast(1)
     }
-    val perDay = budgetMinor / days
-    val today = state.dayTotalMinor
-    val left = perDay - today
+    // The same plan the Trip and Stats pages draw; today's line is a *day*
+    // comparison, because in the middle of a trip it is the only one still
+    // actionable.
+    val plan = BudgetPlan.of(
+        budgetMinor = budgetMinor,
+        days = days,
+        spentMinor = state.categoryTotals.sumOf { it.baseMinor },
+        daysClosed = state.dayCards.count { it.isClosed },
+    )
+    val perDay = plan.dailyMinor ?: return
+    val left = plan.todayAgainstShare(state.dayTotalMinor) ?: return
     val currency = CurrencyCode.of(state.dayCurrency)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {

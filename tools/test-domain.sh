@@ -30,6 +30,7 @@ run_jvm() {
     com.ariadne.model.MoneyTest com.ariadne.model.LocalDayTest \
     com.ariadne.fx.FxTest \
     com.ariadne.extract.ReceiptParserFixtureTest \
+    com.ariadne.model.BudgetPlanTest \
     com.ariadne.queue.OutboxTest com.ariadne.queue.QueueStateMachineTest \
     com.ariadne.search.SearchIndexTest
 }

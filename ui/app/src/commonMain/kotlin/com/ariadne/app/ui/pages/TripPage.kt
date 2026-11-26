@@ -36,6 +36,7 @@ import com.ariadne.design.RailFigure
 import com.ariadne.design.Rule
 import com.ariadne.design.Title
 import com.ariadne.design.Glyph
+import com.ariadne.model.BudgetPlan
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.Money
 
@@ -64,9 +65,16 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
     val trip = state.trip ?: return
     val currency = trip.baseCurrency
     val spent = state.categoryTotals.sumOf { it.baseMinor }
-    val budget = trip.budgetMinor
-    val closed = state.dayCards.count { it.isClosed }
     val days = state.dayCards.size
+    val closed = state.dayCards.count { it.isClosed }
+    // One plan, one arithmetic: the bar, the pace tick and the day's share all come
+    // from the tested value type, so this page cannot round differently from Stats.
+    val plan = BudgetPlan.of(
+        budgetMinor = trip.budgetMinor,
+        days = days,
+        spentMinor = spent,
+        daysClosed = closed,
+    )
 
     TabPage(
         paper = paper,
@@ -120,12 +128,11 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             Label("spent", paper, color = paper.inkFaint, size = 10.sp, tracking = 1.2.sp)
         }
 
-        if (budget != null && budget > 0) {
-            val left = budget - spent
-            val fraction = (spent.toFloat() / budget.toFloat()).coerceIn(0f, 1f)
+        if (plan.hasBudget) {
+            val left = plan.leftMinor ?: 0L
             Spacer(Modifier.height(10.dp))
             Label(
-                "of ${Money.ofMinor(budget).formatWithSymbol(currency)} · " +
+                "of ${Money.ofMinor(plan.budgetMinor ?: 0L).formatWithSymbol(currency)} · " +
                     if (left >= 0) {
                         "${Money.ofMinor(left).formatWithSymbol(currency)} left"
                     } else {
@@ -137,16 +144,26 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 tracking = 0.3.sp,
             )
             Spacer(Modifier.height(8.dp))
-            // The tick is the trip's own pace: how much of the budget the days so
-            // far would have used if spending were even. Being under the bar and
-            // over the tick is the one thing a bar alone cannot tell you.
+            // The tick is the trip's own pace: how much of the trip's time has
+            // passed. Being past the bar and behind the tick is the one thing a bar
+            // alone cannot tell you.
             BudgetBar(
-                fraction = fraction,
+                fraction = plan.spendFraction,
                 paper = paper,
-                pace = if (days > 0) closed.toFloat() / days.toFloat() else null,
-                over = left < 0,
+                pace = plan.paceFraction,
+                over = plan.isOver,
             )
             Spacer(Modifier.height(10.dp))
+            if (plan.isAheadOfPace) {
+                Label(
+                    "ahead of the trip's own pace",
+                    paper,
+                    color = paper.inkFaint,
+                    size = 9.sp,
+                    tracking = 0.6.sp,
+                )
+                Spacer(Modifier.height(6.dp))
+            }
             QuietAction("change the budget", paper, { model.go(Route.Preferences) }, color = paper.inkFaint)
         } else {
             Spacer(Modifier.height(10.dp))
