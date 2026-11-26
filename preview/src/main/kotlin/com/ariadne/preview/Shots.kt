@@ -79,11 +79,17 @@ fun main(args: Array<String>) {
         Shot("02d-prefs", 440, 900, route = { it.go(Route.Preferences) }),
         Shot("03-trip", 440, 900, route = { it.go(Route.Trip) }),
         Shot("03-trip-desktop", 1200, 800, route = { it.go(Route.Trip) }),
-        Shot("04-capture", 440, 900, route = { it.go(Route.Capture) }),
-        // The sheet: the shutter's landing, with the photograph behind it. Taken
-        // through the real capture path so the plate is a real one.
+        // The camera over the page you were on: the flow change this phase is about.
+        // Nothing navigated, so this still composes Today underneath.
+        Shot("04-shutter", 440, 900, route = { it.go(Route.Home); it.openCapture() }),
+        Shot("04-shutter-desktop", 1200, 800, route = { it.go(Route.Home); it.openCapture() }),
+        // The sheet: the frame, over the same page. Taken through the real capture
+        // path so the plate is a real one.
         Shot("04-sheet", 440, 900, route = { it.capturePlaceholder() }, settle = 1),
         Shot("04-sheet-desktop", 1200, 800, route = { it.capturePlaceholder() }, settle = 1),
+        // The standalone page, which is now only reached when there is no trip to
+        // file a photograph into.
+        Shot("04-capture-no-trip", 440, 900, route = { it.go(Route.Capture) }),
         // The frame just taken, held up with its two ways out.
         Shot(
             "04b-frame", 440, 900, settle = 4,
@@ -138,7 +144,7 @@ fun main(args: Array<String>) {
         Shot("02a-trips-200", 440, 900, fontScale = 2f, route = { it.go(Route.Trips) }),
         Shot("03-days-200", 440, 900, fontScale = 2f, route = { it.go(Route.Days) }),
         Shot("03-trip-200", 440, 900, fontScale = 2f, route = { it.go(Route.Trip) }),
-        Shot("04-capture-200", 440, 900, fontScale = 2f, route = { it.go(Route.Capture) }),
+        Shot("04-shutter-200", 440, 900, fontScale = 2f, route = { it.go(Route.Home); it.openCapture() }),
         Shot("06-record-200", 440, 900, fontScale = 2f, route = { it.openRecord(null) }, settle = 1),
         Shot("06b-detail-200", 440, 900, fontScale = 2f, route = { it.openDetailFirst() }, settle = 1),
         Shot("07-trip-card-200", 440, 1000, fontScale = 2f, route = { it.go(Route.TripCard("0")) }),

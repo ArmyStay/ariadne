@@ -198,7 +198,7 @@ public fun CapturePage(
  * the Material sense, which is exactly why it reads as a physical control.
  */
 @Composable
-private fun Shutter(paper: Paper, onClick: () -> Unit) {
+internal fun Shutter(paper: Paper, onClick: () -> Unit) {
     Box(
         Modifier
             .size(66.dp)

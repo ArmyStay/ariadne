@@ -286,8 +286,25 @@ public data class AppUiState(
      */
     public val failureNote: String? = null,
 
-    /** The last thing that happened, if it is still worth saying. */
+    /** The last thing that happened, if it is still worth worth saying. */
     public val notice: Notice? = null,
+
+    /**
+     * The camera, open over whatever page is showing.
+     *
+     * It used to be a route: tapping the shutter navigated to a viewfinder page, and
+     * the photograph arrived on a second page after that. Three screens to keep a
+     * receipt, two of which were the same nothing.
+     *
+     * Now the shutter is a *mode over the page you are on*. Nothing navigates: the
+     * camera rises over Today, the frame becomes the sheet over the same Today, and
+     * putting the amount in drops you back exactly where you were — same tab, same
+     * scroll, same day.
+     */
+    public val shutterOpen: Boolean = false,
+
+    /** The photograph whose sheet is open over the page, if one is. */
+    public val sheetCaptureId: String? = null,
 ) {
     public val current: Capture? get() = stack.getOrNull(stackIndex)
     public val remaining: Int get() = (stack.size - stackIndex).coerceAtLeast(0)
@@ -312,5 +329,11 @@ public data class AppUiState(
     public fun daySummary(iso: String): DaySummary = DaySummary.of(dayCapturesAll[iso].orEmpty())
 
     /** True when Back has somewhere to go inside the app. */
-    public val canGoBack: Boolean get() = history.isNotEmpty()
+    /**
+     * Back is available when there is a page to return to **or** something is open
+     * over this one: an overlay is what Back should close first, before it moves
+     * between pages.
+     */
+    public val canGoBack: Boolean
+        get() = shutterOpen || sheetCaptureId != null || history.isNotEmpty()
 }
