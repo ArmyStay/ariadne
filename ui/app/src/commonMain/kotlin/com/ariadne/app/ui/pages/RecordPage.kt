@@ -70,7 +70,7 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
 
     ScrollingMargin(paper, wide, margin = if (wide) 56.dp else Bone.Margin) { _ ->
         Masthead(
-            number = "06",
+            number = "",
             eyebrow = state.trip?.name ?: "Record",
             title = "The record",
             paper = paper,

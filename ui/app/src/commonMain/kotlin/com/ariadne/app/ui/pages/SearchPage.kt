@@ -77,7 +77,7 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
     ) {
         Masthead(
-            number = "08",
+            number = "",
             eyebrow = "The record",
             title = "Remember a thing",
             paper = paper,

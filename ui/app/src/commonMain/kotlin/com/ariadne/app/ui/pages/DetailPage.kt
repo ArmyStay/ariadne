@@ -112,7 +112,7 @@ public fun DetailPage(
                 .padding(horizontal = if (wide) Bone.MarginWide else Bone.Margin, vertical = 22.dp),
         ) {
             Masthead(
-                number = "07",
+                number = "",
                 eyebrow = capture?.localDate?.iso ?: "Photograph",
                 title = "The photograph",
                 paper = paper,
