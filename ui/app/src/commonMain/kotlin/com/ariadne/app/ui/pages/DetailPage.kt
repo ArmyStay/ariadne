@@ -463,12 +463,15 @@ internal fun CategoryChips(
                         Box(
                             Modifier
                                 .background(
-                                    if (chosen) paper.blueWash else paper.raised,
+                                    // A chosen chip is filled, not tinted: the same
+                                    // mark the currency chips already use, so a row of
+                                    // chips reads the same way wherever it appears.
+                                    if (chosen) paper.ink else paper.raised,
                                     androidx.compose.foundation.shape.RoundedCornerShape(1.dp),
                                 )
                                 .border(
                                     Bone.Hairline,
-                                    if (chosen) paper.blueEdge else paper.edge,
+                                    if (chosen) paper.ink else paper.edge,
                                     androidx.compose.foundation.shape.RoundedCornerShape(1.dp),
                                 )
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -476,7 +479,7 @@ internal fun CategoryChips(
                             Label(
                                 category.label,
                                 paper,
-                                color = if (chosen) paper.blue else paper.inkSoft,
+                                color = if (chosen) paper.onBlue else paper.inkSoft,
                                 size = 9.sp,
                                 tracking = 1.5.sp,
                             )

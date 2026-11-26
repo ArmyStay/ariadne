@@ -1,5 +1,6 @@
 package com.ariadne.app.ui.pages
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -7,62 +8,77 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.app.Route
+import com.ariadne.app.SheetPreview
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
+import com.ariadne.design.OutlineAction
 import com.ariadne.design.Paper
+import com.ariadne.design.Pill
+import com.ariadne.design.PillTone
 import com.ariadne.design.QuietAction
-import com.ariadne.design.Rule
 import com.ariadne.design.RuledKeypad
 import com.ariadne.design.Title
 import com.ariadne.model.Capture
 import com.ariadne.model.Category
 import com.ariadne.model.CurrencyCatalog
 import com.ariadne.model.CurrencyCode
+import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
+import com.ariadne.model.entryStatus
+import com.ariadne.model.isoWeekday
 import com.ariadne.model.symbol
 
 /**
- * The capture sheet: the photograph, and the sheet that rises over it.
+ * The capture sheet: the photograph, and the sheet that fills in what it was.
  *
- * This used to be two pages. The shutter opened a "held up" page with two buttons,
- * and "Fill it in now" opened the full editing page — so the amount, the one thing
- * a person actually came to enter, was two taps and a page transition away from the
- * shutter, with the photograph shrinking at every step.
+ * The structure is the one a paper receipt implies, and it is the same order the
+ * best version of this screen has always used:
  *
- * Now the shutter opens the sheet directly: the photograph stays behind, full
- * height, and the amount field, keypad, currency, category and note are on the sheet
- * in front of it. One decision, one surface. "Add the amount later" is still a first
- * class answer and still costs nothing — it is the sheet's secondary button, not a
- * page you have to find.
+ *   1. **the print and the moment** — a thumbnail of what was photographed, the day
+ *      and time it was taken, and the figure as it stands;
+ *   2. **the pair** — what was paid, and what that is worth in the trip's currency,
+ *      with the rate that joins them printed underneath. This is the block that was
+ *      missing: the conversion only existed *after* saving, so a figure typed in
+ *      Bangkok became rupees somewhere the person never saw it happening;
+ *   3. **read it again** — one action that re-runs extraction on the same file,
+ *      because a wrong suggestion should cost one tap, not a retyped receipt;
+ *   4. **the amount** — the currency's symbol, the field, the keypad, and the
+ *      sentence that says what will happen on save;
+ *   5. **currency, category, where, remember it by** — each one labelled, each one
+ *      optional, none of them a form;
+ *   6. **the day** — printed, not editable: a photograph's day is a fact about when
+ *      it was taken, and an app that lets you move it is offering to falsify a record.
  *
- * On a wide window the sheet becomes a spread instead (print on the left, the field
- * on the right), because a 1200dp window with a 66% sheet over a photograph wastes
- * both halves.
- *
- * The sheet is drawn from the same parts as every other page — hairline top edge,
- * paper ground, ink type, one blue action. A Material modal sheet would have brought
- * its own surface, elevation and corner radius into a design that has none of those.
+ * The sheet is drawn from the same parts as every other page — hairline edges, paper
+ * ground, ink type, one blue action. A Material modal sheet would have brought its own
+ * surface, elevation and corner radius into a design that has none of those.
  */
 @Composable
 public fun FramePage(
@@ -90,6 +106,9 @@ public fun FramePage(
     val merchant = state.detailMerchant
     val category = state.detailCategory
     val note = state.detailNote
+    // The pair, worked out from what is typed right now. Null until there is a
+    // figure to convert, which is why the block is not drawn before then.
+    val preview = model.sheetPreview()
 
     if (capture == null) {
         // A route can outlive its row (the photograph was deleted from another
@@ -115,19 +134,24 @@ public fun FramePage(
                     .weight(1f)
                     .verticalScroll(rememberScrollState()),
             ) {
-                key(typed, merchant, category, note) {
+                key(typed, merchant, category, note, currency) {
                     SheetFields(
                         capture = capture,
                         typed = typed,
                         merchant = merchant,
                         category = category,
                         note = note,
+                        preview = preview,
+                        busy = state.busy,
                         model = model,
                         paper = paper,
                         currency = currency,
+                        base = state.trip?.baseCurrency ?: currency,
                         options = options,
                     )
                 }
+                Spacer(Modifier.height(18.dp))
+                SheetActions(capture, typed, model, paper)
                 Spacer(Modifier.height(26.dp))
             }
         }
@@ -151,27 +175,42 @@ public fun FramePage(
         // picture is behind this", not enough to hide what was photographed.
         Box(Modifier.fillMaxSize().background(paper.scrim)) { }
 
-        // The sheet.
+        // The sheet. Taller than it was, because it now carries the pair and the
+        // labelled sections rather than a figure and a keypad.
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .fillMaxHeight(0.66f)
+                .fillMaxHeight(0.84f)
                 .background(paper.raised)
                 .border(width = Bone.Hairline, color = paper.edgeStrong),
         ) {
-            Spacer(Modifier.height(8.dp))
-            // The handle is drawn, not a gesture: the sheet is a surface, not a
-            // draggable, and a bar that suggests dragging without dragging is worse
-            // than a rule that just separates.
-            Box(
-                Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .width(36.dp)
-                    .height(3.dp)
-                    .background(paper.edgeStrong),
-            )
-            Spacer(Modifier.height(10.dp))
+            // The head of the sheet: the way out on the left, and what this
+            // photograph still owes on the right. Closing keeps the photograph —
+            // it lands in the tray, which is the whole promise of the product.
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = Bone.Margin - 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Back, drawn: the same move as the system gesture, in the corner a
+                // phone puts it. It keeps the photograph — putting it away is not the
+                // same as throwing it away, and this app never has a button for that.
+                SheetBack(paper) { model.keepFrameForLater() }
+                Spacer(Modifier.width(2.dp))
+                Label(
+                    "the photograph is kept",
+                    paper,
+                    color = paper.inkGhost,
+                    size = 8.sp,
+                    tracking = 1.0.sp,
+                )
+                Spacer(Modifier.weight(1f))
+                Pill(
+                    capture.entryStatus.label,
+                    paper,
+                    if (capture.entryStatus.isPending) PillTone.Blue else PillTone.Quiet,
+                )
+            }
 
             Column(
                 Modifier
@@ -180,16 +219,19 @@ public fun FramePage(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Bone.Margin),
             ) {
-                key(typed, merchant, category, note) {
+                key(typed, merchant, category, note, currency) {
                     SheetFields(
                         capture = capture,
                         typed = typed,
                         merchant = merchant,
                         category = category,
                         note = note,
+                        preview = preview,
+                        busy = state.busy,
                         model = model,
                         paper = paper,
                         currency = currency,
+                        base = state.trip?.baseCurrency ?: currency,
                         options = options,
                     )
                 }
@@ -198,17 +240,7 @@ public fun FramePage(
 
             // The two answers, pinned where a thumb is, never below the fold.
             Column(Modifier.fillMaxWidth().padding(horizontal = Bone.Margin)) {
-                Rule(paper, color = paper.edgeStrong)
-                Spacer(Modifier.height(14.dp))
-                if (typed.isNotEmpty()) {
-                    Action("Save ${typed}", paper, { model.saveDetail() }, accent = true)
-                    Spacer(Modifier.height(6.dp))
-                    QuietAction("Add the amount later", paper, { model.keepFrameForLater() })
-                } else {
-                    Action("Add the amount later", paper, { model.keepFrameForLater() }, accent = true)
-                }
-                Spacer(Modifier.height(4.dp))
-                QuietAction("the whole page", paper, { model.openFrame(capture.id) }, color = paper.inkFaint)
+                SheetActions(capture, typed, model, paper)
                 Spacer(Modifier.height(12.dp))
             }
         }
@@ -216,8 +248,31 @@ public fun FramePage(
 }
 
 /**
- * The sheet's contents: the figure, the keypad, then the three questions the product
- * allows — what it cost, what it was, and what it was for.
+ * The two answers and the way out of them: save with a figure, keep it for later, or
+ * open the whole page. Pinned to the foot in both layouts, so a long sheet never puts
+ * its own save button below the fold.
+ */
+@Composable
+private fun SheetActions(capture: Capture, typed: String, model: AppModel, paper: Paper) {
+    if (typed.isNotEmpty()) {
+        Action("Save ${typed}", paper, { model.saveDetail() }, accent = true)
+        Spacer(Modifier.height(6.dp))
+        QuietAction("Add the amount later", paper, { model.keepFrameForLater() })
+    } else {
+        Action("Add the amount later", paper, { model.keepFrameForLater() }, accent = true)
+    }
+    Spacer(Modifier.height(4.dp))
+    QuietAction(
+        "open the whole page",
+        paper,
+        { model.openFrame(capture.id) },
+        color = paper.inkFaint,
+    )
+}
+
+/**
+ * The sheet's contents, in the order a receipt is read: what it was, what it came
+ * to, what that is worth, and then the four questions the product is allowed to ask.
  */
 @Composable
 private fun SheetFields(
@@ -226,54 +281,84 @@ private fun SheetFields(
     merchant: String,
     category: Category?,
     note: String,
+    preview: SheetPreview?,
+    busy: Boolean,
     model: AppModel,
     paper: Paper,
     currency: CurrencyCode,
+    base: CurrencyCode,
     options: List<String>,
 ) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-        Numeral(currency.symbol(), paper, color = paper.inkSoft, size = 18.sp)
-        Spacer(Modifier.width(6.dp))
-        Numeral(
-            typed.ifEmpty { "0" },
-            paper,
-            size = 40.sp,
-            weight = FontWeight.Medium,
-        )
-        Spacer(Modifier.weight(1f))
-        if (typed.isEmpty()) {
-            Label("how much", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
-        }
-    }
+    Moment(capture, typed, currency, model, paper)
 
-    // A suggestion is offered, never typed in. The machine read a figure from the
-    // photograph; saying yes is one tap and saying no costs nothing.
-    if (capture.hasUnconfirmedAmount && typed.isEmpty()) {
-        val suggested = capture.amountMinor?.let {
-            Money.ofMinor(it).formatWithSymbol(capture.currency ?: currency)
+    Suggestion(capture, typed, model, paper)
+
+    Spacer(Modifier.height(14.dp))
+    Pair(capture, typed, preview, currency, base, paper)
+
+    Spacer(Modifier.height(12.dp))
+    OutlineAction(
+        if (busy) "Reading the photograph…" else "Read the photograph again",
+        paper,
+        { model.reExtractCurrent() },
+        enabled = !busy,
+    )
+
+    // ── amount ────────────────────────────────────────────────────────────
+    Spacer(Modifier.height(22.dp))
+    FieldLabel("amount", paper)
+    Spacer(Modifier.height(10.dp))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        // The currency's symbol in its own box, the way a paper field prints the
+        // units before the space you write in.
+        Box(
+            Modifier
+                .width(56.dp)
+                .height(52.dp)
+                .border(Bone.Hairline, paper.edgeStrong, RoundedCornerShape(1.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Numeral(currency.symbol(), paper, color = paper.inkSoft, size = 17.sp)
         }
-        if (suggested != null) {
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Body("Found $suggested on it.", paper, serif = true, color = paper.inkSoft, size = 15.sp)
-                Spacer(Modifier.weight(1f))
-                QuietAction("yes", paper, { model.acceptDetailSuggestion() }, color = paper.blue)
-                Spacer(Modifier.width(14.dp))
-                QuietAction("no", paper, { model.rejectDetailExtractedAmount() }, color = paper.inkFaint)
+        Spacer(Modifier.width(10.dp))
+        Box(
+            Modifier
+                .weight(1f)
+                .height(52.dp)
+                .border(Bone.Hairline, paper.edgeStrong, RoundedCornerShape(1.dp))
+                .padding(horizontal = 14.dp),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            if (typed.isEmpty()) {
+                Label("how much", paper, color = paper.inkGhost, size = 9.sp, tracking = 1.2.sp)
+            } else {
+                Numeral(typed, paper, size = 26.sp, weight = FontWeight.Medium)
             }
         }
     }
+    Spacer(Modifier.height(8.dp))
+    Helper(
+        if (currency == base) {
+            "already in the trip's currency, ${base.code}."
+        } else {
+            "will convert to the trip's currency (${base.code}) on save."
+        },
+        paper,
+    )
 
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(12.dp))
     RuledKeypad(
         paper = paper,
         onDigit = { model.editDetailAmount(it) },
         onBackspace = { model.clearDetailAmountDigit() },
-        rowHeight = 42.dp,
-        digitSize = 18.sp,
+        rowHeight = 46.dp,
+        digitSize = 19.sp,
     )
-    Spacer(Modifier.height(10.dp))
 
+    // ── currency ──────────────────────────────────────────────────────────
+    Spacer(Modifier.height(22.dp))
+    FieldLabel("currency", paper)
+    Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { code ->
             CurrencyChip(code, paper, selected = code == currency.code) {
@@ -282,12 +367,16 @@ private fun SheetFields(
         }
     }
 
-    Spacer(Modifier.height(18.dp))
+    // ── category ──────────────────────────────────────────────────────────
+    Spacer(Modifier.height(22.dp))
+    FieldLabel("category", paper)
+    Spacer(Modifier.height(8.dp))
     CategoryChips(category, paper) { model.chooseCategory(it) }
 
-    Spacer(Modifier.height(16.dp))
+    // ── where, and what for ───────────────────────────────────────────────
+    Spacer(Modifier.height(20.dp))
     LineField(
-        label = "Where",
+        label = "Merchant",
         value = merchant,
         placeholder = "the shop, if you want it named",
         paper = paper,
@@ -295,7 +384,7 @@ private fun SheetFields(
         serif = false,
     )
 
-    Spacer(Modifier.height(14.dp))
+    Spacer(Modifier.height(18.dp))
     LineField(
         label = "Remember it by",
         value = note,
@@ -304,7 +393,244 @@ private fun SheetFields(
         onChange = model::editDetailNote,
         serif = true,
     )
+
+    // ── the day ───────────────────────────────────────────────────────────
+    Spacer(Modifier.height(22.dp))
+    FieldLabel("date", paper)
+    Spacer(Modifier.height(8.dp))
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .border(Bone.Hairline, paper.edge, RoundedCornerShape(1.dp))
+            .padding(horizontal = 14.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Numeral(numericDay(capture.localDate), paper, color = paper.inkMid, size = 14.sp)
+        Spacer(Modifier.width(12.dp))
+        Label(model.clockTimeOf(capture.createdAt), paper, color = paper.inkFaint, size = 9.sp)
+        Spacer(Modifier.weight(1f))
+        Label("as photographed", paper, color = paper.inkGhost, size = 8.sp, tracking = 0.9.sp)
+    }
 }
+
+/**
+ * The head of the sheet: the print, the moment, the figure as it stands.
+ *
+ * The thumbnail is here rather than only behind the sheet because the sheet now
+ * covers most of the photograph; without it the person would be typing a figure for
+ * a picture they can no longer see.
+ */
+@Composable
+private fun Moment(
+    capture: Capture,
+    typed: String,
+    currency: CurrencyCode,
+    model: AppModel,
+    paper: Paper,
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .width(62.dp)
+                .aspectRatio(1f)
+                .border(Bone.Hairline, paper.edge),
+        ) {
+            PhotoPreview(
+                photoPath = capture.photoPath,
+                caption = model.titleOf(capture),
+                paper = paper,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Label(
+                longDay(capture.localDate) + " · " + model.clockTimeOf(capture.createdAt),
+                paper,
+                color = paper.inkFaint,
+                size = 9.sp,
+                tracking = 1.2.sp,
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Numeral(currency.symbol(), paper, color = paper.inkSoft, size = 16.sp)
+                Spacer(Modifier.width(5.dp))
+                Numeral(
+                    typed.ifEmpty { "0" },
+                    paper,
+                    size = 30.sp,
+                    weight = FontWeight.Medium,
+                )
+                if (typed.isEmpty()) {
+                    Spacer(Modifier.width(10.dp))
+                    Label("nothing typed yet", paper, color = paper.inkGhost, size = 8.sp)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * "Found S$18.41 on it" — the machine's reading, offered and never typed in.
+ *
+ * Saying yes is one tap and files it; saying no clears the suggestion and leaves the
+ * field for the person. Both answers are one line, because a receipt has two.
+ */
+@Composable
+private fun Suggestion(capture: Capture, typed: String, model: AppModel, paper: Paper) {
+    if (!capture.hasUnconfirmedAmount || typed.isNotEmpty()) return
+    val suggested = capture.amountMinor?.let {
+        Money.ofMinor(it).formatWithSymbol(capture.currency ?: CurrencyCode.of("INR"))
+    } ?: return
+    Spacer(Modifier.height(12.dp))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Body("Found $suggested on it.", paper, serif = true, color = paper.inkSoft, size = 15.sp)
+        Spacer(Modifier.weight(1f))
+        QuietAction("yes", paper, { model.acceptDetailSuggestion() }, color = paper.blue)
+        Spacer(Modifier.width(12.dp))
+        QuietAction(
+            "no",
+            paper,
+            { model.rejectDetailExtractedAmount() },
+            color = paper.inkFaint,
+        )
+    }
+}
+
+/**
+ * The pair: what was paid, and what it is worth in the trip's currency.
+ *
+ * Two labelled columns over one bordered block, the figure on the left, an "≈"
+ * between them, and the rate printed underneath — the shape a currency conversion
+ * takes on a receipt, and the reason this block exists: the number the person typed
+ * and the number the totals will move by should be visible at the same time, before
+ * either of them is saved.
+ *
+ * When there is no rate on file the block says so instead of guessing. That is the
+ * ₹2,605 bug's lesson: money that cannot be converted is named, never added.
+ */
+@Composable
+private fun Pair(
+    capture: Capture,
+    typed: String,
+    preview: SheetPreview?,
+    currency: CurrencyCode,
+    base: CurrencyCode,
+    paper: Paper,
+) {
+    val from = preview?.from ?: capture.currency ?: currency
+    // What was paid: what the person typed, or what the machine read, or nothing.
+    val original: Money? = if (typed.isNotEmpty()) {
+        Money.parseOrNull(typed, from)
+    } else {
+        capture.amountMinor?.let(Money::ofMinor)
+    }
+    val converted: Money? = if (original == null) null else preview?.base
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(paper.sunk, RoundedCornerShape(1.dp))
+            .border(Bone.Hairline, paper.edge, RoundedCornerShape(1.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Row(Modifier.fillMaxWidth()) {
+            Label(
+                "original purchase",
+                paper,
+                color = paper.inkFaint,
+                size = 8.sp,
+                tracking = 1.4.sp,
+                modifier = Modifier.weight(1f),
+            )
+            Label(
+                "base trip equivalent",
+                paper,
+                color = paper.inkFaint,
+                size = 8.sp,
+                tracking = 1.4.sp,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+            Numeral(
+                original?.formatWithSymbol(from) ?: "—",
+                paper,
+                color = if (original == null) paper.inkGhost else paper.ink,
+                size = 19.sp,
+            )
+            Spacer(Modifier.width(10.dp))
+            Numeral("≈", paper, color = paper.inkGhost, size = 15.sp)
+            Spacer(Modifier.weight(1f))
+            Numeral(
+                converted?.formatWithSymbol(base) ?: "—",
+                paper,
+                color = if (converted == null) paper.inkGhost else paper.ink,
+                size = 19.sp,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        val note = when {
+            original == null -> "type an amount and the pair updates"
+            preview?.sameCurrency == true -> "already in the trip's currency"
+            preview?.base == null -> "no ${from.code} rate yet — it will be counted in ${from.code}"
+            preview?.rateLabel != null -> "rate: ${preview.rateLabel}"
+            else -> ""
+        }
+        if (note.isNotEmpty()) {
+            Body(note, paper, color = paper.inkFaint, size = 12.sp)
+        }
+    }
+}
+
+// ── small parts ────────────────────────────────────────────────────────────────
+
+/** The way back out of the sheet, drawn rather than lettered. */
+@Composable
+private fun SheetBack(paper: Paper, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(44.dp)
+            .semantics { contentDescription = "Back" }
+            .rowTap(onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(15.dp)) {
+            val w = this.size.width
+            val h = this.size.height
+            drawLine(paper.inkSoft, Offset(w * 0.78f, h * 0.06f), Offset(w * 0.22f, h * 0.5f), 1.7f)
+            drawLine(paper.inkSoft, Offset(w * 0.22f, h * 0.5f), Offset(w * 0.78f, h * 0.94f), 1.7f)
+        }
+    }
+}
+
+/** A tracked label over a field, the way every section on this sheet announces itself. */
+@Composable
+private fun FieldLabel(text: String, paper: Paper) {
+    Label(text, paper, color = paper.inkSoft, size = 9.sp, tracking = 1.7.sp)
+}
+
+/** One sentence under a field, in the smallest voice on the page. */
+@Composable
+private fun Helper(text: String, paper: Paper) {
+    Body(text, paper, color = paper.inkFaint, size = 11.sp)
+}
+
+/** "TUESDAY 11 NOVEMBER" — the day a receipt was printed, spelled out. */
+private fun longDay(day: LocalDay): String {
+    val weekday = listOf(
+        "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY",
+    )[(day.isoWeekday() - 1).coerceIn(0, 6)]
+    val month = listOf(
+        "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+        "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
+    )[(day.month - 1).coerceIn(0, 11)]
+    return "$weekday ${day.day} $month"
+}
+
+/** "11/11/2025" — the same day, the way the field prints it. */
+private fun numericDay(day: LocalDay): String =
+    "${day.iso.substring(8, 10)}/${day.iso.substring(5, 7)}/${day.iso.substring(0, 4)}"
 
 /** The print, on the wide spread: the same plate geometry as everywhere else. */
 @Composable
@@ -312,7 +638,8 @@ private fun Print(capture: Capture, paper: Paper) {
     Column(Modifier.fillMaxWidth()) {
         Box(
             Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .aspectRatio(0.82f)
                 .background(paper.sunk)
                 .border(Bone.Hairline, paper.edge),
         ) {
