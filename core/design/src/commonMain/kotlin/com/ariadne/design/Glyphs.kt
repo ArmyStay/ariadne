@@ -72,6 +72,8 @@ public enum class Glyph {
     Ledger,
     /** A pen nib: edit. */
     Edit,
+    /** A thin forward angle: the whole of it is behind this row. */
+    Chevron,
 }
 
 @Composable
@@ -135,6 +137,12 @@ private fun DrawScope.drawGlyph(glyph: Glyph, color: Color, stroke: Float) {
     }
 
     when (glyph) {
+        Glyph.Chevron -> {
+            // Two strokes, no head and no tail: an arrow would claim a direction
+            // of travel, where this claims only that a row opens.
+            path(false, 0.42f, 0.24f, 0.66f, 0.50f, 0.42f, 0.76f)
+        }
+
         Glyph.Shutter -> {
             // A ring with a disc in it: the shutter, drawn the way the control on
             // the capture page is drawn, so the button and the glyph agree.

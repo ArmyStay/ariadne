@@ -89,12 +89,19 @@ public fun Page(
     railDocked: Boolean = true,
     onToggleRail: (() -> Unit)? = null,
     rail: (@Composable ColumnScope.() -> Unit)? = null,
+    backdrop: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Box(
         modifier.fillMaxSize().background(paper.bg),
         contentAlignment = Alignment.TopStart,
     ) {
+        // The wash a page opens on, if it has one: drawn first, filling the page,
+        // never inside the scroller. A backdrop that scrolls is a photograph of
+        // paper; one that stays put is the paper itself.
+        if (backdrop != null) {
+            Box(Modifier.fillMaxSize()) { backdrop() }
+        }
         Row(
             Modifier
                 .fillMaxWidth()
@@ -258,6 +265,7 @@ public fun Masthead(
     wide: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
     lede: String? = null,
+    titleSize: TextUnit? = null,
 ) {
     Column(modifier.fillMaxWidth()) {
         Row(
@@ -283,12 +291,16 @@ public fun Masthead(
 
         Spacer(Modifier.height(if (wide) 22.dp else 16.dp))
 
+        // A page whose headline *is* the page (the timeline) passes its own size;
+        // everything else takes the book's display scale, so the mastheads stay
+        // one family.
+        val headline = titleSize ?: if (wide) (Bone.display.value * Optical.displayScale(true)).sp else Bone.display
         Title(
             title,
             paper,
-            size = if (wide) (Bone.display.value * Optical.displayScale(true)).sp else Bone.display,
+            size = headline,
             italic = italic,
-            lineHeight = if (wide) 52.sp else Bone.display * 1.02f,
+            lineHeight = if (wide) headline * 1.08f else headline * 1.02f,
         )
 
         if (lede != null) {
@@ -327,6 +339,42 @@ public fun SectionHead(mark: String, title: String, paper: Paper, trailing: Stri
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Label(mark, paper, color = paper.blue, size = 9.sp, tracking = 1.4.sp)
                 Spacer(Modifier.width(10.dp))
+                Label(title, paper, color = paper.inkSoft, size = 9.sp, tracking = 1.8.sp)
+            }
+            if (trailing != null) {
+                Label(trailing, paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+    }
+}
+
+/**
+ * A section head marked by a rule, not by a numeral.
+ *
+ * [SectionHead] numbers its sections in roman, which suits a page that is read
+ * straight through. A journey page is read as a sequence of places and days, and
+ * a roman numeral in front of "the journey" would be a third numbering system on
+ * a page that already has a plate number and a date. The mark is a short upright
+ * bar instead: the same hairline the page is ruled with, stood on end.
+ */
+@Composable
+public fun MarkHead(
+    title: String,
+    paper: Paper,
+    modifier: Modifier = Modifier,
+    trailing: String? = null,
+) {
+    Column(modifier.fillMaxWidth()) {
+        Spacer(Modifier.height(30.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.width(2.dp).height(13.dp).background(paper.ink))
+                Spacer(Modifier.width(12.dp))
                 Label(title, paper, color = paper.inkSoft, size = 9.sp, tracking = 1.8.sp)
             }
             if (trailing != null) {

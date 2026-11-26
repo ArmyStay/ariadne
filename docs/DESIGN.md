@@ -190,10 +190,13 @@ register is listed as above.
 
 ### Two pieces that read the data rather than collect it
 
-**The day band** (Timeline, and the record for the open day) plots each
-photograph at the hour it was taken — recorded ones filled, unfinished ones
-outlined. It says *when* the day happened and stops there: no streaks, no
-targets, no missing-hour guilt.
+**The day band** plotted each photograph at the hour it was taken — recorded ones
+filled, unfinished ones outlined. It said *when* the day happened and stopped
+there: no streaks, no targets, no missing-hour guilt. **Retired in phase 8**: the
+timeline was rebuilt to the journey reference, and a day there is marked by its
+state (`SETTLED`, `IN THE RECORD`, `2 TO SETTLE`) rather than by its hours. A day
+with eight photographs has a shape whether or not the app draws it; the state is
+the fact the traveller cannot get from the photographs themselves.
 
 **The breakdown** (Stats) is a ruled column, not a donut, because a ledger should
 be readable to the rupee rather than only glanceable. It is always in the trip's
@@ -216,7 +219,7 @@ basic flow.
 | Capture detail / edit page | **kept** — basic need | A night of triage cannot be the only editing surface. Now `Route.Detail`. |
 | Category chips | **kept** — basic need | Makes the breakdown possible; never required, never guessed by OCR. |
 | Currency picker on the detail page | **kept** — basic need | Correcting a misread currency is the most common fix. |
-| 24-hour day band on the timeline | **kept** — wow | Genuinely novel, on-thesis (a day has a shape), and cheap. |
+| 24-hour day band on the timeline | **removed in phase 8** | Novel, but the rebuilt timeline carries the day's *state* instead; two readings of the same row competed for the eye. |
 | Category breakdown + a pattern line | **kept** — wow, restyled | The reference's "5660% more than usual" is a machine grading a stranger; ours states a fact about the trip. |
 | SMS parsing ("speak or send SMS") | **left out** | Needs platform permissions for a flow the ritual already covers. |
 | Voice-to-expense | **left out** | Same: a second input path to maintain, no new idea. |
