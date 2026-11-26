@@ -3,6 +3,7 @@ package com.ariadne.ios
 import androidx.compose.ui.window.ComposeUIViewController
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
 import com.ariadne.app.AppGraph
+import com.ariadne.app.AppReviewManager
 import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
 import com.ariadne.core.time.SystemClock
@@ -10,6 +11,7 @@ import com.ariadne.extract.OcrResult
 import com.ariadne.extract.TextRecognizer
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSURL
+import platform.StoreKit.SKStoreReviewController
 import platform.UIKit.UIViewController
 import platform.Vision.VNImageRequestHandler
 import platform.Vision.VNRecognizeTextRequest
@@ -70,4 +72,9 @@ private class VisionTextRecognizer : TextRecognizer {
             cont.resume(OcrResult.Failure(t.message ?: "Vision recognition failed"))
         }
     }
+}
+
+/** iOS review: the native system-managed prompt. */
+actual fun appReviewManager(): AppReviewManager = object : AppReviewManager {
+    override fun requestReview() = SKStoreReviewController.requestReview()
 }

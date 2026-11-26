@@ -3,6 +3,8 @@ package com.ariadne.wasm
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import com.ariadne.app.AppGraph
+import com.ariadne.app.AppReviewManager
+import com.ariadne.app.NoAppReviewManager
 import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
 import com.ariadne.core.time.SystemClock
@@ -92,3 +94,6 @@ private fun recognizeInBrowser(imagePath: String): String? = js(
       } catch (e) { return null; }
     })()"""
 ) as? String
+
+/** Web: no native review prompt — the feature is wired for the mobile targets. */
+actual fun appReviewManager(): AppReviewManager = NoAppReviewManager

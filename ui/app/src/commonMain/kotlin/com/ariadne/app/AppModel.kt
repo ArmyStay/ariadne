@@ -765,6 +765,9 @@ public class AppModel(
                 selectStackIndex(currentIndex.coerceAtMost(remaining.lastIndex))
             }
         }
+        // Ported from the KMP contest starter kit: offer the trusted in-app review
+        // after the first confirmed card — best effort, never blocking.
+        runCatching { appReviewManager().requestReview() }
     }
 
     public fun rejectCurrentExtractedAmount() {

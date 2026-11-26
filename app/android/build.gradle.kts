@@ -36,6 +36,10 @@ dependencies {
     implementation(libs.sqldelight.android)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core)
+    // System splash until the app is up (Theme.App.Starting).
+    implementation(libs.androidx.core.splashscreen)
+    // Trusted in-app review (Play Core Review).
+    implementation(libs.android-inappreview)
     // The camera, bound to this activity's lifecycle.
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)

@@ -36,8 +36,7 @@ public class AppGraph(
      */
     private val failures = CoroutineExceptionHandler { _, error ->
         lastFailure = error
-        println("ariadne: ${error::class.simpleName}: ${error.message}")
-        error.printStackTrace()
+        AppLogger.e("ariadne: ${error::class.simpleName}: ${error.message}", error, "AppGraph")
     }
 
     /**
