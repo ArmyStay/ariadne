@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -156,6 +157,7 @@ private fun TabPage(
                     scroll,
                     paper,
                     Modifier.align(Alignment.TopEnd).fillMaxHeight().offset(x = Bone.Margin),
+                    showTrack = wide,
                 )
             }
         }
@@ -393,6 +395,16 @@ private fun HomeHero(title: String, paper: Paper, wide: Boolean) {
     Box(
         Modifier
             .fillMaxWidth()
+            .layout { measurable, constraints ->
+                val bleed = 12.dp.roundToPx()
+                val expandedWidth = constraints.maxWidth + bleed
+                val placeable = measurable.measure(
+                    constraints.copy(minWidth = expandedWidth, maxWidth = expandedWidth),
+                )
+                layout(constraints.maxWidth, placeable.height) {
+                    placeable.place(0, 0)
+                }
+            }
             .height(if (wide) 218.dp else 190.dp)
             .clipToBounds(),
     ) {
@@ -401,8 +413,8 @@ private fun HomeHero(title: String, paper: Paper, wide: Boolean) {
             alignment = Alignment.TopEnd,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .offset(y = if (wide) (-36).dp else (-26).dp)
-                .width(if (wide) 340.dp else 300.dp)
+                .offset(y = if (wide) (-120).dp else (-155).dp)
+                .width(if (wide) 380.dp else 350.dp)
                 .aspectRatio(0.5333f),
             opacity = if (paper.isNight) 0.3f else 0.92f,
         )
@@ -461,11 +473,28 @@ private fun HomeBalancePanel(
     onSettle: () -> Unit,
 ) {
     val navy = Color(0xFF13243E)
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(16.dp)
     Box(
         Modifier
             .fillMaxWidth()
-            .shadow(10.dp, shape)
+            .then(
+                if (wide) {
+                    Modifier
+                } else {
+                    Modifier.layout { measurable, constraints ->
+                        val bleed = 6.dp.roundToPx()
+                        val expandedWidth = constraints.maxWidth + bleed * 2
+                        val placeable = measurable.measure(
+                            constraints.copy(minWidth = expandedWidth, maxWidth = expandedWidth),
+                        )
+                        layout(constraints.maxWidth, placeable.height) {
+                            placeable.place(-bleed, 0)
+                        }
+                    }
+                },
+            )
+            .fillMaxWidth()
+            .shadow(8.dp, shape)
             .clip(shape)
             .background(navy),
     ) {
@@ -478,21 +507,21 @@ private fun HomeBalancePanel(
         Column(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 22.dp, vertical = 18.dp),
+                .padding(horizontal = 22.dp, vertical = 16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(7.dp).background(Color.White, CircleShape))
                 Spacer(Modifier.width(9.dp))
                 Body("Spent today", paper, color = Color.White, size = 13.sp)
             }
-            Spacer(Modifier.height(3.dp))
+            Spacer(Modifier.height(1.dp))
             Title(
                 amount,
                 paper,
                 color = Color.White,
-                size = if (amount.length > 14) 34.sp else if (wide) 48.sp else 44.sp,
+                size = if (amount.length > 14) 34.sp else if (wide) 46.sp else 40.sp,
             )
-            Spacer(Modifier.height(7.dp))
+            Spacer(Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Body(status, paper, color = Color.White.copy(alpha = 0.68f), size = 12.sp)
                 Spacer(Modifier.weight(1f))
@@ -654,16 +683,52 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
             Label("the trip as a run of days", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
         },
         backdrop = {
-            // Full width so the wash can be hung off the *page* edge rather than
-            // the text column's, which is the difference between a plate and a
-            // picture dropped into a column.
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
-                GlobeSky(
-                    paper,
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(if (wide) 520.dp else 420.dp)
+                    .clipToBounds(),
+                contentAlignment = Alignment.TopEnd,
+            ) {
+                TravelGlobeArtwork(
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopEnd,
+                    modifier = Modifier
+                        .offset(
+                            x = if (wide) 90.dp else 70.dp,
+                            y = if (wide) (-150).dp else (-120).dp,
+                        )
+                        .width(if (wide) 430.dp else 360.dp)
+                        .aspectRatio(0.5333f),
+                    opacity = if (paper.isNight) 0.28f else 0.92f,
+                )
+                Box(
                     Modifier
-                        .offset(x = if (wide) 96.dp else 52.dp, y = if (wide) (-44).dp else (-24).dp)
-                        .width(if (wide) 470.dp else 322.dp)
-                        .height(if (wide) 633.dp else 434.dp),
+                        .fillMaxSize()
+                        .background(
+                            Brush.horizontalGradient(
+                                colorStops = arrayOf(
+                                    0f to paper.bg,
+                                    0.34f to paper.bg,
+                                    0.56f to paper.bg.copy(alpha = 0.72f),
+                                    0.8f to Color.Transparent,
+                                    1f to Color.Transparent,
+                                ),
+                            ),
+                        ),
+                )
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0f to Color.Transparent,
+                                    0.68f to Color.Transparent,
+                                    1f to paper.bg,
+                                ),
+                            ),
+                        ),
                 )
             }
         },
@@ -674,10 +739,11 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
             title = "Timeline",
             paper = paper,
             wide = wide,
+            compact = true,
             // The headline is the page here, so it is set larger than the book's
             // display scale and left upright: an italic headline over a
             // watercolour reads as a magazine cover, and this is a ledger.
-            titleSize = if (wide) 76.sp else 50.sp,
+            titleSize = if (wide) 72.sp else 42.sp,
             lede = "The journey and every day in it.",
             trailing = {
                 QuietAction("Record", paper, { model.go(Route.Record(state.today)) }, color = paper.ink)
@@ -694,13 +760,13 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
         }
 
         // ── the journey ──────────────────────────────────────────────────────
-        MarkHead("The journey", paper)
+        MarkHead("The journey", paper, topGap = 22.dp)
         Spacer(Modifier.height(2.dp))
         Title(
             trip.name,
             paper,
-            size = if (wide) 46.sp else 34.sp,
-            lineHeight = if (wide) 48.sp else 36.sp,
+            size = if (wide) 42.sp else 30.sp,
+            lineHeight = if (wide) 44.sp else 32.sp,
         )
         Spacer(Modifier.height(10.dp))
         Label(
@@ -716,7 +782,7 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
             tracking = 1.3.sp,
         )
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(18.dp))
 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
@@ -729,23 +795,13 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
                     size = 9.sp,
                     tracking = 0.4.sp,
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(3.dp))
                 Numeral(
                     Money.ofMinor(state.tripTotalMinor).formatWithSymbol(currency),
                     paper,
-                    size = if (wide) 44.sp else 33.sp,
+                    size = if (wide) 42.sp else 32.sp,
                     serif = true,
                 )
-                trip.budgetMinor?.let { budget ->
-                    Spacer(Modifier.height(6.dp))
-                    Label(
-                        "budget ${Money.ofMinor(budget).formatWithSymbol(currency)}",
-                        paper,
-                        color = paper.inkFaint,
-                        size = 9.sp,
-                        tracking = 0.4.sp,
-                    )
-                }
             }
             Label(
                 "$closed of ${days.size} days closed",
@@ -756,11 +812,11 @@ public fun TimelinePage(state: AppUiState, model: AppModel, paper: Paper, wide: 
             )
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(18.dp))
         Rule(paper, color = paper.edgeStrong)
 
         // ── the days ─────────────────────────────────────────────────────────
-        MarkHead("The days", paper)
+        MarkHead("The days", paper, topGap = 22.dp)
 
         days.forEach { card ->
             // Every day, loaded in one pass — never "no photographs" for a day
