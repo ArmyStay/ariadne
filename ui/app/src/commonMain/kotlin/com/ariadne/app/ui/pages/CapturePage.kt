@@ -81,7 +81,7 @@ public fun CapturePage(
         ) {
             QuietAction("Home", paper, { model.go(Route.Home) })
             Label(state.trip?.name ?: "Ariadne", paper, color = paper.inkFaint)
-            QuietAction("Today", paper, { model.openNightfall(state.today) })
+            QuietAction("Today", paper, { model.openCloseDay(state.today) })
         }
 
         Spacer(Modifier.height(20.dp))
@@ -134,17 +134,23 @@ public fun CapturePage(
             // The live frame if the target has a camera, the ruled plate if not.
             // Same frame either way, so the shutter never lies about what it saw.
             CameraPlate(paper, Modifier.fillMaxSize(), live = true, onFrame = onFrame)
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Label(
-                        if (cameraAvailable()) "Tap anywhere to keep" else "No camera here — tap to keep a plate",
-                        paper,
-                        color = paper.inkFaint,
-                    )
-                    Spacer(Modifier.height(18.dp))
-                }
-            }
         }
+
+        // The hint sits under the frame, not on it.
+        //
+        // It used to be drawn over the photograph as tracked capitals — "TAP
+        // ANYWHERE TO KEEP" across the bottom of the live preview, which is the one
+        // place a viewfinder must stay clear. It also said "anywhere" when only the
+        // frame is tappable, so it was both in the way and wrong. Short, plain, and
+        // outside the picture.
+        Spacer(Modifier.height(10.dp))
+        Label(
+            if (cameraAvailable()) "Tap the frame to keep it" else "No camera here — tap for a plate",
+            paper,
+            color = paper.inkFaint,
+            size = 9.sp,
+            tracking = 1.2.sp,
+        )
 
         Spacer(Modifier.weight(0.5f))
 
@@ -164,10 +170,10 @@ public fun CapturePage(
             Shutter(paper, fire)
             Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                 QuietAction(
-                    if (state.stack.isEmpty()) "Nothing waiting" else "${state.stack.size} waiting",
+                    if (state.tripSettled) "Nothing waiting" else "${state.tripPending.size} waiting",
                     paper,
-                    { model.openNightfall(state.today) },
-                    color = if (state.stack.isEmpty()) paper.inkFaint else paper.inkMid,
+                    { model.openCloseDay(state.today) },
+                    color = if (state.tripSettled) paper.inkFaint else paper.inkMid,
                 )
             }
         }
@@ -182,7 +188,7 @@ public fun CapturePage(
         ) {
             Icon(Glyph.Budget, paper, size = 12.dp, color = paper.inkFaint)
             Spacer(Modifier.width(7.dp))
-            Label("no figure here · settle it at nightfall", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.3.sp)
+            Label("no figure here · settle it later", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.3.sp)
         }
     }
 }

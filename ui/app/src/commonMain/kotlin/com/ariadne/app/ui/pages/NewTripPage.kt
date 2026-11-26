@@ -182,7 +182,7 @@ public fun NewTripPage(
 
         Body(
             "Five photographs of one Bangkok afternoon, already taken — you land on the trip " +
-                "with five photographs waiting at Nightfall.",
+                "with five photographs waiting for an amount.",
             paper,
             color = paper.inkFaint,
             size = 13.sp,

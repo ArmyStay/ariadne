@@ -30,6 +30,15 @@ public interface Clock {
      * being assumed at the call site.
      */
     public fun hourOf(millis: Long): Int
+
+    /**
+     * The minute of the hour at [millis], in this clock's zone.
+     *
+     * Added for one copy decision: a receipt with no believable merchant is titled
+     * "Receipt · 21:09", and a fallback title that could only say "Receipt · 21"
+     * would be a timestamp pretending to be a name.
+     */
+    public fun minuteOf(millis: Long): Int
 }
 
 public class SystemClock(private val zone: TimeZone = TimeZone.currentSystemDefault()) : Clock {
@@ -38,6 +47,9 @@ public class SystemClock(private val zone: TimeZone = TimeZone.currentSystemDefa
 
     override fun hourOf(millis: Long): Int =
         Instant.fromEpochMilliseconds(millis).toLocalDateTime(zone).hour
+
+    override fun minuteOf(millis: Long): Int =
+        Instant.fromEpochMilliseconds(millis).toLocalDateTime(zone).minute
 
     override fun today(): LocalDay {
         val date = KotlinClock.System.now().toLocalDateTime(zone).date
@@ -56,6 +68,9 @@ public class FixedClock(private var millis: Long, private var day: LocalDay) : C
     /** UTC, deliberately: a scripted walkthrough must not change with the machine. */
     override fun hourOf(millis: Long): Int =
         Instant.fromEpochMilliseconds(millis).toLocalDateTime(TimeZone.UTC).hour
+
+    override fun minuteOf(millis: Long): Int =
+        Instant.fromEpochMilliseconds(millis).toLocalDateTime(TimeZone.UTC).minute
 
     public fun advance(delta: Long) { millis += delta }
     public fun setDay(day: LocalDay) { this.day = day }

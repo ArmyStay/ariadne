@@ -85,6 +85,7 @@ public class AppGraph(
             // Time-ordered ids sort the way the photographs were taken, so the record
             // and the queue agree without a sequence table.
             newId = { "c-${clock.nowMillis()}-${idCounter++}" },
+            rateSource = platform.rateSource(),
         ).also { m -> m.onFailure = { lastFailure = it } }
     }
 
@@ -128,6 +129,15 @@ public interface PlatformServices {
 
     /** A native in-app review prompt where the platform supports one. */
     public fun reviewManager(): AppReviewManager = NoAppReviewManager
+
+    /**
+     * Where exchange rates are fetched from, when the platform can reach a network.
+     *
+     * Optional, and null is a working state: the app keeps the rates it already has
+     * and converts with the last known figure. A trip in a dead zone must not lose
+     * its totals because a fetch failed.
+     */
+    public fun rateSource(): com.ariadne.fx.RateSource? = null
 
     public fun close()
 }

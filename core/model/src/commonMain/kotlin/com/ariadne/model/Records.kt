@@ -125,6 +125,19 @@ public data class Capture(
     public val category: Category? = null,
     /** Anything the person wanted to remember about the photograph. */
     public val note: String? = null,
+    /**
+     * The exchange rate this amount was confirmed at, scaled by 1e6 against the
+     * trip's base currency, or null when no conversion was needed (or the row
+     * predates the snapshot).
+     *
+     * Kept on the row rather than looked up at render time, so the figure someone
+     * confirmed in Bangkok in March is the same figure the trip total shows in
+     * April. Without it the total moved whenever a rate was refreshed, and three
+     * different pages each picked a different day to convert at.
+     */
+    public val rateScaled: Long? = null,
+    /** The day [rateScaled] was true, for "≈ at 20 Nov" on screen. */
+    public val rateDate: LocalDay? = null,
 ) {
     public val hasAmount: Boolean get() = amountMinor != null && currency != null
 

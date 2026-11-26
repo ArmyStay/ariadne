@@ -77,7 +77,7 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
     ) {
         Masthead(
-            number = "08",
+            number = "",
             eyebrow = "The record",
             title = "Remember a thing",
             paper = paper,
@@ -188,7 +188,7 @@ private fun SearchRow(capture: Capture, paper: Paper, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Title(capture.merchant ?: "Untitled", paper, size = 16.sp)
+            Title(model.titleOf(capture), paper, size = 16.sp)
             Spacer(Modifier.height(3.dp))
             Label(capture.localDate.iso, paper, color = paper.inkFaint)
         }

@@ -6,16 +6,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
@@ -23,167 +22,265 @@ import com.ariadne.app.AppUiState
 import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
-import com.ariadne.design.Bone
-import com.ariadne.design.FigureRow
-import com.ariadne.design.Glyph
+import com.ariadne.design.BudgetBar
 import com.ariadne.design.Icon
 import com.ariadne.design.Label
+import com.ariadne.design.MeasuredRule
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
-import com.ariadne.design.Masthead
-import com.ariadne.design.MeasuredRule
-import com.ariadne.design.PageAction
-import com.ariadne.design.ScrollingMargin
 import com.ariadne.design.Paper
+import com.ariadne.design.Pill
+import com.ariadne.design.PillTone
 import com.ariadne.design.QuietAction
+import com.ariadne.design.RailFigure
 import com.ariadne.design.Rule
 import com.ariadne.design.Title
+import com.ariadne.design.Glyph
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.Money
 
 /**
- * Page 3 — Trip.
+ * Trip — the journey as an object, in the bar rather than behind a link.
  *
- * The trip as an object rather than a list: dates, the running state of the days,
- * the currencies actually touched, and the one action that closes it. This is
- * where "the trip is the container" becomes visible in one screen.
+ * The old page was a contents list for the trip (its dates, its progress, its
+ * currencies) with the register and the card reachable from it. Now that the trip
+ * has its own place in the bar, the page can be about one thing: what this journey
+ * is, what it has cost, and how far through it you are.
+ *
+ * Four blocks, in the order the questions get asked:
+ *
+ *   1. **What it is** — the name, the place, the dates.
+ *   2. **What it has cost** — spent against the budget, in the base currency, with
+ *      the share of the budget drawn rather than described.
+ *   3. **How far through it** — days closed of days in the trip.
+ *   4. **What it was spent in** — the currencies actually touched, each with its own
+ *      subtotal, and then the one figure they add up to.
+ *
+ * The other trips on the device appear only when there is more than one: a switcher
+ * with a single row is a list of one thing you already know.
  */
 @Composable
 public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean = false) {
     val trip = state.trip ?: return
+    val currency = trip.baseCurrency
+    val spent = state.categoryTotals.sumOf { it.baseMinor }
+    val budget = trip.budgetMinor
     val closed = state.dayCards.count { it.isClosed }
+    val days = state.dayCards.size
 
-    ScrollingMargin(paper, wide, vertical = 26.dp) { _ ->
-        Masthead(
-            number = "09",
-            eyebrow = "Trip",
-            title = trip.name,
-            paper = paper,
-            trailing = { PageAction("Back", paper, { model.go(Route.Home) }) },
-        )
-
-        Spacer(Modifier.height(22.dp))
-
-        // Dates, set like a title page: ruled column, not a table.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            DateBlock("From", trip.startDate.iso, paper)
-            DateBlock("To", trip.endDate.iso, paper)
-            DateBlock("Days", state.dayCards.size.toString(), paper, alignEnd = true)
+    TabPage(
+        paper = paper,
+        wide = wide,
+        railDocked = state.railDocked,
+        onToggleRail = { model.toggleRail() },
+        rail = {
+            RailFigure("spent", Money.ofMinor(spent).formatWithSymbol(currency), paper)
+            Spacer(Modifier.height(22.dp))
+            RailFigure("days closed", "$closed of $days", paper)
+            Spacer(Modifier.height(22.dp))
+            RailFigure("since", trip.startDate.iso, paper)
+        },
+    ) {
+        // ── 1. what it is ───────────────────────────────────────────────────
+        Label("trip", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+        Spacer(Modifier.height(8.dp))
+        Title(trip.name, paper, size = if (wide) 44.sp else 34.sp, italic = true)
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (trip.place != null) {
+                Icon(Glyph.Place, paper, size = 13.dp, color = paper.inkFaint)
+                Spacer(Modifier.width(7.dp))
+                Label(trip.place, paper, color = paper.inkSoft, size = 11.sp, tracking = 0.4.sp)
+                Spacer(Modifier.width(14.dp))
+            }
+            Label(
+                "${trip.startDate.iso} — ${trip.endDate.iso} · $days days",
+                paper,
+                color = paper.inkFaint,
+                size = 10.sp,
+                tracking = 0.5.sp,
+            )
+        }
+        if (trip.isClosed) {
+            Spacer(Modifier.height(10.dp))
+            Pill("closed", paper, PillTone.Quiet)
         }
 
-        if (trip.place != null || trip.budgetMinor != null) {
-            Spacer(Modifier.height(20.dp))
-            Rule(paper, color = paper.edge)
-            Spacer(Modifier.height(14.dp))
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Glyph.Place, paper, size = 15.dp, color = paper.inkFaint)
-                    Spacer(Modifier.width(9.dp))
-                    Label(trip.place ?: "no place set", paper, color = paper.inkSoft, tracking = 1.3.sp)
-                }
-                trip.budgetMinor?.let { budget ->
-                    val spent = state.categoryTotals.sumOf { it.baseMinor }
-                    val left = budget - spent
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Glyph.Budget, paper, size = 15.dp, color = paper.inkFaint)
-                        Spacer(Modifier.width(9.dp))
-                        Label("fence", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
-                        Spacer(Modifier.width(8.dp))
-                        Numeral(
-                            Money.ofMinor(budget).formatWithSymbol(trip.baseCurrency),
-                            paper,
-                            size = 13.sp,
-                            color = paper.inkSoft,
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Label(
-                            if (left >= 0) "${Money.ofMinor(left).formatWithSymbol(trip.baseCurrency)} left"
-                            else "${Money.ofMinor(-left).formatWithSymbol(trip.baseCurrency)} over",
-                            paper,
-                            color = paper.inkFaint,
-                            size = 9.sp,
-                            tracking = 1.2.sp,
-                        )
-                    }
-                }
+        Spacer(Modifier.height(26.dp))
+
+        // ── 2. what it has cost ─────────────────────────────────────────────
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+            Numeral(
+                Money.ofMinor(spent).formatWithSymbol(currency),
+                paper,
+                size = if (wide) 52.sp else 40.sp,
+                weight = FontWeight.Medium,
+            )
+            Spacer(Modifier.width(10.dp))
+            Label("spent", paper, color = paper.inkFaint, size = 10.sp, tracking = 1.2.sp)
+        }
+
+        if (budget != null && budget > 0) {
+            val left = budget - spent
+            val fraction = (spent.toFloat() / budget.toFloat()).coerceIn(0f, 1f)
+            Spacer(Modifier.height(10.dp))
+            Label(
+                "of ${Money.ofMinor(budget).formatWithSymbol(currency)} · " +
+                    if (left >= 0) {
+                        "${Money.ofMinor(left).formatWithSymbol(currency)} left"
+                    } else {
+                        "${Money.ofMinor(-left).formatWithSymbol(currency)} over"
+                    },
+                paper,
+                color = if (left >= 0) paper.inkSoft else paper.blue,
+                size = 11.sp,
+                tracking = 0.3.sp,
+            )
+            Spacer(Modifier.height(8.dp))
+            // The tick is the trip's own pace: how much of the budget the days so
+            // far would have used if spending were even. Being under the bar and
+            // over the tick is the one thing a bar alone cannot tell you.
+            BudgetBar(
+                fraction = fraction,
+                paper = paper,
+                pace = if (days > 0) closed.toFloat() / days.toFloat() else null,
+                over = left < 0,
+            )
+            Spacer(Modifier.height(10.dp))
+            QuietAction("change the budget", paper, { model.go(Route.Preferences) }, color = paper.inkFaint)
+        } else {
+            Spacer(Modifier.height(10.dp))
+            QuietAction("set a budget", paper, { model.go(Route.Preferences) }, color = paper.inkFaint)
+        }
+
+        Spacer(Modifier.height(24.dp))
+        Rule(paper)
+        Spacer(Modifier.height(20.dp))
+
+        // ── 3. how far through it ───────────────────────────────────────────
+        Label("how far", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+        Spacer(Modifier.height(8.dp))
+        Title("$closed of $days days closed", paper, size = 22.sp)
+        Spacer(Modifier.height(10.dp))
+        MeasuredRule(closed, days, paper)
+        Spacer(Modifier.height(12.dp))
+        QuietAction("see the days", paper, { model.go(Route.Days) }, color = paper.inkMid)
+
+        Spacer(Modifier.height(24.dp))
+        Rule(paper)
+        Spacer(Modifier.height(20.dp))
+
+        // ── 4. what it was spent in ─────────────────────────────────────────
+        Label("what it was spent in", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+        Spacer(Modifier.height(12.dp))
+
+        if (state.perCurrency.isEmpty()) {
+            Body(
+                "Nothing tallied yet. The first capture is a photograph, not a form.",
+                paper,
+                serif = true,
+                color = paper.inkSoft,
+                size = 15.sp,
+            )
+        } else {
+            state.perCurrency.forEach { (code, minor) ->
+                CurrencyLine(code, Money.ofMinor(minor).format(CurrencyCode.of(code)), paper)
+            }
+            Spacer(Modifier.height(8.dp))
+            Rule(paper, color = paper.edgeStrong)
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Label("all of it", paper, color = paper.inkSoft, size = 11.sp, tracking = 0.4.sp)
+                Spacer(Modifier.weight(1f))
+                Numeral(
+                    Money.ofMinor(spent).formatWithSymbol(currency),
+                    paper,
+                    size = 17.sp,
+                    weight = FontWeight.Medium,
+                )
+            }
+            if (state.tripUnconverted.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                ConversionNote(emptyMap(), state.tripUnconverted, paper)
             }
         }
 
         Spacer(Modifier.height(24.dp))
         Rule(paper)
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(20.dp))
 
-        Label("Progress", paper, color = paper.inkFaint)
-        Spacer(Modifier.height(10.dp))
-        Title("$closed of ${state.dayCards.size} days closed", paper, size = 22.sp)
+        Label("currency", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
         Spacer(Modifier.height(8.dp))
-        MeasuredRule(closed, state.dayCards.size, paper)
-
-        Spacer(Modifier.height(26.dp))
-        Label("So far", paper, color = paper.inkFaint)
-        Spacer(Modifier.height(10.dp))
-
-        if (state.perCurrency.isEmpty()) {
-            Body("Nothing tallied yet. The first capture is a photograph, not a form.", paper, serif = true, color = paper.inkSoft)
-        } else {
-            state.perCurrency.forEach { (code, minor) ->
-                FigureRow(code, Money.ofMinor(minor).format(CurrencyCode.of(code)), paper)
-            }
-            Spacer(Modifier.height(6.dp))
-            Rule(paper)
-            FigureRow(
-                "In ${trip.baseCurrency.code}",
-                Money.ofMinor(state.dayTotalMinor).formatWithSymbol(trip.baseCurrency),
-                paper,
-                emphasised = true,
-            )
-        }
-
-        Spacer(Modifier.height(28.dp))
-        Label("Currency", paper, color = paper.inkFaint)
-        Spacer(Modifier.height(10.dp))
         Body(
-            "Base ${trip.baseCurrency.code} · home ${trip.homeCurrency.code}. The original amount is " +
-                "never converted away — it stays under the figure it became.",
+            "Base ${currency.code} · home ${trip.homeCurrency.code}. The original amount is never " +
+                "converted away — it stays under the figure it became.",
             paper,
             color = paper.inkSoft,
+            size = 13.sp,
+            lineHeight = 19.sp,
         )
+        Spacer(Modifier.height(10.dp))
+        QuietAction("the rates", paper, { model.go(Route.Preferences) }, color = paper.inkFaint)
 
-        Spacer(Modifier.height(30.dp))
+        // ── other trips, only when there are some ───────────────────────────
+        val others = state.trips.filter { it.id != trip.id }
+        if (others.isNotEmpty()) {
+            Spacer(Modifier.height(24.dp))
+            Rule(paper)
+            Spacer(Modifier.height(20.dp))
+            Label("also on this device", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+            Spacer(Modifier.height(6.dp))
+            others.forEach { other ->
+                OtherTripRow(other.name, "${other.startDate.iso} — ${other.endDate.iso}", paper) {
+                    model.switchTrip(other.id)
+                }
+                Rule(paper)
+            }
+        }
+
+        Spacer(Modifier.height(26.dp))
         if (trip.isClosed) {
-            // A closed trip is not closed twice: the card already exists.
-            Action("See the card", paper, { model.go(Route.TripCard(trip.id)) }, accent = true)
+            Action("The card", paper, { model.go(Route.TripCard(trip.id)) }, accent = true)
         } else {
             Action("Close the trip into a card", paper, { model.closeTripIntoCard() }, accent = true)
         }
         Spacer(Modifier.height(12.dp))
-        QuietAction("Every day of it", paper, { model.go(Route.Record(state.today)) }, color = paper.inkMid)
+        if (others.isNotEmpty()) {
+            OutlineAction("Start another trip", paper, { model.startNewTrip() })
+            Spacer(Modifier.height(10.dp))
+        }
+        QuietAction("the register", paper, { model.go(Route.Trips) }, color = paper.inkMid)
+        Spacer(Modifier.height(20.dp))
     }
 }
 
 @Composable
-private fun DateBlock(label: String, value: String, paper: Paper, alignEnd: Boolean = false) {
-    Column(horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start) {
-        Label(label, paper, color = paper.inkFaint)
-        Spacer(Modifier.height(7.dp))
-        Numeral(value, paper, size = 14.sp)
+private fun CurrencyLine(code: String, value: String, paper: Paper) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Label(code, paper, color = paper.inkSoft, size = 11.sp, tracking = 0.6.sp)
+        Spacer(Modifier.weight(1f))
+        Numeral(value, paper, size = 15.sp)
     }
 }
 
-/** Small helper so callers can put a rule between sections without a spacer dance. */
 @Composable
-internal fun SectionBreak(paper: Paper, space: Int = 24) {
-    Spacer(Modifier.height(space.dp))
-    Rule(paper)
-    Spacer(Modifier.height(space.dp))
-}
-
-/** A framed column, used for the day strip and the receipt stack. */
-@Composable
-internal fun FramedColumn(content: @Composable () -> Unit) {
-    Box(Modifier.fillMaxWidth()) { Column { content() } }
+private fun OtherTripRow(name: String, dates: String, paper: Paper, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .rowTap(onClick)
+            .heightIn(min = 48.dp)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Title(name, paper, size = 17.sp)
+            Spacer(Modifier.height(2.dp))
+            Label(dates, paper, color = paper.inkFaint, size = 9.sp, tracking = 0.5.sp)
+        }
+        Label("open", paper, color = paper.inkMid, size = 10.sp, tracking = 1.2.sp)
+    }
 }
