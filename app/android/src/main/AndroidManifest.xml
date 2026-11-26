@@ -6,7 +6,7 @@
 
     <application
         android:label="Ariadne"
-        android:icon="@android:drawable/ic_menu_camera"
+        android:icon="@drawable/ariadne_mark"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:allowBackup="false">
 
