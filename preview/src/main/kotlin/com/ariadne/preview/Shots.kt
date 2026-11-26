@@ -67,6 +67,7 @@ fun main(args: Array<String>) {
         Shot("02a-trips", 440, 900, route = { it.go(Route.Trips) }),
         Shot("02a-trips-desktop", 1200, 800, route = { it.go(Route.Trips) }),
         Shot("02c-stats", 440, 900, route = { it.go(Route.Stats) }),
+        Shot("02c-stats-desktop", 1200, 800, route = { it.go(Route.Stats) }),
         // Finished through the real ritual, so the breakdown below is the one the
         // app would actually compute — not a fixture.
         Shot(
@@ -77,7 +78,12 @@ fun main(args: Array<String>) {
         ),
         Shot("02d-prefs", 440, 900, route = { it.go(Route.Preferences) }),
         Shot("03-trip", 440, 900, route = { it.go(Route.Trip) }),
+        Shot("03-trip-desktop", 1200, 800, route = { it.go(Route.Trip) }),
         Shot("04-capture", 440, 900, route = { it.go(Route.Capture) }),
+        // The sheet: the shutter's landing, with the photograph behind it. Taken
+        // through the real capture path so the plate is a real one.
+        Shot("04-sheet", 440, 900, route = { it.capturePlaceholder() }, settle = 1),
+        Shot("04-sheet-desktop", 1200, 800, route = { it.capturePlaceholder() }, settle = 1),
         // The frame just taken, held up with its two ways out.
         Shot(
             "04b-frame", 440, 900, settle = 4,

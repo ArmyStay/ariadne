@@ -277,7 +277,7 @@ private fun DayLine(
     Column(
         Modifier
             .fillMaxWidth()
-            .pointerInput(card.localDate) { detectTapGestures(onTap = { onSelect() }) }
+            .rowTap(onSelect)
             .background(if (selected) paper.sunk else paper.bg)
             .padding(vertical = 12.dp, horizontal = 4.dp),
     ) {
@@ -352,7 +352,7 @@ private fun DayEntry(
     Row(
         Modifier
             .fillMaxWidth()
-            .pointerInput(capture.id) { detectTapGestures(onTap = { onClick() }) }
+            .rowTap(onClick)
             .padding(vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

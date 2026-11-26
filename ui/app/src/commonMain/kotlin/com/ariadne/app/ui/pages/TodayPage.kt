@@ -63,8 +63,13 @@ import com.ariadne.model.entryStatus
 public fun TodayPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
     val trip = state.trip
     // The library is a real second way in, and it is its own picker call.
-    val importPhoto = rememberPhotoImport(
-        onBytes = { model.importPhoto(it) },
+    // Several at once: a pile of forgotten receipts should take one trip to the
+    // picker, not four. A picker that can only do one still works here.
+    val importPhotos = rememberPhotoImportMany(
+        onBytes = { model.importPhotos(it) },
+        // Only reachable if the local was cleared between composition and tap; the
+        // control is not shown without a picker. Falling back to the shutter is
+        // better than a tap that does nothing.
         onUnavailable = { model.openCapture() },
     )
 
@@ -161,9 +166,9 @@ public fun TodayPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         if (pickerAvailable()) {
             Spacer(Modifier.height(6.dp))
             QuietAction(
-                "or bring one in from the library",
+                "or bring some in from the library",
                 paper,
-                importPhoto,
+                importPhotos,
                 color = paper.inkSoft,
             )
         }

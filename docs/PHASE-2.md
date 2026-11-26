@@ -143,14 +143,64 @@ contract from commit 1:
 These compile and run only with Gradle against the real modules; that has not been
 possible here (see the note at the top).
 
+## Commit 3 — Trip and Stats, and several photographs at once
+
+### Trip
+
+`TripPage.kt` is rewritten on the tab shell. The old page was a contents list for
+the trip with a "Back" action in its header — a leftover from when the trip was
+reached from Home. It has its own place in the bar now, so the page is about the
+journey instead: what it is (name, place, dates), what it has cost (spent against
+budget, with the share drawn and the reminder labelled), how far through it you are
+(days closed, as a measured rule), and what it was spent in (per-currency subtotals
+and the one figure they add up to).
+
+The trip switcher appears only when there is another trip on the device: a list of
+one thing you already know is not a switcher. Budget and rates are one quiet action
+away rather than being fields on this page — `/preferences` is still the place where
+numbers are edited, and that is the next page to be rewritten.
+
+### Stats
+
+`StatsPage.kt` moves out of `TabPages.kt` and stops being a table. It now answers
+three questions in order — what it came to (with the daily share of the budget named
+explicitly, because "₹3,400 a day" is the number a traveller can use), what it was
+(categories drawn to scale rather than only tabulated), and day by day (one bar per
+day across the whole trip with the daily budget as a single line, so the *shape* of
+the trip reads at a glance). Days with nothing on them are drawn as empty slots: a
+gap in a trip is information.
+
+Two things were removed rather than restyled: the numbered section heads ("II — what
+it was"), and the "Close today" button at the bottom of a page of figures, which was
+an unrelated action in the wrong place.
+
+### Several photographs at once
+
+`PhotoPicker` gains `pickMany(limit)`, with a default implementation that falls back
+to `pick()`, so every existing target keeps working and the caller never has to ask
+which kind of picker it has. `AppModel.importPhotos` files a batch without opening a
+sheet — the tray the import just filled is the answer, not a sheet for the last
+photograph in the pile — while a single imported photograph still opens its sheet.
+Today's library action now asks for as many as the picker will give.
+
+The Android picker has not been switched to `PickMultipleVisualMedia` yet, so on
+Android this currently degrades to one-at-a-time through the fallback. That is
+honest but unfinished, and it is the first thing in the next commit.
+
+### Also
+
+- `Modifier.rowTap` in `TabShell.kt`: one tap target per row with a real click action
+  and role for TalkBack, no ripple. The rows in Days and Trip were `pointerInput`
+  only, which is invisible to a screen reader.
+- New stills in the manifest: `04-sheet`, `04-sheet-desktop`, `03-trip-desktop`,
+  `02c-stats-desktop`.
+
 ## Not yet in this commit
 
 Still to come in Phase 2 (next commits):
 
-- **Multi-select library import** into the "needs an amount" tray.
-- **Trip**: budget editing, per-currency subtotals, trip switcher.
-- **Stats**: category breakdown as a bar, daily spend against the daily budget, top
-  entries.
+- **Android multi-select** in the picker (`PickMultipleVisualMedia`).
+- **Preferences**, the last page still built as a long numbered form.
 - **Snackbar undo** for delete and edit, and loading/error states for every list.
 - **Preview definitions** (`@Preview`/`@PreviewParameter`) for each redesigned screen,
   which is what "screenshots" has to mean in an environment that cannot render Compose.

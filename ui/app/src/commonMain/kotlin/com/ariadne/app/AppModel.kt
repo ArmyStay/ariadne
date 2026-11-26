@@ -345,7 +345,11 @@ public class AppModel(
      * The caller is told the id because the shutter now hands the frame straight
      * back to the person holding it: keep it for nightfall, or fill it in now.
      */
-    public fun capturePhoto(bytes: ByteArray, downscaleAdjusted: Boolean = true) {
+    public fun capturePhoto(
+        bytes: ByteArray,
+        downscaleAdjusted: Boolean = true,
+        openSheet: Boolean = true,
+    ) {
         val trip = _state.value.trip ?: return
         // A closed trip is a finished record, not a destination for new paper.
         if (trip.isClosed) return
@@ -377,10 +381,14 @@ public class AppModel(
             // A photograph taken abroad is the moment a rate first matters. Policy
             // decides whether this is actually a request; a cached rate is enough.
             runCatching { refreshRates() }.onFailure(::report)
+            // A batch import files its photographs and leaves the person where they
+            // are: the tray they just filled is the answer, not a sheet for the last
+            // photograph in the pile.
+            if (!openSheet) return@launch
             // The sheet over the photograph is the editor, so it opens with the
             // editor's state already loaded: the shutter gets out of the way and
             // the amount field is live on the same tap. Nothing is pre-filled from
-            // extraction - a suggestion is offered as a chip, never typed in.
+            // extraction — a suggestion is offered, never typed in.
             val saved = store.findById(id)
             _state.value = _state.value.copy(
                 route = Route.Frame(id),
@@ -415,6 +423,27 @@ public class AppModel(
      */
     public fun importPhoto(bytes: ByteArray) {
         capturePhoto(bytes)
+    }
+
+    /**
+     * Several photographs from the library, filed in one act.
+     *
+     * No sheet opens: the point of a batch is to get the photographs into the record
+     * and out of the way, and each one meets the same "add the amount later" pager
+     * whenever the day is closed. A single photograph still opens its sheet, because
+     * a person who picked one thing probably wants to type the figure now.
+     */
+    public fun importPhotos(photos: List<ByteArray>) {
+        if (photos.isEmpty()) return
+        if (photos.size == 1) {
+            capturePhoto(photos.first())
+            return
+        }
+        photos.forEachIndexed { index, bytes ->
+            // The last one is given the sheet only if the caller asked for a batch of
+            // exactly one, which is handled above; a real batch never interrupts.
+            capturePhoto(bytes, openSheet = false)
+        }
     }
 
     /** Kept for the older call sites: they now open the form rather than a trip. */
