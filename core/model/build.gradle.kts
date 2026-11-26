@@ -5,7 +5,7 @@ plugins {
 
 kotlin {
     jvm()
-    iosX64(); iosArm64(); iosSimulatorArm64()
+    iosArm64(); iosSimulatorArm64()
     wasmJs { browser(); nodejs() }
     androidLibrary {
         namespace = "com.ariadne.core.model"

@@ -5,8 +5,7 @@ plugins {
 
 kotlin {
     jvm()
-    androidTarget()
-    iosX64()
+    androidTarget { withHostTest() }
     iosArm64()
     iosSimulatorArm64()
     wasmJs { browser(); nodejs() }
