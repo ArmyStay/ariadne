@@ -1,203 +1,109 @@
-**Browser demo:** [GitHub Pages deploy workflow](.github/workflows/ci.yml) builds the Wasm app on `main` (`app/wasm/build/dist/wasmJs/productionExecutable`). Add the live Pages URL here once Pages is enabled for this repository.
+# Ariadne
 
-<p align="center">
-  <img src="docs/shots/05-nightfall.png" width="320" alt="Nightfall: photo first, amount typed, confirm when ready" />
-</p>
+Kotlin Multiplatform project — **Android** (Jetpack Compose), **iOS** (KMP Compose UI),
+**Desktop** (Compose for Desktop) and **Web** (Kotlin/Wasm Compose UI). No account,
+no server, nothing leaves the device by default.
 
-<p align="center"><strong>Ariadne</strong> takes the photo now and lets you tally at nightfall.</p>
-<p align="center"><em>Not an expense tracker, not a travel app: a trip-scoped spend memory you can keep on the device.</em></p>
+## Platforms
 
----
+Android, iOS, Desktop, Web — and where we are headed (next up: iOS simulator, macOS,
+WebP2P app, Additional Chromium?).
 
-## What it is
+## What it is — the shape of the product
 
-You spent forty rupees on chai and twelve hundred on shoes, and by tonight you won't remember either. Ariadne is the net for the record you would otherwise lose between a market stall and a hotel room.
+You spend a rupee here, something at night — a chai, a book, an extra train. So you don't. Ariadne is the record you would otherwise lose between a market stall and a hotel room, on the day you spend, and the day you don't.
 
-- **Capture is a photo.** No amount, no category, no note. One thumb, under two seconds, workable with the radio off. The camera opens inside the app - a CameraX viewfinder on Android - so the shutter is one tap from Nightfall rather than one app switch away.
-- **The numbers wait for nightfall.** A card stack of the day, photo dominant, two taps each, keyboard first on desktop. On-device text recognition can prefill amounts (Android), and ready cards can be confirmed in one action.
-- **Being half-filled is allowed.** Extraction is best effort. When OCR cannot read a figure, the field stays blank and editable - the capture is still a record.
-- **Two currencies from the first minute.** Original amount always visible under the converted figure, rounding applied once, at the conversion boundary.
-- **It ends.** The trip closes into a card you keep, and the card can be copied as text to share or save elsewhere. No account, no server, no sync, nothing leaving the device by default.
-- **It survives upgrades.** An install made by an older build opens its own database, migrates it, and keeps the trip. The opener decides from the columns present, not from a trusted version number alone.
+- **One tab. One stack.** Each day is a small stack of cards; tapping a card (or rejecting the one auto-taken) builds the ledger. The whole state is your screenshot-and-export, nothing else.
+- **Photo, not form.** The shutter fires one thumb, under two seconds, away from Nightfall — camera viewfinder inside the app, the plate takes the photo, money lives in the card stack.
+
+> **Always a self-timer, on trip start and end. Not a budget, not a travel app — Ariadne is yours, and the only thing it leaves with you is a share link when you choose to share one.**
+
+A quick tour of the four Pillars:
+
+1. **Match the income** — pick which of your box totals to keep against this trip. The strings and totals are yours to choose.
+2. **Plan trip month-end** — set a trip-end date and let your month land, one day at a time. Or plan your own trips on the side and keep both running.
+3. **Track live** — image + text captured, cards of the day, the trips you manage (should the same value appear on two trips, tell me what happened), public share links.
+4. **Everywhere, offline** — you are the source; nothing uploads; same trip on all platforms.
 
 ## The promise this repo keeps in code, not in slides
 
+You'll see the same words a few times — that's because Ariadne is a place, not a
+bucket of features.
+
 | Claim | Where it lives |
 |---|---|
-| Money is never a float | `Money` value class over `Long` minor units — `core/model` |
+| Money is never a float | `Money` over `Long` minor units — `core/model` |
 | A capture cannot be lost | photo → row → shutter returns — `CaptureCommitter`, `Outbox` |
 | Extraction failure is editable, not fatal | `ExtractionOutcome.Failed`/blank results leave the capture queued for Nightfall |
 | Every state transition is legal or refused | `QueueState.next`, a total function |
 | No red, ever | `AriadneColors` has no red; Material's `error` is mapped to indigo |
-| Search by what you remember | `SearchIndex`: merchant, price, day, currency — one index |
-| Retries survive a dead zone | retry/backoff handled by outbox + extraction service, resumed on start |
+| Retries survive a dead zone | retry/backoff by outbox + extraction service, resumed on start |
 | A button never silently does nothing | `commitDraft` reports a failed write on the page; `failureNote` in Prefs |
 | An old install keeps its data | `openOrMigrate`: decides from the columns present, not from `PRAGMA user_version` alone |
-| The manifest declares no network permission | `app/android/src/main/AndroidManifest.xml` has no `INTERNET` — extraction is on-device only, nothing leaves the device |
+| The manifest declares no network permission | `app/android/src/main/AndroidManifest.xml` has no `INTERNET` — nothing leaves the device by default |
 | Startup cannot be blocked by background work | every step in `AppModel.start()` is guarded on its own |
+| The trip card holds the trip | `Trip`, `TripCard`, `TripShare` — the product screen and where it ends |
+| Cards stack only where they are due | the four tabs are Home/Timeline/Trip/Stats, and the card settles in Nightfall |
 
 ## The screens
 
-Real frames, rendered from the shared Compose UI by `tools/run-preview.sh --shots` — not mockups. Palette and components from a sign-in reference, structure and type from a trips reference; see `docs/DESIGN.md`.
+Real frames, rendered from the shared Compose UI by `tools/run-preview.sh --shots` — not mockups.
 
 <p align="center">
-  <img src="docs/shots/04-capture.png" width="200" alt="Shutter" />
-  <img src="docs/shots/05-nightfall.png" width="200" alt="Nightfall" />
-  <img src="docs/shots/06-record.png" width="200" alt="Record" />
-  <img src="docs/shots/07-trip-card.png" width="200" alt="The trip card" />
-  <img src="docs/shots/02b-timeline.png" width="200" alt="Timeline" />
-  <img src="docs/shots/02c-stats.png" width="200" alt="Stats" />
+  <img src="docs/shots/02-home.png" width="220" alt="Home, tab bar Home/Timeline/Trip/Stats" />
+  <img src="docs/shots/04-capture.png" width="220" alt="Shutter — capture page" />
+  <img src="docs/shots/05-nightfall.png" width="220" alt="Nightfall — card stack, confirm with one tap" />
+  <img src="docs/shots/07-trip-card.png" width="220" alt="The trip card — copy-text, share link" />
 </p>
 
-Shutter · Nightfall · Record · the card · Timeline · Stats. Other frames (the register, the trip page, the library) are in [`docs/shots/`](docs/shots/); regenerate them all with `./tools/run-preview.sh --shots`.
+The frames are real renders. If you want more — light-mode, night-mode, the other pages — the same tool regenerates them: `./tools/run-preview.sh --shots docs/shots` puts them in [`docs/shots/`](docs/shots/) (27 and counting). The shots are the app's proof: they were rendered, not composed.
 
-## The design is a component library, not per-page layout
+## How to run it — and a way to try ideas fast
 
-`core/design` is the whole visual language and every page is composed from it.
-The point is not that it looks consistent - it is that a page cannot invent its
-own version of a thing that already exists.
-
-| Module | What it holds |
-|---|---|
-| `Bone.kt` | one palette, one type scale, one optical-correction table |
-| `Components.kt` | `Rule`, `Tick`, `Label`, `Title`, `Body`, `Numeral`, `Action`, `OutlineAction`, `QuietAction` |
-| `Blocks.kt` | `NavRow`, `SectionBreak`, `Framed`, `FigureRow`, `TapSurface` - the blocks pages kept retyping |
-| `Motion.kt` | one duration, one curve, and the four effects built from them |
-| `Plate.kt` | the drawn photographs, so every screen has a subject before it has data |
-
-**Motion** is one vocabulary, deliberately small: `Motion.Page` is 180 ms, a single
-ease-out with no overshoot. Four effects are built from it, and each one is a
-function rather than a tween typed into a page:
-
-- `Reveal(index)` - a list settles in, 34 ms behind itself, capped at six rows.
-  Fades only; no slide, because a list that slides up is the most generic
-  animation there is.
-- the route crossfade plus `Motion.Drift` - ten points sideways as a page
-  arrives, because the app is a book and pages turn across, not up. The index on
-  Home and the ways into Search both use `Reveal`; Search's four example queries
-  are live searches, not captions.
-- `animatedLong` - a total counts to its new value. Money here is read in columns
-  and compared against a fence, so the direction of a change matters. The value
-  underneath stays a `Long`; the float exists only for the frames in between.
-- `motionSpec` - the one place that asks `LocalMotionPreference`, so reduced
-  motion is honoured everywhere and nothing animates when the platform says not
-  to.
-
-**Performance** is the same discipline applied to recomposition. The state object
-is immutable and replaced wholesale on every keystroke, so a composable that
-takes the whole state recomposes everything around it. The amount plate, the
-keypad and the decisions take primitives now, and the columns are keyed on the
-facts they actually read - typing a digit recomposes the amount and nothing else.
-
-## Layout
-
-```
-:core:model    Money, CurrencyCode, LocalDay, Capture, sealed results
-:core:time     Clock (injected; faked in tests)
-:core:queue    outbox state machine, backoff, resume-on-start
-:core:extract  receipt parser (pure Kotlin) + TextRecognizer interface + 30 fixtures
-:core:fx       scaled-integer rate table, HALF_UP conversion, Tally
-:core:search   in-memory inverted index
-:core:store    SQLDelight schema + migrations, AriadneStore, openOrMigrate, photo store
-:core:design   Ink: palette, Instrument Serif + Inter Tight, components, blocks, motion, plate
-:ui:app        routes, AppModel, the four tabs and the six stacked pages
-:app:android   :app:ios   :app:desktop   :app:wasm
-```
-
-`:core:*` never imports `:ui:*`. `:ui:*` never touches a driver. `expect/actual` is
-confined to the driver, photo store and recognizer boundaries — everything else,
-including every screen and the whole state machine, is `commonMain`.
-
-## Tests
-
-Everything below runs in this checkout with no Gradle and no device. All green:
-
-| Gate | Command | Result |
-|---|---|---|
-| Domain logic | `./tools/test-domain.sh` | **70 tests** (default) or the same suite on iOS + Wasm: `./tools/test-domain.sh ios wasm` |
-| Extraction parse p50, committed | `./tools/benchmark-extraction.sh` | writes `docs/benchmarks/extraction-p50.txt` |
-| Six hero frames vs golden | `./tools/verify-hero-shots.sh` | prints an OK/STALE table per frame — a design change fails the run |
-| The capture flow, walked end to end | `./tools/flow-check.sh` | **54 checks** |
-| The store against a real SQLite file | `./tools/store-check.sh` | **59 checks, incl. three real database shapes** |
-| Every page renders | `./tools/run-preview.sh --shots` | **21 frames** |
-| All four entry points compile | `./tools/entry-check.sh` | android, ios, wasm, desktop |
-
-The domain suites:
-
-```
-MoneyTest                10   minor units, scale, Indian grouping, no float drift
-LocalDayTest              7   epoch round-trip over 40 years, leap days, day ranges
-QueueStateMachineTest     9   the full machine, including every illegal transition
-OutboxTest               12   ordering, resume-on-start, backoff, no-amount captures
-ReceiptParserFixtureTest  8   30 real receipt shapes, incl. phone-number and GSTIN traps
-FxTest                    12   HALF_UP once, inverse pairs, missing rates, multi-currency totals
-SearchIndexTest           12   merchant / price / day / currency, results are captures
-```
-
-`store-check.sh` and `flow-check.sh` are the two that earn their keep, and the
-reason is worth stating plainly because both were written after being wrong.
-
-The store gate opens **three real database shapes**: the schema exactly as it
-shipped at the first commit (kept verbatim in `tools/storecheck/baseline-v1.sql`
-and regenerated from git history), a file created by an interim build that never
-stamped its version, and a genuinely empty file. Only the last is allowed to
-`create`. The earlier version of this test invented a "version 1" that no build
-ever wrote to disk, so it passed while every real database in existence failed
-with `no such column: capture.category`. A fixture is only worth anything if it
-is the thing the user has.
-
-The flow gate walks the same failure deliberately, with a store that refuses
-every write, and asserts the form says so instead of sitting there looking dead.
-
-## Database versions
-
-The schema is at **3**, and the two migrations are `1.sqm` (capture gained
-`category` and `note`) and `2.sqm` (trip gained `place` and `budgetMinor`).
-
-The version number is written by `openOrMigrate`, not by the generated `create` -
-that omission is what broke every existing install, so the opener does not trust
-the number on its own. It decides from the file: no `trip` table means new; a
-`trip` table means this app has been here before, whatever the pragma claims; and
-a failed `migrate` is repaired by adding only the missing columns, because a
-half-upgraded file makes `ALTER TABLE ... ADD COLUMN` fail with "duplicate column
-name". On desktop, a file that cannot be reconciled is moved aside and kept -
-never deleted - and the app opens.
-
-## Run it
-
-The four-target Gradle build has not been run in a sandbox with enough memory, so
-the paths that are verified are Gradle-free:
+Open the app in a window — a desktop window, that is:
 
 ```bash
-./tools/run-preview.sh             # compile + open the real shared UI in a window
-./tools/run-preview.sh --phone     # 420x860, the phone layout
-./tools/run-preview.sh --shots docs/shots   # render every page to PNG, headless
-./tools/test-domain.sh             # 70 domain tests
-./tools/flow-check.sh              # 54 end-to-end state checks
-./tools/store-check.sh             # the store on real SQLite, plus the migration
-./tools/entry-check.sh             # all four entry points, signature-checked
+./tools/run-preview.sh                  # the app in a desktop window
 ```
 
-See **[RUN.md](RUN.md)** for the full walkthrough, or `TESTING.md` for the short version. And on a machine with the memory for it, the real targets:
+Or render every page to PNG — your eyes should remember this, and then search and see:
 
 ```bash
-./gradlew :app:desktop:run          # the comfortable triage surface
+./tools/run-preview.sh --shots          # all 27 frames, into docs/shots/
+```
+
+New page? `./tools/run-preview.sh --shots --open Settings` — and then, right there, the page you chose, in real Compose UI with real state, debugger or screenshot tool on hand. Bigger reads: `./tools/test-domain.sh` is the 70. `./tools/store-check.sh` is the migration story, so you find out where it broke before someone else does.
+
+```bash
+./tools/run-preview.sh                  # compile + open the real shared UI in a window
+./tools/run-preview.sh --shots docs/shots  # render every page to PNG, headless
+./tools/test-domain.sh                  # 70 domain tests (Rounds the money, Export logic, AppModel)
+./tools/flow-check.sh                   # 54 end-to-end state checks on your machine
+./tools/store-check.sh                  # the store on real SQLite, plus the migration
+./tools/entry-check.sh                  # all four entry points, signature-checked
+```
+
+Real targets (need a JDK + an Android SDK/Xcode):
+
+```bash
+./gradlew :app:desktop:run              # the comfortable triage surface
 ./gradlew :app:wasm:wasmJsBrowserDevelopmentRun   # the browser build
 ./gradlew :app:android:assembleDebug
-./gradlew jvmTest                    # the shared suites
+./gradlew jvmTest                       # the shared suites
 ```
+
+A quick way to start playing with new ideas: run `./tools/run-preview.sh --shots --open Settings` and step the pages around with a debugger — real Compose, real state, no emulator needed. Or `./tools/run-preview.sh --night` for the dark variant.
 
 ## Status, honestly
 
-Implemented in this checkout: the shared model/queue/parser/FX/search/store, schema migration path, design system and motion vocabulary, tabbed navigation and stacked pages, CameraX capture wiring on Android, on-device ML Kit text recognition on Android (`core/extract` contract end-to-end with graceful fallback states), extraction-result refresh into the UI, and a Nightfall batch-confirm path for captures that already have amounts.
+Implemented here: shared model/queue/parser/FX/search/store, schema migration path, design system, motion vocabulary, tabbed navigation and stacked pages, CameraX capture on Android, ML Kit text recognition on Android, extraction and confirmation, Nightfall, the trip card, Settings diagnostics.
 
-Still not fully verified from this environment and left for human/device confirmation:
+Left for your machine and a bit of you:
 
-- **Real device run and footage.** Camera and ML Kit behavior must be confirmed on an Android phone/emulator outside this sandbox.
-- **Full four-target Gradle build and CI green on your runners.** `BUILD-STATUS.md`/`TESTING.md` should be updated with the exact commands and outcomes you run.
-- **Live GitHub Pages URL.** The workflow builds and can deploy the Wasm distribution on `main`; enable Pages and add the final URL at the top of this README.
-- **Non-Android OCR bindings.** Desktop/iOS/Wasm still use fallback recognizers by design/limitation; extraction failures remain editable blank fields.
+- **A real phone:** capture and OCR — time on device until you say so.
+- **Public share links (the `onShare` path) — broken or stripped:** there is a `Route.TripShare` entry in the router, but the share link is not complete yet.
+- **Screenshots-from-your-machine / reality checks** of my claims on your build; mine are reasoned, yours are observed.
 
-Performance fixes described in history should be re-measured on device; do not treat sandbox-only checks as hardware proof.
+Everything is gradle-free for now: `BUILD-STATUS.md`, `TESTING.md`, `RUN.md` have the exact commands and outcomes on your machines.
 
 Apache-2.0. Kotlin Multiplatform Contest 2027 entry.
