@@ -183,9 +183,11 @@ sheet — the tray the import just filled is the answer, not a sheet for the las
 photograph in the pile — while a single imported photograph still opens its sheet.
 Today's library action now asks for as many as the picker will give.
 
-The Android picker has not been switched to `PickMultipleVisualMedia` yet, so on
-Android this currently degrades to one-at-a-time through the fallback. That is
-honest but unfinished, and it is the first thing in the next commit.
+Android now overrides `pickMany` with `PickMultipleVisualMedia(12)` and a second
+launcher, so a batch is one trip to the system picker. Both launchers share the
+"one dialog at a time" guard, and cancelling arrives as an empty list rather than as
+a special case. Desktop and the web keep the one-at-a-time fallback, which is what
+their current pickers offer.
 
 ### Also
 
