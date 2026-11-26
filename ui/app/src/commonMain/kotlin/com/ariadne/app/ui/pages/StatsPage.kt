@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.app.Route
+import com.ariadne.design.EmptyState
 import com.ariadne.design.Body
 import com.ariadne.design.BudgetBar
 import com.ariadne.model.CategoryTotal
@@ -241,14 +242,11 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
 
         if (state.categoryTotals.isEmpty() && state.perCurrency.isEmpty()) {
             Spacer(Modifier.height(22.dp))
-            Body(
-                "Nothing here yet. These figures appear the first time you put an amount on a " +
-                    "photograph — and the day it was spent stays the day it counts for.",
-                paper,
-                serif = true,
-                color = paper.inkSoft,
-                size = 16.sp,
-                lineHeight = 23.sp,
+            EmptyState(
+                title = "Nothing to count yet.",
+                body = "These figures appear the first time you put an amount on a photograph — " +
+                    "and the day it was spent stays the day it counts for.",
+                paper = paper,
             )
         }
 

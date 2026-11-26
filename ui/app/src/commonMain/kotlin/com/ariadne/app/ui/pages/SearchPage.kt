@@ -33,6 +33,7 @@ import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.app.DetailOrigin
 import com.ariadne.app.Route
+import com.ariadne.design.EmptyState
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.Glyph
@@ -142,12 +143,11 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
                 }
             }
 
-            state.searchResults.isEmpty() -> Body(
-                "Nothing by that name. Try a price, or the day it happened.",
-                paper,
-                serif = true,
-                color = paper.inkSoft,
-                size = 16.sp,
+            state.searchResults.isEmpty() -> EmptyState(
+                title = "Nothing by that name.",
+                body = "Try a price, the shop, or the day it happened. Search reads what you " +
+                    "typed on the photograph, and what the recogniser read off it.",
+                paper = paper,
             )
 
             else -> {

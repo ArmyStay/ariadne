@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.app.Route
+import com.ariadne.design.EmptyState
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
@@ -181,14 +182,11 @@ public fun TodayPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
 
         val captures = state.dayCaptures
         if (captures.isEmpty()) {
-            Body(
-                "Nothing yet today. Photograph the receipt now and put the figure in later — " +
-                    "that is the whole idea.",
-                paper,
-                serif = true,
-                color = paper.inkSoft,
-                size = 16.sp,
-                lineHeight = 24.sp,
+            EmptyState(
+                title = "Nothing yet today.",
+                body = "Photograph the receipt now and put the figure in later — that is the " +
+                    "whole idea. Nothing here asks for a form.",
+                paper = paper,
             )
         } else {
             val summary = DaySummary.of(captures)

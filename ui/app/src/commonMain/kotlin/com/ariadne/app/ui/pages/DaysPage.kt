@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.app.Route
+import com.ariadne.design.EmptyState
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
@@ -158,14 +159,11 @@ public fun DaysPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
 
             Spacer(Modifier.height(18.dp))
             if (captures.isEmpty()) {
-                Body(
-                    "Nothing kept on this day. An empty day is still part of the trip — it is " +
-                        "the one you spent walking.",
-                    paper,
-                    serif = true,
-                    color = paper.inkSoft,
-                    size = 16.sp,
-                    lineHeight = 24.sp,
+                EmptyState(
+                    title = "Nothing kept on this day.",
+                    body = "An empty day is still part of the trip — it is the one you spent " +
+                        "walking. Photographs can be added to it until the day is closed.",
+                    paper = paper,
                 )
             } else {
                 captures.forEach { capture ->
