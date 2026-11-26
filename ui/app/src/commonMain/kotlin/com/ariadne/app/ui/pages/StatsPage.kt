@@ -21,6 +21,7 @@ import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.app.Route
 import com.ariadne.design.Body
+import com.ariadne.design.BudgetBar
 import com.ariadne.model.CategoryTotal
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
@@ -136,6 +137,15 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
                     )
                 }
             }
+            Spacer(Modifier.height(12.dp))
+            // Spent against budget, with the pace tick at where the trip's days have
+            // got to — the same measure the Trip page draws, from the same code.
+            BudgetBar(
+                fraction = if (budget > 0) total.toFloat() / budget.toFloat() else 0f,
+                paper = paper,
+                pace = state.dayCards.count { it.isClosed }.toFloat() / days.toFloat(),
+                over = left < 0,
+            )
             if (dailyShare != null) {
                 Spacer(Modifier.height(10.dp))
                 Label(

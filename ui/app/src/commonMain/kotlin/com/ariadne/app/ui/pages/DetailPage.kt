@@ -454,7 +454,7 @@ internal fun CategoryChips(
                     // is a finger's width. Density and reach are separate decisions.
                     Box(
                         Modifier
-                            .heightIn(min = 44.dp)
+                            .heightIn(min = 48.dp)
                             .pointerInput(category, enabled) {
                                 if (enabled) detectTapGestures(onTap = { onSelect(category) })
                             },
@@ -498,7 +498,7 @@ internal fun CurrencyChip(
 ) {
     Box(
         Modifier
-            .heightIn(min = 44.dp)
+            .heightIn(min = 48.dp)
             .pointerInput(code, enabled) {
                 if (enabled) detectTapGestures(onTap = { if (!selected) onClick() })
             }

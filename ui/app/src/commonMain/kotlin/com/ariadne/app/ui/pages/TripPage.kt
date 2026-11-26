@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
@@ -21,6 +22,7 @@ import com.ariadne.app.AppUiState
 import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
+import com.ariadne.design.BudgetBar
 import com.ariadne.design.Icon
 import com.ariadne.design.Label
 import com.ariadne.design.MeasuredRule
@@ -135,7 +137,15 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 tracking = 0.3.sp,
             )
             Spacer(Modifier.height(8.dp))
-            BudgetBar(fraction, paper)
+            // The tick is the trip's own pace: how much of the budget the days so
+            // far would have used if spending were even. Being under the bar and
+            // over the tick is the one thing a bar alone cannot tell you.
+            BudgetBar(
+                fraction = fraction,
+                paper = paper,
+                pace = if (days > 0) closed.toFloat() / days.toFloat() else null,
+                over = left < 0,
+            )
             Spacer(Modifier.height(10.dp))
             QuietAction("change the budget", paper, { model.go(Route.Preferences) }, color = paper.inkFaint)
         } else {
@@ -244,37 +254,6 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
     }
 }
 
-/**
- * The budget, drawn.
- *
- * Not a Material progress bar: a hairline track with the spent share in ink, and a
- * faint tick where the pace would put you today. The tick is the useful part — the
- * bar alone only says how much is gone, never whether that is too much.
- */
-@Composable
-private fun BudgetBar(fraction: Float, paper: Paper, pace: Float? = null) {
-    Box(Modifier.fillMaxWidth().height(6.dp).background(paper.sunk)) {
-        Box(
-            Modifier
-                .fillMaxWidth(fraction.coerceIn(0f, 1f))
-                .height(6.dp)
-                .background(paper.ink),
-        )
-        if (pace != null) {
-            Box(
-                Modifier
-                    .fillMaxWidth(pace.coerceIn(0f, 1f))
-                    .height(6.dp)
-                    .padding(horizontal = 0.dp),
-            ) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    Box(Modifier.width(1.dp).height(6.dp).background(paper.inkFaint))
-                }
-            }
-        }
-    }
-}
-
 @Composable
 private fun CurrencyLine(code: String, value: String, paper: Paper) {
     Row(
@@ -293,6 +272,7 @@ private fun OtherTripRow(name: String, dates: String, paper: Paper, onClick: () 
         Modifier
             .fillMaxWidth()
             .rowTap(onClick)
+            .heightIn(min = 48.dp)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -386,7 +386,7 @@ private fun PaperChoice(
                 val chosen = value == theme
                 Box(
                     Modifier
-                        .heightIn(min = 44.dp)
+                        .heightIn(min = 48.dp)
                         .border(Bone.Hairline, if (chosen) paper.blue else paper.edge)
                         .rowTap { onChoose(value) }
                         .padding(horizontal = 14.dp, vertical = 12.dp),

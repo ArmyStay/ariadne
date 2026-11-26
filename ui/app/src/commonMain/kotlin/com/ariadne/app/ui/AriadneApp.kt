@@ -55,6 +55,7 @@ import com.ariadne.app.ui.pages.DaysPage
 import com.ariadne.app.ui.pages.TripCardPage
 import com.ariadne.app.ui.pages.TripsPage
 import com.ariadne.app.ui.pages.TripPage
+import com.ariadne.design.AriadneTheme
 import com.ariadne.design.LocalAccentBudget
 import com.ariadne.design.LocalMotionPreference
 import com.ariadne.design.LocalSurfaceId
@@ -125,6 +126,10 @@ public fun AriadneApp(
         onBack(state.canGoBack) { model.back() }
     }
 
+    // The shell contains real Material components — the bar, its items, the docked
+    // shutter — and each of them asks the theme for whatever it is not told. Without
+    // this they answered in the stock purple.
+    AriadneTheme(paper) {
     CompositionLocalProvider(LocalMotionPreference provides MotionPreference(reducedMotion)) {
         Box(
             Modifier
@@ -200,6 +205,7 @@ public fun AriadneApp(
                 }
             }
         }
+    }
     }
 }
 

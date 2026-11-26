@@ -74,7 +74,7 @@ public fun TripCardPage(state: AppUiState, model: AppModel, paper: Paper, wide: 
             // which made a keepsake look like a dialog with two buttons.
             Row(
                 Modifier
-                    .heightIn(min = 44.dp)
+                    .heightIn(min = 48.dp)
                     .androidTap { model.copyCardToClipboard() },
                 verticalAlignment = Alignment.CenterVertically,
             ) {

@@ -74,7 +74,7 @@ public fun CurrencyField(
         Row(
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 44.dp)
+                .heightIn(min = 48.dp)
                 .androidTap { open = !open }
                 .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -199,7 +199,7 @@ private fun CurrencyRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = 44.dp)
+            .heightIn(min = 48.dp)
             .androidTap(onTap)
             .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
