@@ -254,11 +254,11 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         HomeManualEntry(paper) { model.go(Route.ManualEntry) }
         Spacer(Modifier.height(18.dp))
         HomeTripHeading(
-            start = trip.startDate.iso,
-            end = trip.endDate.iso,
+            start = trip.startDate,
+            end = trip.endDate,
             paper = paper,
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
 
         // The shelf, first: everything else on this page is about the trip you are
         // in, and this is the way out of it.
@@ -271,7 +271,7 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 onClick = { model.go(Route.Trips) },
             )
         }
-        Spacer(Modifier.height(6.dp))
+        Rule(paper, color = paper.edge.copy(alpha = 0.7f))
 
         // The index settles in, one row behind the next. Each row is a Reveal, so
         // the page arrives as a composed set rather than as a block that appears.
@@ -284,7 +284,7 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 onClick = { model.go(Route.Days) },
             )
         }
-        Spacer(Modifier.height(6.dp))
+        Rule(paper, color = paper.edge.copy(alpha = 0.7f))
         Reveal(2) {
             HomeShortcut(
                 glyph = Glyph.Record,
@@ -294,7 +294,7 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 onClick = { model.go(Route.Record(state.today)) },
             )
         }
-        Spacer(Modifier.height(6.dp))
+        Rule(paper, color = paper.edge.copy(alpha = 0.7f))
         Reveal(3) {
             HomeShortcut(
                 glyph = Glyph.Search,
@@ -304,7 +304,7 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 onClick = { model.go(Route.Search) },
             )
         }
-        Spacer(Modifier.height(30.dp))
+        Spacer(Modifier.height(24.dp))
         SectionHead("III", "recent records", paper, trailing = "across this trip")
         val recent = state.dayCapturesAll.values.flatten()
             .sortedByDescending { it.createdAt }
@@ -329,40 +329,38 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                             contentDescription = "Open ${model.titleOf(capture)}, ${capture.localDate.iso}"
                             role = Role.Button
                         }
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (capture.photoPath.isNotEmpty()) {
+                    Box(
+                        Modifier
+                            .size(48.dp)
+                            .border(Bone.Hairline, paper.edge),
+                    ) {
                         PhotoPreview(
                             capture.photoPath,
-                            capture.merchant ?: "Receipt",
+                            model.titleOf(capture),
                             paper,
-                            Modifier.size(56.dp),
+                            Modifier.fillMaxSize(),
                         )
-                    } else {
-                        Box(
-                            Modifier.size(56.dp).background(paper.sunk),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Label("MANUAL", paper, color = paper.inkFaint, size = 7.sp, tracking = 0.8.sp)
-                        }
                     }
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Title(model.titleOf(capture), paper, size = 15.sp)
                         Spacer(Modifier.height(3.dp))
                         Label(capture.localDate.iso, paper, color = paper.inkFaint, size = 9.sp)
                     }
-                    capture.amountMinor?.let { minor ->
-                        Spacer(Modifier.width(8.dp))
-                        Numeral(
-                            Money.ofMinor(minor).formatWithSymbol(capture.currency ?: trip.baseCurrency),
-                            paper,
-                            size = 12.sp,
-                        )
-                    }
+                    Spacer(Modifier.width(8.dp))
+                    Numeral(
+                        capture.amountMinor?.let {
+                            Money.ofMinor(it).format(capture.currency ?: trip.baseCurrency)
+                        } ?: "—",
+                        paper,
+                        color = if (capture.amountMinor == null) paper.inkFaint else paper.ink,
+                        size = 15.sp,
+                    )
                 }
-                Rule(paper)
+                Rule(paper, color = paper.edge.copy(alpha = 0.7f))
             }
         }
         Spacer(Modifier.height(22.dp))
@@ -543,30 +541,42 @@ private fun HomeManualEntry(paper: Paper, onClick: () -> Unit) {
 }
 
 @Composable
-private fun HomeTripHeading(start: String, end: String, paper: Paper) {
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Label("II", paper, color = paper.blue, size = 9.sp, tracking = 1.4.sp)
+private fun HomeTripHeading(start: LocalDay, end: LocalDay, paper: Paper) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Label("II", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
                 Spacer(Modifier.width(10.dp))
                 Title("The Trip", paper, size = 19.sp)
             }
-            Spacer(Modifier.height(6.dp))
-            Box(
-                Modifier
-                    .padding(start = 22.dp)
-                    .width(82.dp)
-                    .height(2.dp)
-                    .background(paper.blue),
-            )
+            Spacer(Modifier.width(10.dp))
+            Label(homeTripDateRange(start, end), paper, color = paper.inkSoft, size = 9.sp)
         }
-        Spacer(Modifier.width(10.dp))
-        Body("$start  →  $end", paper, color = paper.inkMid, size = 11.sp)
+        Spacer(Modifier.height(6.dp))
+        Box(
+            Modifier
+                .padding(start = 22.dp)
+                .width(68.dp)
+                .height(Bone.Hairline)
+                .background(paper.edgeStrong),
+        )
     }
+}
+
+private fun homeTripDateRange(start: LocalDay, end: LocalDay): String {
+    fun month(day: LocalDay): String = when (day.month) {
+        1 -> "Jan"; 2 -> "Feb"; 3 -> "Mar"; 4 -> "Apr"; 5 -> "May"; 6 -> "Jun"
+        7 -> "Jul"; 8 -> "Aug"; 9 -> "Sep"; 10 -> "Oct"; 11 -> "Nov"; else -> "Dec"
+    }
+
+    val startYear = if (start.year == end.year) "" else " ${start.year}"
+    return "${start.day} ${month(start)}$startYear — ${end.day} ${month(end)} ${end.year}"
 }
 
 @Composable
@@ -577,35 +587,21 @@ private fun HomeShortcut(
     paper: Paper,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(15.dp)
     Row(
         Modifier
             .fillMaxWidth()
-            .shadow(3.dp, shape)
-            .clip(shape)
-            .background(paper.raised)
-            .border(1.dp, paper.edge.copy(alpha = 0.72f), shape)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
+            .padding(vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(13.dp))
-                .background(paper.sunk),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(glyph, paper, size = 19.dp, color = paper.inkMid)
-        }
-        Spacer(Modifier.width(13.dp))
+        Icon(glyph, paper, size = 19.dp, color = paper.inkFaint)
+        Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Title(title, paper, size = 17.sp)
+            Title(title, paper, size = 16.sp)
             Spacer(Modifier.height(2.dp))
-            Label(detail, paper, color = paper.inkFaint, size = 9.sp, tracking = 0.6.sp)
+            Label(detail, paper, color = paper.inkFaint, size = 8.sp, tracking = 0.8.sp)
         }
-        Spacer(Modifier.width(8.dp))
-        Body("›", paper, color = paper.inkFaint, size = 26.sp)
+        Body("›", paper, color = paper.inkFaint, size = 22.sp)
     }
 }
 
