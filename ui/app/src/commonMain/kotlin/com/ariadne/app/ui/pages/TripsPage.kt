@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.app.Route
+import com.ariadne.design.EmptyState
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
@@ -92,13 +93,12 @@ public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             Spacer(Modifier.height(8.dp))
 
             if (state.trips.isEmpty()) {
-                Spacer(Modifier.height(28.dp))
-                Body(
-                    "No trips yet.",
-                    paper,
-                    serif = true,
-                    color = paper.inkSoft,
-                    size = 18.sp,
+                Spacer(Modifier.height(24.dp))
+                EmptyState(
+                    title = "No trips yet.",
+                    body = "A trip is the container the whole record hangs from: its dates, its " +
+                        "money, and every photograph you take during it.",
+                    paper = paper,
                 )
             }
 

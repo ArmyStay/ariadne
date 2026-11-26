@@ -20,8 +20,10 @@ import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.app.Route
+import com.ariadne.design.EmptyState
 import com.ariadne.design.Body
 import com.ariadne.design.BudgetBar
+import com.ariadne.model.BudgetPlan
 import com.ariadne.model.CategoryTotal
 import com.ariadne.design.Label
 import com.ariadne.design.Numeral
@@ -60,7 +62,16 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
     val base = trip?.baseCurrency ?: CurrencyCode.of(state.dayCurrency)
     val total = state.categoryTotals.sumOf { it.baseMinor }
     val days = trip?.let { dayRange(it.startDate, it.endDate).size.coerceAtLeast(1) } ?: 1
-    val dailyShare = trip?.budgetMinor?.let { it / days }
+    // The same plan the Trip page draws, from the same tested value type: a share
+    // (and a pace) that disagreed between the two pages would be a bug wearing a
+    // design.
+    val plan = BudgetPlan.of(
+        budgetMinor = trip?.budgetMinor,
+        days = days,
+        spentMinor = total,
+        daysClosed = state.dayCards.count { it.isClosed },
+    )
+    val dailyShare = plan.dailyMinor
 
     TabPage(
         paper = paper,
@@ -101,12 +112,12 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         ConversionNote(emptyMap(), state.tripUnconverted, paper)
 
         // ── the fence, and the daily share of it ─────────────────────────────
-        val budget = trip?.budgetMinor
-        if (budget != null) {
+        if (plan.hasBudget) {
+            val budget = plan.budgetMinor ?: 0L
             Spacer(Modifier.height(20.dp))
             Rule(paper, color = paper.edgeStrong)
             Spacer(Modifier.height(14.dp))
-            val left = budget - total
+            val left = plan.leftMinor ?: 0L
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
                     Label("budget", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
@@ -141,10 +152,10 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             // Spent against budget, with the pace tick at where the trip's days have
             // got to — the same measure the Trip page draws, from the same code.
             BudgetBar(
-                fraction = if (budget > 0) total.toFloat() / budget.toFloat() else 0f,
+                fraction = plan.spendFraction,
                 paper = paper,
-                pace = state.dayCards.count { it.isClosed }.toFloat() / days.toFloat(),
-                over = left < 0,
+                pace = plan.paceFraction,
+                over = plan.isOver,
             )
             if (dailyShare != null) {
                 Spacer(Modifier.height(10.dp))
@@ -241,14 +252,11 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
 
         if (state.categoryTotals.isEmpty() && state.perCurrency.isEmpty()) {
             Spacer(Modifier.height(22.dp))
-            Body(
-                "Nothing here yet. These figures appear the first time you put an amount on a " +
-                    "photograph — and the day it was spent stays the day it counts for.",
-                paper,
-                serif = true,
-                color = paper.inkSoft,
-                size = 16.sp,
-                lineHeight = 23.sp,
+            EmptyState(
+                title = "Nothing to count yet.",
+                body = "These figures appear the first time you put an amount on a photograph — " +
+                    "and the day it was spent stays the day it counts for.",
+                paper = paper,
             )
         }
 

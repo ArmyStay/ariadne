@@ -36,6 +36,22 @@ public fun BudgetBar(
     thickness: Dp = 6.dp,
     over: Boolean = false,
 ) {
+    // The bar eases to its value rather than snapping: a figure that has just
+    // changed is read against the fence, and watching which way it moved is half
+    // the point. Reduced motion gets the settled value on the first frame.
+    val reduced = LocalMotionPreference.current.reduced
+    val shown = if (reduced) {
+        fraction
+    } else {
+        androidx.compose.animation.core.animateFloatAsState(
+            targetValue = fraction,
+            animationSpec = androidx.compose.animation.core.tween(
+                durationMillis = 420,
+                easing = Motion.Ease,
+            ),
+            label = "budget",
+        ).value
+    }
     Canvas(
         modifier
             .fillMaxWidth()
@@ -56,7 +72,7 @@ public fun BudgetBar(
 
         // The spent share. Over budget is not a different colour — this app has one
         // chromatic value — it is simply drawn to the end of the measure.
-        val filled = fraction.coerceIn(0f, 1f)
+        val filled = shown.coerceIn(0f, 1f)
         if (filled > 0f) {
             drawLine(
                 color = if (over) paper.ink else paper.ink,

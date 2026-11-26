@@ -49,6 +49,20 @@ currency chips, the category chips, the paper chips, the register rows and the d
 rows, and `Modifier.rowTap` gained nothing — the height belongs to the caller, since
 only the caller knows what the row holds.
 
+## Commit 2 — the shape of an empty page, and a bar that settles
+
+`EmptyState` (`:core/design/States.kt`) is now the one shape for "there is nothing
+here yet": a small italic title naming the situation, one sentence saying what to do
+about it, and optionally the one control that acts. Five pages had five versions — a
+bare sentence on Today, an 18sp serif line in the register, a stretch of empty paper
+on Stats — and an empty screen is the first thing someone sees on a new trip, so it
+should look deliberate rather than unfinished. Used on Today, Days, Stats, the
+register and search.
+
+`BudgetBar` eases to its value instead of snapping, because a figure read against a
+fence is worth watching move, and settles on the first frame when the device asks for
+reduced motion.
+
 ### What is not here
 
 - **`@Preview` functions.** `compose.components.uiToolingPreview` is not in the
