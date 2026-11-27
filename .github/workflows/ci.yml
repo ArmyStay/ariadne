@@ -22,7 +22,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       - name: Install Linux OCR natives (Tess4J)
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr libtesseract-dev libleptonica-dev
       - name: shared JVM tests
@@ -39,7 +39,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       - name: Install Linux OCR natives (Tess4J)
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr libtesseract-dev libleptonica-dev
       - run: ./gradlew :app:desktop:compileKotlinJvm --console=plain --stacktrace
@@ -74,7 +74,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       - run: ./gradlew :app:wasm:wasmJsBrowserDistribution --console=plain --stacktrace
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
