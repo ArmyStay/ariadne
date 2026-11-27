@@ -10,11 +10,12 @@ name: web demo
 #
 # Two checks exist because of the way this went wrong once. The site is a *project*
 # page, served from /ariadne/, and it was published with a green tick while the root
-# URL answered 404: the upload path was assumed rather than found, and nothing ever
-# fetched the deployed URL. So the page is now located by looking for index.html,
-# served locally under the same prefix Pages uses before it is uploaded, and — after
-# deployment — fetched from its public URL by a job that has no credentials, which is
-# the same test a person opening the link in a browser makes.
+# URL answered 404: the upload path was assumed rather than found, nothing fetched the
+# deployed URL, and — the other half — the wasm bundle had no page beside it at all.
+# `index.html` is now a committed resource of `:app:wasm`, so the build cannot lose it.
+# It is located rather than assumed, served locally under the same prefix Pages uses
+# before it is uploaded, and — after deployment — fetched from its public URL by a job
+# with no credentials, which is the test a person opening the link in a browser makes.
 
 on:
   push:

@@ -30,30 +30,34 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-dist="$ROOT/app/wasm/build/dist/wasmJs"
-if [ ! -d "$dist" ]; then
-  echo "demo-check: $dist is missing — build it first:" >&2
-  echo "            ./gradlew :app:wasm:wasmJsBrowserDistribution" >&2
-  exit 1
-fi
-
-# Production first: a developer's tree can also hold a development build.
-index=$(find "$dist" -path '*productionExecutable*' -name index.html -print -quit 2>/dev/null)
-[ -n "$index" ] || index=$(find "$dist" -name index.html -print -quit 2>/dev/null)
-if [ -z "$index" ]; then
-  layout=$(find "$dist" -maxdepth 3 -printf '%P ' | head -c 1200)
-  report "no index.html anywhere under app/wasm/build/dist/wasmJs. The tree holds: $layout"
-  exit 1
-fi
-
 # CI logs are not reachable from every network; an annotation is. Anything this script
-# decides is wrong is printed as one, in addition to plain stderr.
+# decides is wrong is printed as one, in addition to plain stderr. Defined before the
+# first call: bash reads a function only after the line that defines it has run.
 report() {
   if [ -n "${GITHUB_ACTIONS:-}" ]; then
     printf '::error::%s\n' "$1"
   fi
   printf 'demo-check: %s\n' "$1" >&2
 }
+
+dist="$ROOT/app/wasm/build/dist/wasmJs"
+if [ ! -d "$dist" ]; then
+  report "$dist is missing — build it first: ./gradlew :app:wasm:wasmJsBrowserDistribution"
+  exit 1
+fi
+
+# The page is not generated: it is committed at
+# app/wasm/src/wasmJsMain/resources/index.html and copied beside the bundle. Production
+# first, because a developer's tree can also hold a development build.
+index=$(find "$dist" -path '*productionExecutable*' -name index.html -print -quit 2>/dev/null)
+[ -n "$index" ] || index=$(find "$dist" -name index.html -print -quit 2>/dev/null)
+[ -n "$index" ] || index=$(find "$ROOT/app/wasm/build" -name index.html -print -quit 2>/dev/null)
+if [ -z "$index" ]; then
+  # Name what *is* there, so the next reader does not have to guess.
+  built=$(find "$ROOT/app/wasm/build" -maxdepth 4 \( -name '*.html' -o -name '*.wasm' -o -name 'ariadne.js' \) -printf '%P ' 2>/dev/null | head -c 1200)
+  report "no index.html under app/wasm/build, so there is no page to serve. The build holds: ${built:-no .html, .wasm or ariadne.js at all}"
+  exit 1
+fi
 
 site="${stage:-$(mktemp -d)}"
 rm -rf "$site"

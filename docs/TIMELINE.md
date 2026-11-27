@@ -93,9 +93,13 @@ The deploy had been green while the root URL 404'd, which is the worst shape a b
 link can take. The cause was a second workflow: the starter `static.yml` the Pages UI
 adds when a repository moves to "GitHub Actions", uploading `path: '.'` — the whole
 repository, with no `index.html` in it — and racing `pages.yml` for the same concurrency
-group. It is gone. `pages.yml` now finds `index.html` rather than assuming Gradle's
-output directory, serves the site under `/ariadne/` with `tools/demo-check.sh` before
-uploading it (`ci.yml` runs the same gate on every pull request), and a `verify` job
+group. It is gone. Behind it sat the second half: Kotlin 2.4's wasm distribution is
+`ariadne.js` and `ariadne.wasm` with no page, so `pages.yml`, correct or not, had nothing
+to serve at `/`. The page is now a committed resource,
+`app/wasm/src/wasmJsMain/resources/index.html` — the title, the paper background, an
+inline favicon and a WebAssembly build of the app, in that order. `pages.yml` finds it
+wherever the build put it, serves the site under `/ariadne/` with `tools/demo-check.sh`
+before uploading (`ci.yml` runs the same gate on every pull request), and a `verify` job
 fetches the public URL with no credentials afterwards. The same pass deleted what read as
 template rather than as this repository: the `:shared` boilerplate module
 (`com.example.shared`, `Platform.kt`, two example tests), the duplicate font tree under

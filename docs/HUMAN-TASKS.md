@@ -13,8 +13,9 @@ Ordered by what a judge meets first.
 **Where:** <https://armystay.github.io/ariadne/> in a private window.
 
 **Already done:** the Pages source is **GitHub Actions** (it was the blocker in earlier
-guides), and the deploy no longer guesses where Gradle put the page — `pages.yml` finds
-`index.html`, serves the site locally under `/ariadne/` before uploading it, and then a
+guides), and the page is now committed rather than left to the toolchain —
+`app/wasm/src/wasmJsMain/resources/index.html` is the site's front door. `pages.yml`
+finds it, serves the site locally under `/ariadne/` before uploading it, and then a
 `verify` job fetches the public URL with no credentials and asserts a 200 whose HTML
 carries `ariadne.js`. A green deploy now means the link works, not that an upload
 finished.

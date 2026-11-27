@@ -148,9 +148,13 @@ The database lives at `~/.ariadne/ariadne.db`. Photos live beside it.
 The demo at [armystay.github.io/ariadne](https://armystay.github.io/ariadne/) is the
 `productionExecutable` directory from that second command, uploaded as a Pages artifact
 by `.github/workflows/pages.yml` — with three guards, because this is a *project* page
-served from `/ariadne/` and it was once published green while the root URL answered 404:
+served from `/ariadne/` and it was once published green while the root URL answered 404.
+The page itself is **committed**, not generated: `index.html` lives at
+`app/wasm/src/wasmJsMain/resources/index.html` and the distribution task copies it beside
+`ariadne.js`. Kotlin 2.4 writes no page of its own, so the artifact this workflow used to
+upload held a bundle and no way to open it.
 
-1. `tools/demo-check.sh` **finds** `index.html` under `build/dist/wasmJs` instead of
+1. `tools/demo-check.sh` **finds** the page wherever `build/dist/wasmJs` put it instead of
    assuming the directory name, and copies its folder into a stage directory whose root
    is the site;
 2. the same script **serves that stage under `/ariadne/`** (a static server, `python3`,
