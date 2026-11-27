@@ -16,7 +16,8 @@ class ReminderTest {
         assertEquals("in the evening", Reminder().spoken)
         assertEquals("in the morning", Reminder(hour = 7, minute = 30).spoken)
         assertEquals("in the afternoon", Reminder(hour = 12).spoken)
-        assertEquals("in the evening", Reminder(hour = 16, minute = 59).spoken)
+        assertEquals("in the afternoon", Reminder(hour = 16, minute = 59).spoken)
+        assertEquals("in the evening", Reminder(hour = 17).spoken)
         assertEquals("at night", Reminder(hour = 23, minute = 15).spoken)
     }
 
