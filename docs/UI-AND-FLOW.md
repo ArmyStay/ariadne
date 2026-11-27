@@ -11,7 +11,10 @@ placeholder, empty state and note, and the control each one calls. **Third revis
 (phase 8):** the timeline was rebuilt to the journey reference — globe backdrop,
 `MarkHead` sections, a ledger spine of days — and §5.4 was rewritten. **Fourth
 revision (phase 9):** the photograph sheet was rebuilt to the receipt-viewer reference —
-a torn card holding the photograph, an ink primary — and §5.8 was rewritten.
+a torn card holding the photograph, an ink primary — and §5.8 was rewritten. **Fifth
+revision (phase 10):** the shutter was rebuilt to the travel-scanner reference — a drawn
+wash of blue, a plate with crop marks, the glasses in a capsule, a blue disc for a
+shutter — and §5.9 was rewritten.
 
 **What it is not.** Not a roadmap, not a changelog, and not a claim that any of this has
 been looked at on a screen. No screenshot in this repository was produced by this build:
@@ -551,26 +554,56 @@ off a roll. Inside:
 
 ### 5.9 The shutter — `CaptureOverlay.kt`, full cover
 
-| Element | Text |
-| --- | --- |
-| top-left | **CLOSE** (`closeShutter()`) |
-| top-centre | the trip's name, or `Ariadne` |
-| plate | live preview, or the engraved plate; `contentDescription = "Viewfinder. Tap to keep the photograph."`; tapping fires the camera |
-| hint | `Tap the frame to keep it` — or `No camera here — tap the frame for a plate` when the platform supplies none |
-| left of the shutter | **FROM THE LIBRARY** (`rememberPhotoImportMany` → `importPhotos`) |
-| right of the shutter | `nothing waiting across this trip` / `N waiting across this trip` |
-| under the shutter | `no figure here · the amount comes after` |
+Paper, with the page's weather drawn on it (`ScannerArt.kt`, §5.9.1): soft fields of
+`blueWash`, two tides at the foot, a dashed arc and a faint one, a globe and a paper
+plane — all placed in fractions of the canvas, so a tall phone and a wide window get
+the same page composed twice. Nothing is a bitmap and nothing is cropped.
+
+| Element | Text | Control |
+| --- | --- | --- |
+| top-left | **CLOSE** | `closeShutter()` |
+| top-right | the trip's name, or `Ariadne`, under a 44dp hairline | — |
+| the frame | dark, 22dp corners, four crop marks 12dp in from its corners (20dp arms, 2dp); `contentDescription = "Viewfinder. Tap to keep the photograph."` | tap fires the camera |
+| hint | `Tap the frame to keep it` — or `No camera here — tap the frame for a plate` — on one line between two hairlines | — |
+| glasses | **CONNECT AI GLASSES** in a hairline capsule with the glasses mark, or **DISCONNECT AI GLASSES** once paired; shown only where the platform has a wearable | `connect()` / `disconnect()` |
+| left of the shutter | **FROM THE LIBRARY**, shown only where a picker exists | `rememberPhotoImportMany` → `importPhotos` |
+| the shutter | an 88dp paper ring holding a 68dp disc in `blue` with a camera mark in `onBlue`; `contentDescription = "Shutter"` | fires the camera, or keeps a plate when there is none |
+| right of the shutter | `nothing waiting across this trip` / `N waiting across this trip` | `closeShutter()`, then `openCloseDay(today)` |
+| the foot | `no figure here · the amount comes after`, in a `blueWash` capsule with the budget mark; a failed capture prints its own line above it | — |
+
+Under 720dp the frame takes the height and the controls stack beneath it; a wide
+window puts the frame on the left and the hint, glasses, shutter row and foot in a
+column on the right, so the plate is never a letterbox.
 
 **No trip / closed trip.** Title — *"This trip is closed."* or *"No trip is open."*;
 body — *"Its photographs are still here, and its card is still yours."* or *"A photograph
 needs a journey to belong to."*; **THE REGISTER** → `Trips`.
 
+### 5.9.1 The weather — `ScannerArt.kt`
+
+Three parts, all drawn, none a resource:
+
+- `ScannerBackdrop` — the page's ground: three radial fields of `blueWash` at 85% or
+  less, a field of `blueEdge` at 18%, two cubic *tides* filled with a vertical gradient
+  fading upward, one dashed arc (5dp on, 7dp off) and one solid faint arc at 0.5 and
+  0.26 alpha, an outlined globe with one meridian at 0.20, and a two-triangle paper
+  plane at 0.70. Every mark is a fraction of `size`, so the composition reflows rather
+  than scales: portrait puts the plane at 70% across and 8.5% down, and a landscape
+  window puts it in the same place of a wider sky.
+- `PlateMarks` — the four crop marks over the frame, drawn in `paper.raised` so they
+  read on the dark plate: 20dp arms, 2dp thick, 12dp in from each corner.
+- `GlassesMark` — the mark in the capsule: two 0.3-radius rings joined by a bridge,
+  with two temples running up to the corners of a 16dp box.
+
 ### 5.10 The viewfinder page — `CapturePage.kt`, no bar (legacy, §9)
 
 Top row: **HOME** (`Route.Home`), the trip's name or `Ariadne`, **TODAY**
-(`openCloseDay(today)`). Same plate and shutter as the cover, hint `Tap the frame to keep
-it` / `No camera here — tap for a plate`, **FROM THE LIBRARY**, `Nothing waiting` /
-`N waiting`, and `no figure here · settle it later`.
+(`openCloseDay(today)`). Same weather behind it (`ScannerBackdrop`), same shutter (the
+88dp ring and 68dp blue disc, `contentDescription = "Shutter"`), same plate, hint `Tap
+the frame to keep it` / `No camera here — tap for a plate`, **FROM THE LIBRARY**,
+`Nothing waiting` / `N waiting`, and `no figure here · settle it later`. The glasses line
+here is the older one: `Meta AI Glasses: Connected` or `Meta AI Glasses: Discoverable`
+with **CONNECT** / **DISCONNECT** beside it.
 
 No trip: *"No trip is open. A photograph needs a journey to belong to."* + **THE
 REGISTER**. Closed: *"This trip is closed. Its photographs are still here, and its card is
