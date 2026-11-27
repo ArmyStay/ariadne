@@ -1,6 +1,8 @@
 package com.ariadne.app.ui.pages
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -122,7 +126,7 @@ public fun MorePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
 
             // ── the one ask ─────────────────────────────────────────────────
             Spacer(Modifier.height(28.dp))
-            FeedbackCard(state, model, paper)
+            FeedbackCard(state, model, paper, wide)
 
             Spacer(Modifier.height(18.dp))
             Body(
@@ -146,40 +150,64 @@ public fun MorePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
  * line under the title says so before the button is pressed.
  */
 @Composable
-private fun FeedbackCard(state: AppUiState, model: AppModel, paper: Paper) {
+private fun FeedbackCard(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
+    val label = if (state.feedbackCopied) "Copied" else "Share feedback"
+    val detail = if (state.feedbackCopied) {
+        "Copied. Paste it wherever you write to us."
+    } else {
+        "Copies a note you can paste into an email."
+    }
     Leaf(
         paper = paper,
         tint = paper.blueWash,
         edge = paper.blueEdge.copy(alpha = 0.65f),
         inset = 15.dp,
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Glyph.Heart, paper, size = 19.dp, color = paper.blue)
-            Spacer(Modifier.width(14.dp))
-            Box(Modifier.width(Bone.Hairline).height(34.dp).background(paper.blueEdge))
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Title("Have feedback?", paper, size = 17.sp)
-                Spacer(Modifier.height(3.dp))
-                Body(
-                    if (state.feedbackCopied) {
-                        "Copied. Paste it wherever you write to us."
-                    } else {
-                        "Copies a note you can paste into an email."
-                    },
-                    paper,
-                    color = paper.inkSoft,
-                    size = 11.sp,
-                    lineHeight = 15.sp,
-                )
+        if (wide) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                HeartMark(paper)
+                Spacer(Modifier.width(14.dp))
+                Box(Modifier.width(Bone.Hairline).height(34.dp).background(paper.blueEdge))
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) { FeedbackWords(detail, paper) }
+                Spacer(Modifier.width(12.dp))
+                PillButton(label, paper) { model.copyFeedbackNote() }
             }
-            Spacer(Modifier.width(10.dp))
-            PillButton(
-                if (state.feedbackCopied) "Copied" else "Share feedback",
-                paper,
-            ) { model.copyFeedbackNote() }
+        } else {
+            // The pill drops under the words on a phone: beside them it squeezed the
+            // title into two lines and the sentence into three, on the one card whose
+            // whole job is to be read before it is pressed.
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                HeartMark(paper)
+                Spacer(Modifier.width(13.dp))
+                Column(Modifier.weight(1f)) { FeedbackWords(detail, paper) }
+            }
+            Spacer(Modifier.height(13.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                PillButton(label, paper) { model.copyFeedbackNote() }
+            }
         }
     }
+}
+
+@Composable
+private fun HeartMark(paper: Paper) {
+    Box(
+        Modifier
+            .size(32.dp)
+            .background(paper.raised, CircleShape)
+            .border(Bone.Hairline, paper.blueEdge, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Glyph.Heart, paper, size = 15.dp, color = paper.blue)
+    }
+}
+
+@Composable
+private fun FeedbackWords(detail: String, paper: Paper) {
+    Title("Have feedback?", paper, size = 18.sp)
+    Spacer(Modifier.height(3.dp))
+    Body(detail, paper, color = paper.inkSoft, size = 12.sp, lineHeight = 17.sp)
 }
 
 @Composable

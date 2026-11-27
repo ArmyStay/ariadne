@@ -1013,9 +1013,11 @@ the whole card is one tap target at 44dp or better):
 - **your copy** — **Settings & profile** (*"Name, currencies, appearance"*);
 - **about Ariadne** — **Privacy policy** and **Terms of use** (both marked drafts).
 
-The page closes on a **Have feedback?** leaf in `paper.blueWash`: a heart in outline, a
-hairline divider, the title, the line *"Copies a note you can paste into an email."* and
-an outlined pill **Share feedback** (`copyFeedbackNote()`). There is no server and no
+The page closes on a **Have feedback?** leaf in `paper.blueWash`: a heart in outline, the
+title, the line *"Copies a note you can paste into an email."* and an outlined pill
+**Share feedback** (`copyFeedbackNote()`). Wide, the heart, a hairline divider, the words
+and the pill sit on one line; on a phone the pill drops under the words, so the card is
+read before it is pressed. There is no server and no
 address this build may write to, so the button copies a note — *what I was doing*, *what
 happened*, the trip, its counts — and the card then says *"Copied. Paste it wherever you
 write to us."* A button labelled *send* that silently did nothing would be the one lie
