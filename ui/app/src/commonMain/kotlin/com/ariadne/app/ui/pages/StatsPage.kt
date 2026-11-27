@@ -332,7 +332,14 @@ private fun SpendChart(values: List<Pair<LocalDay, Long>>, base: CurrencyCode, p
             horizontalAlignment = Alignment.End,
         ) {
             ticks.reversed().forEach { tick ->
-                Label(axisLabel(tick, base), paper, color = paper.inkFaint, size = 8.sp, tracking = 0.4.sp)
+                // Sans, not the tracked uppercase label: an axis reads "25k", not "25K".
+                Body(
+                    axisLabel(tick, base),
+                    paper,
+                    color = paper.inkFaint,
+                    size = 9.sp,
+                    lineHeight = 10.sp,
+                )
             }
         }
         Spacer(Modifier.width(10.dp))
