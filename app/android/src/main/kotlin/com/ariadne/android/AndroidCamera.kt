@@ -240,7 +240,9 @@ private fun ImageProxy.toJpeg(rotation: Int, maxEdge: Int = 1600): ByteArray? {
     // sensor disagreed with, and decoding it as JPEG would produce noise.
     if (format != android.graphics.ImageFormat.JPEG) return null
     val buffer = planes[0].buffer
+    if (buffer.remaining().toLong() > MAX_COMPRESSED_IMAGE_BYTES) return null
     val raw = ByteArray(buffer.remaining()).also { buffer.get(it) }
+    if (!raw.hasSafeImageBounds()) return null
     val decoded = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return null
 
     val scaled = scaleDown(decoded, maxEdge)

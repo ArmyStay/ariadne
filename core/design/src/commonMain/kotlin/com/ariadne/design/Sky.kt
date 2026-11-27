@@ -31,7 +31,7 @@ import org.jetbrains.compose.resources.painterResource
  * its weight, on night stock.
  */
 @Composable
-public fun GlobeSky(paper: Paper, modifier: Modifier = Modifier) {
+public fun GlobeSky(paper: Paper, modifier: Modifier = Modifier, opacity: Float = 1f) {
     Image(
         painter = painterResource(Res.drawable.globe_hero),
         contentDescription = null,
@@ -40,6 +40,6 @@ public fun GlobeSky(paper: Paper, modifier: Modifier = Modifier) {
         // Night has nothing for a white wash to sit on: the same drawing at a
         // fifth of the ink reads as a ghost of the same page rather than as a
         // light rectangle in a dark room.
-        alpha = if (paper.isNight) 0.18f else 0.92f,
+        alpha = (if (paper.isNight) 0.18f else 0.92f) * opacity,
     )
 }

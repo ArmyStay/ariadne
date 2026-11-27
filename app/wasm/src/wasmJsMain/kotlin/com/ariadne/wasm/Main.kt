@@ -123,41 +123,7 @@ private fun ByteArray.toBase64(): String {
     }
 }
 
-/**
- * Browser OCR hook (tesseract.js or compatible), lazy/optional.
- *
- * To enable, the host page may define `window.ariadneRecognize(imagePathOrUrl)` returning
- * a Promise or value resolving to a string or array of lines. When unavailable/failing,
- * the app falls back to manual amount entry.
- */
 private class WasmBrowserRecognizer : TextRecognizer {
-    override suspend fun recognize(imagePath: String): OcrResult = try {
-        val raw = recognizeInBrowser(imagePath)?.trim().orEmpty()
-        if (raw.isEmpty()) {
-            OcrResult.Failure("browser OCR not enabled")
-        } else {
-            val lines = raw.lines().map { it.trim() }.filter { it.isNotEmpty() }
-            OcrResult.Text(lines)
-        }
-    } catch (t: Throwable) {
-        OcrResult.Failure(t.message ?: "browser OCR failed")
-    }
+    override suspend fun recognize(imagePath: String): OcrResult =
+        OcrResult.Failure("browser OCR is disabled to keep receipt data local")
 }
-
-/**
- * Best-effort JS interop hook. Returns recognized text joined by newlines, or null if not enabled.
- * Host pages can lazy-load tesseract.js and implement this without changing the Wasm bundle.
- */
-@OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
-private fun recognizeInBrowser(imagePath: String): String? = js(
-    """(() => {
-      try {
-        const fn = globalThis.ariadneRecognize;
-        if (typeof fn !== 'function') return null;
-        const r = fn(imagePath);
-        if (r && typeof r.then === 'function') return null; // async hook requires host-side resolution before call
-        if (Array.isArray(r)) return r.join('\n');
-        return typeof r === 'string' ? r : null;
-      } catch (e) { return null; }
-    })()"""
-)

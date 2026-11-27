@@ -31,6 +31,9 @@ internal class Tess4JTextRecognizer(
             runCatching {
                 val file = File(imagePath)
                 if (!file.exists()) return@runCatching OcrResult.Failure("Photo file missing")
+                if (file.length() > MAX_COMPRESSED_IMAGE_BYTES || !file.hasSafeImageBounds()) {
+                    return@runCatching OcrResult.Failure("Image is too large or has unsafe dimensions")
+                }
                 val image = ImageIO.read(file) ?: return@runCatching OcrResult.Failure("Unsupported image")
                 val scaled = downscale(image, 1600)
                 val text = Tesseract().apply {

@@ -41,16 +41,16 @@ public class AndroidFiles(private val context: Context) : PhotoFiles {
             temp.delete()
             file.writeBytes(bytes)
         }
-        file.absolutePath
+        file.canonicalPath
     }
 
     override suspend fun read(path: String): ByteArray? = withContext(Dispatchers.IO) {
-        val file = File(path)
+        val file = safeAndroidPhotoFile(context, path) ?: return@withContext null
         if (file.isFile) file.readBytes() else null
     }
 
     override suspend fun delete(path: String): Unit = withContext(Dispatchers.IO) {
-        val file = File(path)
+        val file = safeAndroidPhotoFile(context, path) ?: return@withContext
         file.delete()
         // Tidy the day folder and the trip folder when they empty, so a deleted
         // trip leaves nothing behind but the root.

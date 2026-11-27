@@ -43,6 +43,9 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     // Trusted in-app review (Play Core Review).
     implementation(libs.android.inappreview)
+    // Meta Wearable Device Access Toolkit (DAT) - experimental surface, analytics opted out
+    implementation(libs.mwdat.core)
+    debugImplementation(libs.mwdat.mock)
     // The camera, bound to this activity's lifecycle.
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)

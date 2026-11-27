@@ -47,6 +47,7 @@ public class AppModel(
     private val rateSource: com.ariadne.fx.RateSource? = null,
     private val storageDisclosure: String = "This preview keeps data in memory for this session only.",
     private val rateDisclosure: String = "Rates are entered manually and kept in the current preview session.",
+    private val initialCaptureBytes: ByteArray? = null,
 ) {
     private val _state = MutableStateFlow(
         AppUiState(
@@ -193,8 +194,46 @@ public class AppModel(
                     report(it)
                     emptyList()
                 }
-                val active = trips.firstOrNull { !it.isClosed }
-                if (active == null) {
+                val active = trips.firstOrNull { !it.isClosed } ?: trips.firstOrNull()
+
+                if (initialCaptureBytes != null && initialCaptureBytes.isNotEmpty()) {
+                    val trip = active ?: run {
+                        val today = clock.today()
+                        val newTripId = newId()
+                        val defaultTrip = Trip(
+                            id = newTripId,
+                            name = "Journey",
+                            startDate = today,
+                            endDate = today.plusDays(6),
+                            baseCurrency = settings.baseCurrency,
+                            homeCurrency = settings.baseCurrency,
+                            place = "",
+                            budgetMinor = null,
+                        )
+                        store.createTrip(defaultTrip)
+                        defaultTrip
+                    }
+                    val today = clock.today().coerceInto(trip)
+                    val capture = runCatching { persistPhotograph(trip, today, initialCaptureBytes) }.getOrNull()
+                    if (capture != null) {
+                        bindTrip(trip)
+                        _state.value = _state.value.copy(
+                            route = Route.Frame(capture.id),
+                            sheetCaptureId = capture.id,
+                            detail = capture,
+                            detailOrigin = DetailOrigin.Record,
+                            isStartingUp = false,
+                            trips = store.trips(),
+                            today = today,
+                        )
+                        extraction.drain()
+                        refreshDay(today)
+                        return@launch
+                    }
+                }
+
+                val activeOpen = trips.firstOrNull { !it.isClosed }
+                if (activeOpen == null) {
                     val today = clock.today()
                     val draft = TripDraft(
                         startIso = today.iso,
@@ -211,7 +250,7 @@ public class AppModel(
                         draft = draft,
                     )
                 } else {
-                    runCatching { bindTrip(active) }.onFailure { error ->
+                    runCatching { bindTrip(activeOpen) }.onFailure { error ->
                         report(error)
                         // The trip is on disk but could not be read. Say so on the
                         // front door rather than showing an app with no trip in it.

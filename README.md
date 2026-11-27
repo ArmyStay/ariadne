@@ -103,6 +103,13 @@ Real targets (need a JDK + an Android SDK/Xcode):
 ./gradlew jvmTest                       # the shared suites
 ```
 
+**Testing without hardware (Meta AI glasses):**
+Debug builds support MockDeviceKit for testing glasses capture without physical hardware:
+```bash
+adb shell am start -n com.ariadne.app/com.ariadne.android.MainActivity --ez mock_glasses true
+```
+*(Note: Android wearables capture via Meta DAT is an experimental surface. Analytics are opted out and the app's own manifest remains free of `INTERNET`.)*
+
 A quick way to start playing with new ideas: run `./tools/run-preview.sh --shots --open Settings` and step the pages around with a debugger — real Compose, real state, no emulator needed. Or `./tools/run-preview.sh --night` for the dark variant — which is also a real preference in the app now: **Preferences → Paper → Night**.
 
 ## Status, honestly

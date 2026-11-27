@@ -266,6 +266,7 @@ public fun Masthead(
     trailing: (@Composable () -> Unit)? = null,
     lede: String? = null,
     titleSize: TextUnit? = null,
+    compact: Boolean = false,
 ) {
     Column(modifier.fillMaxWidth()) {
         Row(
@@ -289,7 +290,7 @@ public fun Masthead(
             if (trailing != null) trailing()
         }
 
-        Spacer(Modifier.height(if (wide) 22.dp else 16.dp))
+        Spacer(Modifier.height(if (wide) 22.dp else if (compact) 8.dp else 16.dp))
 
         // A page whose headline *is* the page (the timeline) passes its own size;
         // everything else takes the book's display scale, so the mastheads stay
@@ -304,7 +305,7 @@ public fun Masthead(
         )
 
         if (lede != null) {
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(if (compact) 8.dp else 14.dp))
             Body(
                 lede,
                 paper,
@@ -315,7 +316,7 @@ public fun Masthead(
             )
         }
 
-        Spacer(Modifier.height(if (wide) 22.dp else 18.dp))
+        Spacer(Modifier.height(if (wide) 22.dp else if (compact) 12.dp else 18.dp))
         Rule(paper, color = paper.ink)
     }
 }
@@ -364,9 +365,10 @@ public fun MarkHead(
     paper: Paper,
     modifier: Modifier = Modifier,
     trailing: String? = null,
+    topGap: Dp = 30.dp,
 ) {
     Column(modifier.fillMaxWidth()) {
-        Spacer(Modifier.height(30.dp))
+        Spacer(Modifier.height(topGap))
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -435,6 +437,7 @@ public fun ScrollRail(
     state: ScrollState,
     paper: Paper,
     modifier: Modifier = Modifier,
+    showTrack: Boolean = true,
 ) {
     if (state.maxValue <= 0) return
 
@@ -477,13 +480,15 @@ public fun ScrollRail(
             // The track is barely there: a suggestion of a rail, so the thumb has
             // somewhere to have come from. Drawn at 40% so it never competes with
             // the type it sits beside.
-            Box(
-                Modifier
-                    .offset(x = RailBar.Rule)
-                    .fillMaxHeight()
-                    .width(Bone.Hairline)
-                    .background(paper.edge.copy(alpha = 0.4f)),
-            )
+            if (showTrack) {
+                Box(
+                    Modifier
+                        .offset(x = RailBar.Rule)
+                        .fillMaxHeight()
+                        .width(Bone.Hairline)
+                        .background(paper.edge.copy(alpha = 0.4f)),
+                )
+            }
             // The thumb is a rule, not a pill: two points wide, square, no radius,
             // no shadow, no hover growth. It moves; that is the whole interaction.
             Box(

@@ -59,6 +59,25 @@ public interface CameraBinding {
 public val LocalCamera: androidx.compose.runtime.ProvidableCompositionLocal<CameraBinding?> =
     androidx.compose.runtime.staticCompositionLocalOf { null }
 
+/**
+ * What a platform hands over to give the app a paired pair of Meta AI glasses.
+ *
+ * Methods for availability, connection state, connect, disconnect, and capture.
+ * Android implements it using the Meta Wearable Device Access Toolkit (DAT) SDK.
+ * Desktop, iOS, and Wasm get an unavailable implementation.
+ */
+public interface WearableCapture {
+    public val available: Boolean
+    public val connected: Boolean
+    public fun connect()
+    public fun disconnect()
+    public suspend fun capture(): ByteArray?
+}
+
+/** Supplied at the root. Empty by default. */
+public val LocalWearableCapture: androidx.compose.runtime.ProvidableCompositionLocal<WearableCapture?> =
+    androidx.compose.runtime.staticCompositionLocalOf { null }
+
 private object NoCamera : CameraBinding {
     override val available: Boolean = false
 

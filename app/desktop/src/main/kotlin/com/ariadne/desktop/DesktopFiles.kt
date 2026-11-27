@@ -23,16 +23,16 @@ internal class DesktopFiles(private val root: File) : PhotoFiles {
             temp.delete()
             file.writeBytes(bytes)
         }
-        file.absolutePath
+        file.canonicalPath
     }
 
     override suspend fun read(path: String): ByteArray? = withContext(Dispatchers.IO) {
-        val file = File(path)
+        val file = safeFile(path) ?: return@withContext null
         if (file.isFile) file.readBytes() else null
     }
 
     override suspend fun delete(path: String): Unit = withContext(Dispatchers.IO) {
-        val file = File(path)
+        val file = safeFile(path) ?: return@withContext
         file.delete()
         var parent = file.parentFile
         while (parent != null && parent != root && parent.list()?.isEmpty() == true) {
@@ -41,6 +41,11 @@ internal class DesktopFiles(private val root: File) : PhotoFiles {
             parent = next
         }
     }
+
+    private fun safeFile(path: String): File? = runCatching {
+        val rootPath = root.canonicalFile.path + File.separator
+        File(path).canonicalFile.takeIf { it.path.startsWith(rootPath) }
+    }.getOrNull()
 
     override suspend fun footprintBytes(): Long = withContext(Dispatchers.IO) {
         if (!root.exists()) 0L else root.walkTopDown().filter { it.isFile }.sumOf { it.length() }

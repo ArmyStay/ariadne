@@ -1,5 +1,6 @@
 package com.ariadne.android
 
+import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -14,6 +15,7 @@ import com.ariadne.app.AppReviewManager
 import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
 import com.ariadne.app.ui.pages.LocalCamera
+import com.ariadne.app.ui.pages.LocalWearableCapture
 import com.ariadne.app.ui.pages.LocalPhotoImageRenderer
 import com.ariadne.app.ui.pages.LocalPhotoPicker
 import com.ariadne.app.ui.pages.LocalTripCardImageExporter
@@ -25,21 +27,26 @@ import com.google.android.play.core.review.ReviewManagerFactory
 class MainActivity : ComponentActivity() {
 
     private lateinit var graph: AppGraph
+    private lateinit var wearable: AndroidWearableCapture
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Must be called before super.onCreate(); shows the system splash
         // (the activity theme is @style/Theme.App.Starting) until the app is up.
         installSplashScreen()
-        AppLogger.initialize()
+        AppLogger.initialize(BuildConfig.DEBUG)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        graph = AppGraph(AndroidServices(this), SystemClock())
+        val startMock = intent.getBooleanExtra("mock_glasses", false) || intent.hasExtra("mock_glasses")
+        wearable = AndroidWearableCapture(this, startMockServer = startMock)
+        val initialBytes = intent.getByteArrayExtra("glasses_capture_bytes")
+        graph = AppGraph(AndroidServices(this), SystemClock(), initialCaptureBytes = initialBytes)
         val camera = AndroidCamera(this, this)
         setContent {
             // The one place a camera is attached to the shared UI. Every other
             // target leaves the local empty and gets the ruled plate.
             CompositionLocalProvider(
                 LocalCamera provides camera,
+                LocalWearableCapture provides wearable,
                 LocalPhotoImageRenderer provides AndroidPhotoImageRenderer,
                 // The library, on the one target that has a system picker bound.
                 // No storage permission is needed for it: the person hands over a
@@ -61,6 +68,19 @@ class MainActivity : ComponentActivity() {
                     },
                 )
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val startMock = intent.getBooleanExtra("mock_glasses", false) || intent.hasExtra("mock_glasses")
+        if (startMock && ::wearable.isInitialized) {
+            wearable.enableMockServer()
+        }
+        val incomingBytes = intent.getByteArrayExtra("glasses_capture_bytes")
+        if (incomingBytes != null && incomingBytes.isNotEmpty() && ::graph.isInitialized) {
+            graph.model.capturePhoto(incomingBytes)
         }
     }
 
@@ -86,7 +106,7 @@ private class AndroidServices(
 ) : PlatformServices {
 
     override val storageDisclosure: String =
-        "Trips, rates, and receipt photographs are stored in Ariadne's private app storage on this device. Nothing is synced."
+        "Trip records, receipt photographs, OCR text, merchant names, and notes stay in Ariadne's private app storage on this device. Nothing is synced."
 
     override val rateDisclosure: String =
         "When online, Ariadne requests currency rates from frankfurter.app using currency pairs only, not trip details. Saved rates remain available offline; the date shown is the rate's effective date."
