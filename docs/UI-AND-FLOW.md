@@ -14,7 +14,10 @@ revision (phase 9):** the photograph sheet was rebuilt to the receipt-viewer ref
 a torn card holding the photograph, an ink primary — and §5.8 was rewritten. **Fifth
 revision (phase 10):** the shutter was rebuilt to the travel-scanner reference — a drawn
 wash of blue, a plate with crop marks, the glasses in a capsule, a blue disc for a
-shutter — and §5.9 was rewritten.
+shutter — and §5.9 was rewritten. **Sixth revision (phase 11):** the glasses became one
+mark in the corner with a single setup panel, the shutter fires through them when they
+are paired, the amount can be said out loud, and the photograph page stopped scrolling;
+§5.8 and §5.9 were rewritten.
 
 **What it is not.** Not a roadmap, not a changelog, and not a claim that any of this has
 been looked at on a screen. No screenshot in this repository was produced by this build:
@@ -530,9 +533,11 @@ off a roll. Inside:
 
 1. the head line: `RECEIPT` (9sp, tracking 2.4) — a hairline — the time it was taken,
    `04:54`;
-2. the photograph, the full width of the card less 18dp a side and 320dp tall (520dp
-   on a wide page), on `paper.sunk`; whatever cannot be decoded falls back to the plate
-   study, exactly as everywhere else.
+2. the photograph, the full width of the card less 18dp a side, on `paper.sunk`; on a
+   wide page it is 520dp tall, and on a phone it takes whatever height the card has
+   left, so the card grows and shrinks with the window instead of pushing the amount
+   off the bottom. Whatever cannot be decoded falls back to the plate study, exactly as
+   everywhere else.
 
 **The readout**, under the card:
 
@@ -548,7 +553,14 @@ off a roll. Inside:
 - **KEEP FOR LATER** — an ink block (`Action(fill = false)`) with a 14dp corner, the one
   round control in the book; reads **DONE** once the entry is resolved
   (`Confirmed`, `No amount`, `In the record`);
-- **OPEN THE FULL EDITOR** — a quiet underlined action (`openFrame(capture.id)`).
+- **OPEN THE FULL EDITOR** — a quiet underlined action (`openFrame(capture.id)`);
+- **SAY THE AMOUNT** — shown only while the entry is open and the platform has a
+  recogniser (`LocalVoiceEntry`); it opens the platform's speech dialog and reads the
+  sentence with `SpokenExpense`, which files the figure and lands the entry confirmed.
+  While the recogniser is open the label reads **LISTENING…**.
+
+Nothing on this page scrolls: the head, the card, the three lines and the answers are
+one column that fits the window.
 
 **Missing capture.** *"That photograph is not here any more."* + **BACK TO TODAY**.
 
@@ -565,19 +577,36 @@ the same page composed twice. Nothing is a bitmap and nothing is cropped.
 | top-right | the trip's name, or `Ariadne`, under a 44dp hairline | — |
 | the frame | dark, 22dp corners, four crop marks 12dp in from its corners (20dp arms, 2dp); `contentDescription = "Viewfinder. Tap to keep the photograph."` | tap fires the camera |
 | hint | `Tap the frame to keep it` — or `No camera here — tap the frame for a plate` — on one line between two hairlines | — |
-| glasses | **CONNECT AI GLASSES** in a hairline capsule with the glasses mark, or **DISCONNECT AI GLASSES** once paired; shown only where the platform has a wearable | `connect()` / `disconnect()` |
-| left of the shutter | **FROM THE LIBRARY**, shown only where a picker exists | `rememberPhotoImportMany` → `importPhotos` |
-| the shutter | an 88dp paper ring holding a 68dp disc in `blue` with a camera mark in `onBlue`; `contentDescription = "Shutter"` | fires the camera, or keeps a plate when there is none |
-| right of the shutter | `nothing waiting across this trip` / `N waiting across this trip` | `closeShutter()`, then `openCloseDay(today)` |
+| glasses | a 38dp mark in the corner, right of the journey's name: rims in `inkSoft`, or in `blue` on a `blueWash` disc once paired; `contentDescription = "Meta AI glasses: <status>"` | opens the glasses panel |
+| left of the shutter | **LIBRARY**, shown only where a picker exists | `rememberPhotoImportMany` → `importPhotos` |
+| the shutter | an 88dp paper ring holding a 68dp disc in `blue` with a camera mark in `onBlue`; `contentDescription = "Shutter"` | the glasses when they are paired, else the phone's camera, else a plate |
+| right of the shutter | `Nothing waiting` / `N waiting` | `closeShutter()`, then `openCloseDay(today)` |
 | the foot | `no figure here · the amount comes after`, in a `blueWash` capsule with the budget mark; a failed capture prints its own line above it | — |
 
 The arrangement follows the window, not a flag. Anything wider than it is tall — a
 desktop window, a tablet, or a phone turned on its side — takes the two-column page:
-the frame on the left, the hint, glasses, shutter row and foot in a column on the
-right. Only a taller-than-wide window stacks them, with the frame taking the height
+the frame on the left, and the hint, shutter row and foot in a column on the right. Only a taller-than-wide window stacks them, with the frame taking the height
 and the controls beneath it. (`MainActivity` passes `wide = false` for every phone, so
 the rotation case is decided inside the overlay from the window's own measurements,
 not from that flag.)
+
+**The glasses panel.** Opened by the corner mark, over a 45 % scrim; tapping the scrim
+closes it. A card in `paper.raised` with a hairline and 20dp corners:
+
+- `META AI GLASSES` (8sp, `inkGhost`);
+- the serif headline — *"They are paired."* or *"Not paired yet."* (24sp);
+- one serif line — *"This device has no glasses to reach."*, *"The shutter takes the
+  picture the glasses see, so the phone can stay in your pocket."*, or *"Pair once in
+  Meta AI. After that the shutter uses the glasses, and this panel is only a status."*;
+- a rule, then the raw state word from the platform (`Not set up`, `Pairing in Meta AI`,
+  `Connecting`, `Connected`, `Not paired`, `Bluetooth permission needed`, `No glasses
+  answered`, …) in 9sp `inkFaint`;
+- **CONNECT** (or **DISCONNECT** once paired) as an ink block, and **DONE** as a quiet
+  action.
+
+The mark itself appears only where the platform provides `LocalWearableCapture` — the
+Android target, through `AndroidWearableCapture`. Where there is none, the corner is
+the journey's name and nothing else.
 
 **No trip / closed trip.** Title — *"This trip is closed."* or *"No trip is open."*;
 body — *"Its photographs are still here, and its card is still yours."* or *"A photograph
