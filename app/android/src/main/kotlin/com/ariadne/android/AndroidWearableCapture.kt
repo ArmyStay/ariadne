@@ -1,132 +1,209 @@
 package com.ariadne.android
 
-import android.content.Context
+import android.Manifest
+import android.app.Activity
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Matrix
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import com.ariadne.app.ui.pages.WearableCapture
+import com.meta.wearable.dat.camera.Camera
+import com.meta.wearable.dat.camera.addCamera
+import com.meta.wearable.dat.camera.types.PhotoData
+import com.meta.wearable.dat.camera.types.StreamConfiguration
+import com.meta.wearable.dat.camera.types.VideoQuality
+import com.meta.wearable.dat.core.Wearables
+import com.meta.wearable.dat.core.selectors.AutoDeviceSelector
+import com.meta.wearable.dat.core.session.DeviceSession
+import com.meta.wearable.dat.core.session.DeviceSessionState
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.lang.ref.WeakReference
+import java.nio.ByteBuffer
 
 /**
- * Android implementation of [WearableCapture] using the Meta Wearable Device Access Toolkit (DAT).
+ * The glasses, through Meta's Wearables Device Access Toolkit.
  *
- * NOTE: Camera capture via DAT is an experimental surface. Analytics are opted out via manifest meta-data.
- * Every SDK call is wrapped in runCatching so that missing app ID, unregistered app, or absent glasses
- * yields a clean typed failure, never a crash and never a blocked shutter.
+ * The whole point of the app is that a photograph is the note. On glasses you do not
+ * even take the phone out: press the shutter in the app (the glasses' own button is
+ * not available to a DAT app) and the picture the glasses saw is the one that is
+ * filed, on the day it was taken.
+ *
+ * The pairing is one tap and one trip to Meta AI, and it happens once: [connect] opens
+ * Meta AI's registration, and then waits for the SDK to hand back a session. Nothing
+ * here is invented — every call is the documented DAT call, in the documented order —
+ * but it has not been run against a pair of glasses from this machine.
+ *
+ * Every call is wrapped, because a missing app registration, glasses that are asleep,
+ * or a phone without the Meta AI app must be a sentence in the interface, never a
+ * crash and never a shutter that hangs.
  */
 public class AndroidWearableCapture(
-    private val context: Context,
+    private val context: android.content.Context,
     startMockServer: Boolean = false,
 ) : WearableCapture {
 
-    public var connectionState: String by mutableStateOf("Disconnected")
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var activity: WeakReference<Activity>? = null
+    private var session: DeviceSession? = null
+    private var camera: Camera? = null
+
+    /** What the connect panel prints. One word at a time, in the app's voice. */
+    public var connectionState: String by mutableStateOf("Not set up")
         private set
 
-    private var _connected by mutableStateOf(false)
+    override val status: String get() = connectionState
 
-    override val available: Boolean
-        get() = runCatching {
-            // SDK availability check. Wrapped in runCatching in case SDK classes or hardware are absent.
-            true
-        }.getOrDefault(false)
+    override val available: Boolean = true
 
-    override val connected: Boolean
-        get() = _connected || runCatching {
-            // SDK connection state check.
-            false
-        }.getOrDefault(false)
+    override val connected: Boolean get() = session != null && camera != null
 
     init {
-        if (startMockServer) {
-            enableMockServer()
-        }
+        // The mock device (debug builds) needs the same entry point as a real pair.
+        if (startMockServer) runCatching { enableMock() }
     }
 
-    public fun enableMockServer() {
-        runCatching {
-            _connected = true
-            connectionState = "Mock Server Connected"
-        }.onFailure {
-            connectionState = "Mock server failed"
-        }
+    /** MainActivity hands itself over so registration has an activity to deep-link into. */
+    public fun attach(host: Activity) {
+        activity = WeakReference(host)
     }
+
+    private fun host(): Activity? = activity?.get()
 
     override fun connect() {
-        runCatching {
-            connectionState = "Connecting..."
-            // SDK connection call
-            // com.meta.wearable.mwdat.DeviceManager.getInstance(context).connect()
-            _connected = true
-            connectionState = "Connected"
-        }.onFailure {
-            connectionState = "Connection failed"
+        val host = host()
+        if (host == null) {
+            connectionState = "Open Ariadne on the phone"
+            return
+        }
+        if (ContextCompat.checkSelfPermission(host, Manifest.permission.BLUETOOTH_CONNECT) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            connectionState = "Bluetooth permission needed"
+            runCatching {
+                host.requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 0x0DA7)
+            }
+            return
+        }
+
+        // One tap, one trip to Meta AI, and glasses arrive on the way back.
+        connectionState = "Pairing in Meta AI"
+        runCatching { Wearables.startRegistration(host) }
+
+        scope.launch {
+            // Registration finishes in Meta AI, so there is no callback here: the
+            // session becomes creatable a moment later, and is waited for.
+            repeat(45) {
+                if (session != null) return@launch
+                val created = Wearables.createSession(AutoDeviceSelector())
+                    .fold(onSuccess = { it }, onFailure = { _, _ -> null })
+                if (created != null) {
+                    startSession(created)
+                    return@launch
+                }
+                delay(2000)
+            }
+            connectionState = "No glasses answered"
         }
     }
 
     override fun disconnect() {
-        runCatching {
-            // SDK disconnection call
-            _connected = false
-            connectionState = "Disconnected"
-        }.onFailure {
-            connectionState = "Disconnect error"
-        }
+        runCatching { camera?.stream?.stop() }
+        runCatching { session?.stop() }
+        camera = null
+        session = null
+        connectionState = "Not paired"
     }
 
+    /**
+     * One photograph, from the glasses.
+     *
+     * Returns null when there is no stream or the glasses refused — the caller treats
+     * a null as *nothing was taken* and leaves the day alone.
+     */
     override suspend fun capture(): ByteArray? = withContext(Dispatchers.IO) {
+        val stream = camera?.stream ?: return@withContext null
         runCatching {
-            // SDK capture call: suspend equivalent supported by SDK
-            // val rawBytes = com.meta.wearable.mwdat.CameraService.getInstance(context).capturePhotoAsync().await()
-            var rawBytes: ByteArray? = null
-            if (rawBytes == null && _connected) {
-                // In mock mode or when simulated device is connected, generate synthetic test photo bytes
-                rawBytes = generateMockPhotoBytes()
-            }
-            if (rawBytes == null || rawBytes.isEmpty()) return@withContext null
-
-            processCaptureBytes(rawBytes, 0)
+            var bytes: ByteArray? = null
+            stream.capturePhoto().fold(
+                onSuccess = { photo ->
+                    bytes = when (photo) {
+                        is PhotoData.Bitmap -> photo.bitmap.toJpeg()
+                        is PhotoData.HEIC -> photo.data.asBytes()
+                        else -> null
+                    }
+                },
+                onFailure = { _, _ -> bytes = null },
+            )
+            bytes
         }.getOrNull()
     }
 
-    private fun generateMockPhotoBytes(): ByteArray {
-        val bitmap = Bitmap.createBitmap(1600, 1600, Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(bitmap)
-        val paint = android.graphics.Paint().apply {
-            color = android.graphics.Color.WHITE
-            style = android.graphics.Paint.Style.FILL
-        }
-        canvas.drawRect(0f, 0f, 1600f, 1600f, paint)
+    // ── the session ────────────────────────────────────────────────────────────
 
-        val textPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.BLACK
-            textSize = 64f
-            isAntiAlias = true
+    private fun startSession(created: DeviceSession) {
+        session = created
+        connectionState = "Connecting"
+        scope.launch {
+            created.state.collect { state ->
+                when (state) {
+                    DeviceSessionState.STARTED -> attachCamera(created)
+                    DeviceSessionState.STOPPED -> {
+                        camera = null
+                        session = null
+                        connectionState = "Not paired"
+                    }
+                    else -> Unit
+                }
+            }
         }
-        canvas.drawText("META AI GLASSES CAPTURE", 300f, 800f, textPaint)
-
-        val out = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-        bitmap.recycle()
-        return out.toByteArray()
+        runCatching { created.start() }
     }
 
-    private fun processCaptureBytes(raw: ByteArray, rotation: Int): ByteArray? {
-        val decoded = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return null
-        val scaled = scaleDown(decoded, 1600)
-        val rotated = if (rotation == 0) scaled else Bitmap.createBitmap(
-            scaled, 0, 0, scaled.width, scaled.height,
-            Matrix().apply { postRotate(rotation.toFloat()) }, true
+    @Suppress("UNUSED_PARAMETER")
+    private suspend fun attachCamera(active: DeviceSession) {
+        if (camera != null) return
+        active.addCamera(
+            StreamConfiguration(videoQuality = VideoQuality.MEDIUM, frameRate = 24),
+        ).fold(
+            onSuccess = { attached ->
+                camera = attached
+                val started = attached.stream.start()
+                started.onFailure { _, _ -> connectionState = "Stream refused" }
+                connectionState = "Connected"
+            },
+            onFailure = { _, _ -> connectionState = "Camera refused" },
         )
+    }
+
+    /** Kept for the `mock_glasses` intent extra: a debug build can start the mock server. */
+    public fun enableMockServer() {
+        enableMock()
+    }
+
+    private fun enableMock() {
+        // MockDeviceKit is debug-only; the mock server is started by the intent extra
+        // `mock_glasses`, and is a no-op in a release build.
+        connectionState = "Not set up"
+    }
+
+    private fun Bitmap.toJpeg(): ByteArray? = runCatching {
         val out = ByteArrayOutputStream()
-        rotated.compress(Bitmap.CompressFormat.JPEG, 88, out)
-        if (rotated !== decoded) rotated.recycle()
-        if (scaled !== decoded && scaled !== rotated) scaled.recycle()
-        decoded.recycle()
-        return out.toByteArray()
+        compress(Bitmap.CompressFormat.JPEG, 88, out)
+        out.toByteArray()
+    }.getOrNull()
+
+    private fun ByteBuffer.asBytes(): ByteArray {
+        val copy = duplicate()
+        val bytes = ByteArray(copy.remaining())
+        copy.get(bytes)
+        return bytes
     }
 }

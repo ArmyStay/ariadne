@@ -10,7 +10,29 @@ jobs:
   dependency-review:
     runs-on: ubuntu-latest
     steps:
+      # The review reads the repository's dependency graph. If the graph is not
+      # available the action fails immediately with "not supported on this repository"
+      # and reports *nothing* about the dependencies — a red check that says only that
+      # a setting is off. Ask first, and only then review; an unavailable graph is a
+      # skipped review, not a failed one.
+      - name: Is the dependency graph available?
+        id: graph
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/${{ github.repository }}/dependency-graph/sbom")
+          echo "dependency graph answered $code"
+          if [ "$code" = "200" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Dependency graph is not available for ${{ github.repository }}; the review is skipped. Enable it in Settings → Code security → Dependency graph."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Review dependency changes
+        if: steps.graph.outputs.available == 'true'
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
         with:
           fail-on-severity: high

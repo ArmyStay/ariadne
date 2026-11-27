@@ -1,4 +1,4 @@
-﻿package com.ariadne.app.ui.pages
+package com.ariadne.app.ui.pages
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -18,6 +18,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -43,6 +47,7 @@ import com.ariadne.model.Capture
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.EntryStatus
 import com.ariadne.model.Money
+import com.ariadne.model.SpokenExpense
 import com.ariadne.model.entryStatus
 
 /**
@@ -110,6 +115,28 @@ public fun FramePage(
         else -> "You can finish it at Close Day."
     }
 
+    // The amount, said out loud. Offered only where the platform has a recogniser and
+    // the entry is still open, and never guessed: a sentence that is not a figure is
+    // simply not a figure.
+    val voice = LocalVoiceEntry.current
+    var listening by remember { mutableStateOf(false) }
+    val say: () -> Unit = {
+        val entry = voice
+        if (entry != null) {
+            listening = true
+            entry.listen { heard ->
+                listening = false
+                if (heard != null) {
+                    val spoken = SpokenExpense.parse(
+                        heard,
+                        capture.currency ?: state.trip?.baseCurrency,
+                    )
+                    if (spoken != null) model.hearAmount(spoken.minor, spoken.currency)
+                }
+            }
+        }
+    }
+
     Column(Modifier.fillMaxSize().background(paper.bg)) {
         SheetHead(
             title = model.titleOf(capture).substringBefore(" · "),
@@ -137,25 +164,44 @@ public fun FramePage(
                 ) {
                     SheetReadout(headline, subline, paper)
                     Spacer(Modifier.height(30.dp))
-                    SheetActions(capture, status, model, paper)
+                    SheetActions(
+                    status = status,
+                    paper = paper,
+                    onKeep = { model.keepFrameForLater() },
+                    onOpen = { model.openFrame(capture.id) },
+                    onSay = say,
+                    listening = listening,
+                )
                 }
             }
         } else {
-            Column(
-                Modifier
+            // Nothing scrolls and nothing overlaps. The card is given whatever height
+            // is left between the head and the two answers, and the photograph inside
+            // it takes what the card's own head leaves: on a phone that is the
+            // largest picture the page can hold, on a small window it shrinks rather
+            // than pushing the amount off the bottom.
+            Spacer(Modifier.height(18.dp))
+            PhotoCard(
+                capture = capture,
+                model = model,
+                paper = paper,
+                modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = Bone.Margin),
-            ) {
-                Spacer(Modifier.height(18.dp))
-                PhotoCard(capture, model, paper, photoHeight = 400.dp)
-                Spacer(Modifier.height(20.dp))
-                SheetReadout(headline, subline, paper)
-                Spacer(Modifier.height(24.dp))
-            }
+            )
+            Spacer(Modifier.height(20.dp))
             Column(Modifier.fillMaxWidth().padding(horizontal = Bone.Margin)) {
-                SheetActions(capture, status, model, paper)
+                SheetReadout(headline, subline, paper)
+                Spacer(Modifier.height(22.dp))
+                SheetActions(
+                    status = status,
+                    paper = paper,
+                    onKeep = { model.keepFrameForLater() },
+                    onOpen = { model.openFrame(capture.id) },
+                    onSay = say,
+                    listening = listening,
+                )
                 Spacer(Modifier.height(18.dp))
             }
         }
@@ -218,9 +264,10 @@ private fun PhotoCard(
     capture: Capture,
     model: AppModel,
     paper: Paper,
-    photoHeight: Dp,
+    modifier: Modifier = Modifier,
+    photoHeight: Dp? = null,
 ) {
-    ReceiptCard(paper) {
+    ReceiptCard(paper, modifier) {
         ReceiptHeadLine(
             left = "Receipt",
             paper = paper,
@@ -230,7 +277,7 @@ private fun PhotoCard(
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(photoHeight)
+                .then(if (photoHeight != null) Modifier.height(photoHeight) else Modifier.weight(1f))
                 .background(paper.sunk),
         ) {
             PhotoPreview(
@@ -267,21 +314,31 @@ private fun SheetReadout(headline: String, subline: String, paper: Paper) {
  * the one that asks more of you second and quieter.
  */
 @Composable
-private fun SheetActions(capture: Capture, status: EntryStatus, model: AppModel, paper: Paper) {
+private fun SheetActions(
+    status: EntryStatus,
+    paper: Paper,
+    onKeep: () -> Unit,
+    onOpen: () -> Unit,
+    onSay: () -> Unit,
+    listening: Boolean,
+) {
     Action(
         if (status.isResolved) "Done" else "Keep for later",
         paper,
-        { model.keepFrameForLater() },
+        onKeep,
         fill = false,
         corner = 14.dp,
     )
     Spacer(Modifier.height(10.dp))
-    QuietAction(
-        "Open the full editor",
-        paper,
-        { model.openFrame(capture.id) },
-        color = paper.inkSoft,
-    )
+    QuietAction("Open the full editor", paper, onOpen, color = paper.inkSoft)
+    // The microphone, where one exists and the entry is still open: the figure can be
+    // said now, at the shop, or left for Close Day. It is a drawn button rather than
+    // a line of underlined type, because it is the one action here you take without
+    // looking at the screen.
+    if (!status.isResolved) {
+        Spacer(Modifier.height(10.dp))
+        MicAction(paper, listening = listening, onClick = onSay)
+    }
 }
 
 // ── small parts ────────────────────────────────────────────────────────────────

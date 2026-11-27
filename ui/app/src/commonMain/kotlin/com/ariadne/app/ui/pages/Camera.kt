@@ -69,6 +69,9 @@ public val LocalCamera: androidx.compose.runtime.ProvidableCompositionLocal<Came
 public interface WearableCapture {
     public val available: Boolean
     public val connected: Boolean
+
+    /** One sentence about where the pairing stands, for the connect panel. */
+    public val status: String
     public fun connect()
     public fun disconnect()
     public suspend fun capture(): ByteArray?

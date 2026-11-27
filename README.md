@@ -26,6 +26,33 @@ A quick tour of the four Pillars:
 3. **Track live** — image + text captured, cards of the day, the trips you manage (should the same value appear on two trips, tell me what happened), public share links.
 4. **Everywhere, offline** — you are the source; nothing uploads; same trip on all platforms.
 
+## A photograph is the note
+
+The reason a spending app gets abandoned is that it asks for the receipt to be
+re-typed. Nobody keeps a chai by opening a form. So Ariadne asks for the one thing
+that takes a second and is already true — the picture — and lets the figure arrive
+later, at Close Day, or never, because *no amount* is a legal entry here.
+
+That gives three ways in, in order of how far the phone can stay in your pocket:
+
+1. **Glasses.** Pair Meta AI glasses once (one panel, one trip to Meta AI, never
+   again) and the shutter takes the picture the glasses see. You are in the shop, you
+   look at the thing, and the day has the photograph before you have the phone out.
+   The mark in the corner of the shutter says whether they are paired; the shutter then
+   reads from the glasses instead of the phone's own sensor.
+2. **Voice.** There is a microphone in two places. On Home it sits beside **Add an
+   expense manually**; on the kept photograph it is the `Say the amount` row under the
+   two answers. Say it — `twelve fifty`, `five euros fifty`, `coffee twelve fifty` — and
+   the figure and the merchant are filed. On Home the sentence is filed the moment it
+   parses, because the point of a microphone is that the thumb never finds the keyboard.
+   A spoken amount is a decision, so it lands confirmed. The parser is a pure function
+   with tests (`SpokenExpense` in `core/model`); a sentence it cannot read is simply not
+   a figure, the sheet says what it heard, and the entry stays open.
+3. **The phone's camera**, exactly as before.
+
+Nothing about the rest changes: the photograph still lands on the day it was taken, the
+day's figure still moves, and Close Day is still the ritual that settles what is left.
+
 ## The promise this repo keeps in code, not in slides
 
 You'll see the same words a few times — that's because Ariadne is a place, not a
@@ -45,6 +72,9 @@ bucket of features.
 | Startup cannot be blocked by background work | every step in `AppModel.start()` is guarded on its own |
 | The trip card holds the trip | `Trip`, `TripCard`, `TripShare` — the product screen and where it ends |
 | Cards stack only where they are due | the four tabs are Home/Timeline/Trip/Stats, and the card settles in Nightfall |
+| A spoken amount is parsed by a pure function, not by a service | `SpokenExpense` over word and digit tokens — `core/model`, with tests |
+| The glasses are the camera when they are paired | `LocalWearableCapture` → `AndroidWearableCapture` over Meta's Wearables Device Access Toolkit |
+| A missing recogniser or a missing pair is a sentence, not a crash | `VoiceEntry.listen` may answer null; every DAT call is wrapped and reported as `status` |
 
 ## The screens
 
@@ -119,6 +149,25 @@ Implemented here: shared model/queue/parser/FX/search/store, schema migration pa
 Left for your machine and a bit of you:
 
 - **A real phone:** capture and OCR — time on device until you say so.
+- **A pair of Meta AI glasses:** the DAT wiring is written against the published SDK
+  (`com.meta.wearable:mwdat-core` / `:mwdat-camera` / `:mwdat-mockdevice`, 1.1.0) and
+  compiles on every target, and pairing uses the documented flow — `Wearables.initialize`
+  at launch, `startRegistration(activity)` to hand over to Meta AI, then a session with
+  `AutoDeviceSelector`, `addCamera`, and `stream.capturePhoto()`. It has **not** been run
+  against glasses from the machine this was written on. The mock device
+  (`mock_glasses` intent extra, debug builds) is the way to exercise the path without
+  hardware.
+- **Developer mode:** with an unregistered build the glasses only pair while Meta AI's
+  Developer Mode switch is on, and the app id / client token in
+  `app/android/build.gradle.kts` are `0`/`0` for exactly that reason. A release build
+  overrides both from the Wearables Developer Center.
+- **A note on Android versions:** the DAT SDK declares `minSdk 29`, so Ariadne's Android
+  floor moved from 26 to 29 with it. That is the price of the glasses, and it was the
+  reason the android build had been failing for several commits before this one.
+- **Speech:** both microphones (Home, and `Say the amount` on the kept photograph) open
+  the platform recogniser (`RecognizerIntent`) and parse what comes back with
+  `SpokenExpense`; they need a device with a recogniser app, and where there is none the
+  control says `No microphone in this build` and **Type it instead** stays available.
 - **Public share links (the `onShare` path) — broken or stripped:** there is a `Route.TripShare` entry in the router, but the share link is not complete yet.
 - **Screenshots-from-your-machine / reality checks** of my claims on your build; mine are reasoned, yours are observed.
 

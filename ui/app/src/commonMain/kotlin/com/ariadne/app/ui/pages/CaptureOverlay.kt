@@ -13,19 +13,27 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
+import com.ariadne.design.Action
 import com.ariadne.design.Bone
 import com.ariadne.design.Body
 import com.ariadne.design.Glyph
@@ -33,7 +41,9 @@ import com.ariadne.design.Icon
 import com.ariadne.design.Label
 import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
+import com.ariadne.design.Rule
 import com.ariadne.design.Title
+import kotlinx.coroutines.launch
 
 /**
  * The camera, open over the page you were on.
@@ -48,17 +58,14 @@ import com.ariadne.design.Title
  * you back exactly where you stood: same tab, same day, same scroll, with the day's
  * figure already moved.
  *
- * It is a full cover rather than a translucent panel on purpose: a camera is a mode.
- * What it is *not* is a route, and the difference is felt in three places — the bar
- * stays where it is under the cover, Back closes the camera instead of leaving the
- * app, and closing the camera costs nothing because nothing was left.
- *
  * The page itself is a plate in a book: paper with a wash of blue and a route drawn
  * across it ([ScannerBackdrop]), a dark frame with crop marks at its corners
- * ([PlateMarks]), the hint beneath it between two hairlines, the glasses on one line,
- * and the shutter in the middle of the library and the day's open figure. On a wide
- * window the frame takes the left and the controls stack on the right, so nothing is
- * cropped and nothing is squeezed — the same page, composed twice.
+ * ([PlateMarks]), the hint beneath it between two hairlines, and the shutter in the
+ * middle of the library and the day's open figure.
+ *
+ * The glasses are one small mark in the corner, not a banner. Pairing is a thing you
+ * do once, so it is behind a mark that shows the state it is in; the shutter then
+ * takes the picture the glasses see, and the phone stays in the pocket.
  */
 @Composable
 public fun CaptureOverlay(
@@ -69,9 +76,24 @@ public fun CaptureOverlay(
     onFrame: (ByteArray) -> Unit,
 ) {
     val shoot = shutterAction()
-    // Without a sensor the shutter still has to produce a record: a ruled plate is a
-    // legitimate photograph in this app, and a shutter that does nothing is not.
-    val fire: () -> Unit = if (cameraAvailable()) ({ shoot() }) else ({ model.capturePlaceholder() })
+    val scope = rememberCoroutineScope()
+    val glasses = LocalWearableCapture.current
+
+    // The shutter takes the best camera that is actually there, in this order: the
+    // glasses you are wearing, the phone's own sensor, and finally a ruled plate —
+    // because a shutter that does nothing is not a shutter, and a photograph that
+    // never arrived must never be filed as one.
+    val glassesReady = glasses != null && glasses.connected
+    val fire: () -> Unit = when {
+        glassesReady && glasses != null -> ({
+            scope.launch {
+                val frame = glasses.capture()
+                if (frame != null) model.importPhotos(listOf(frame)) else model.capturePlaceholder()
+            }
+        })
+        cameraAvailable() -> ({ shoot() })
+        else -> ({ model.capturePlaceholder() })
+    }
 
     // The library, on the same overlay: a receipt you already have is the same
     // intent as one in front of you.
@@ -81,26 +103,19 @@ public fun CaptureOverlay(
         onFailure = model::photoImportFailed,
     )
 
-    // The glasses, when this device has them. Offered in the reference's place —
-    // under the hint, above the shutter — and only where the surface exists.
-    val wearable = LocalWearableCapture.current
-    val glasses: (() -> Unit)? = if (wearable != null && wearable.available) {
-        if (wearable.connected) ({ wearable.disconnect() }) else ({ wearable.connect() })
-    } else {
-        null
-    }
-
     val hint = if (cameraAvailable()) {
         "Tap the frame to keep it"
     } else {
         "No camera here — tap the frame for a plate"
     }
     val waiting = if (state.tripPending.isEmpty()) {
-        "nothing waiting across this trip"
+        "Nothing waiting"
     } else {
-        "${state.tripPending.size} waiting across this trip"
+        "${state.tripPending.size} waiting"
     }
     val onWaiting: () -> Unit = { model.closeShutter(); model.openCloseDay(state.today) }
+
+    var showGlasses by remember { mutableStateOf(false) }
 
     // The arrangement follows the window, not a flag: `MainActivity` reports `wide =
     // false` for every phone, so a phone turned on its side would otherwise get the
@@ -116,7 +131,13 @@ public fun CaptureOverlay(
                 .fillMaxSize()
                 .padding(horizontal = if (wide) 56.dp else 22.dp, vertical = 16.dp),
         ) {
-            OverlayHead(state.trip?.name ?: "Ariadne", paper, { model.closeShutter() })
+            OverlayHead(
+                tripName = state.trip?.name ?: "Ariadne",
+                paper = paper,
+                glasses = glasses,
+                onOpenGlasses = { showGlasses = true },
+                onClose = { model.closeShutter() },
+            )
             Spacer(Modifier.height(12.dp))
 
             if (across) {
@@ -128,11 +149,7 @@ public fun CaptureOverlay(
                     FrameBox(paper, Modifier.weight(1.25f).fillMaxHeight(), fire, onFrame)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                         HintLine(hint, paper)
-                        Spacer(Modifier.height(22.dp))
-                        if (glasses != null) {
-                            GlassesPill(paper, wearable?.connected == true, glasses)
-                            Spacer(Modifier.height(24.dp))
-                        }
+                        Spacer(Modifier.height(26.dp))
                         ShutterRow(
                             paper = paper,
                             fire = fire,
@@ -149,11 +166,7 @@ public fun CaptureOverlay(
                 FrameBox(paper, Modifier.fillMaxWidth().weight(1f), fire, onFrame)
                 Spacer(Modifier.height(16.dp))
                 HintLine(hint, paper)
-                Spacer(Modifier.height(16.dp))
-                if (glasses != null) {
-                    GlassesPill(paper, wearable?.connected == true, glasses)
-                    Spacer(Modifier.height(20.dp))
-                }
+                Spacer(Modifier.height(20.dp))
                 ShutterRow(
                     paper = paper,
                     fire = fire,
@@ -167,18 +180,29 @@ public fun CaptureOverlay(
                 Spacer(Modifier.height(6.dp))
             }
         }
+
+        if (showGlasses) {
+            GlassesPanel(paper = paper, wearable = glasses, onClose = { showGlasses = false })
+        }
     }
 }
 
 /**
  * The head of the overlay: the way out on the left, the journey this photograph
- * belongs to on the right, both in tracked capitals.
+ * belongs to on the right, and — when the platform has them — one small mark for the
+ * glasses, showing whether they are paired.
  *
  * Closing is the same gesture as `Back`: `closeShutter()` puts the camera away and
  * leaves you on the page underneath, with nothing to undo.
  */
 @Composable
-private fun OverlayHead(tripName: String, paper: Paper, onClose: () -> Unit) {
+private fun OverlayHead(
+    tripName: String,
+    paper: Paper,
+    glasses: WearableCapture?,
+    onOpenGlasses: () -> Unit,
+    onClose: () -> Unit,
+) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         QuietAction("Close", paper, onClose, color = paper.ink)
         Spacer(Modifier.weight(1f))
@@ -186,6 +210,106 @@ private fun OverlayHead(tripName: String, paper: Paper, onClose: () -> Unit) {
             Label(tripName, paper, color = paper.inkSoft, size = 9.sp, tracking = 1.8.sp)
             Spacer(Modifier.height(5.dp))
             Box(Modifier.width(44.dp).height(1.dp).background(paper.blueEdge))
+        }
+        if (glasses != null) {
+            Spacer(Modifier.width(10.dp))
+            GlassesButton(glasses, paper, onOpenGlasses)
+        }
+    }
+}
+
+/**
+ * The glasses, as one mark: a pair of rims on a 38dp target, blue once they are
+ * paired, in the corner where a status belongs. The word for a screen reader is the
+ * pairing state itself, so the mark never has to be described twice.
+ */
+@Composable
+private fun GlassesButton(wearable: WearableCapture, paper: Paper, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(38.dp)
+            .clip(CircleShape)
+            .background(if (wearable.connected) paper.blueWash else Color.Transparent)
+            .semantics { contentDescription = "Meta AI glasses: ${wearable.status}" }
+            .rowTap(onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        GlassesMark(if (wearable.connected) paper.blue else paper.inkSoft, 18.dp)
+    }
+}
+
+/**
+ * The one setup that is needed: what the glasses are, what state they are in, and the
+ * single thing to press. Pairing happens in Meta AI, so the panel says that plainly
+ * rather than pretending to own the flow.
+ */
+@Composable
+private fun GlassesPanel(paper: Paper, wearable: WearableCapture?, onClose: () -> Unit) {
+    val connected = wearable?.connected == true
+    val state = wearable?.status ?: "Not on this device"
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(paper.scrim.copy(alpha = 0.45f))
+                .rowTap(onClose),
+        )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 22.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(paper.raised)
+                .border(Bone.Hairline, paper.edge, RoundedCornerShape(20.dp))
+                .padding(22.dp),
+        ) {
+            Label("meta ai glasses", paper, color = paper.inkGhost, size = 8.sp, tracking = 1.4.sp)
+            Spacer(Modifier.height(10.dp))
+            Title(
+                if (connected) "They are paired." else "Not paired yet.",
+                paper,
+                size = 24.sp,
+                lineHeight = 30.sp,
+            )
+            Spacer(Modifier.height(8.dp))
+            Body(
+                when {
+                    wearable == null -> "This device has no glasses to reach."
+                    connected -> "The shutter takes the picture the glasses see, so the phone can stay in your pocket."
+                    else -> "Pair once in Meta AI. After that the shutter uses the glasses, and this panel is only a status."
+                },
+                paper,
+                serif = true,
+                color = paper.inkSoft,
+                size = 15.sp,
+                lineHeight = 21.sp,
+            )
+            Spacer(Modifier.height(14.dp))
+            Rule(paper, color = paper.edgeStrong)
+            Spacer(Modifier.height(12.dp))
+            Label(state, paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
+            Spacer(Modifier.height(16.dp))
+            if (wearable != null) {
+                if (connected) {
+                    Action(
+                        "Disconnect",
+                        paper,
+                        { wearable.disconnect() },
+                        fill = false,
+                        corner = 14.dp,
+                    )
+                } else {
+                    Action(
+                        "Connect",
+                        paper,
+                        { wearable.connect() },
+                        fill = false,
+                        corner = 14.dp,
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+            }
+            QuietAction("Done", paper, onClose, color = paper.inkSoft)
         }
     }
 }
@@ -233,33 +357,12 @@ private fun HintLine(text: String, paper: Paper) {
     }
 }
 
-/** The glasses, as the reference draws them: a hairline capsule with the mark in it. */
-@Composable
-private fun GlassesPill(paper: Paper, connected: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier
-            .clip(CircleShape)
-            .background(paper.raised)
-            .border(Bone.Hairline, paper.blueEdge, CircleShape)
-            .rowTap(onClick)
-            .padding(horizontal = 22.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        GlassesMark(paper.ink, 16.dp)
-        Spacer(Modifier.width(9.dp))
-        Label(
-            if (connected) "Disconnect AI glasses" else "Connect AI glasses",
-            paper,
-            color = paper.ink,
-            size = 9.sp,
-            tracking = 1.8.sp,
-        )
-    }
-}
-
 /**
  * The library, the shutter, and the day's open figure — the shutter in the middle,
  * where a thumb already is, and the two others as quiet capitals beside it.
+ *
+ * The two side labels are one word and a count on purpose: the reference truncates
+ * both, and a bar that ends in an ellipsis reads as a bug rather than as a bar.
  */
 @Composable
 private fun ShutterRow(
@@ -275,7 +378,7 @@ private fun ShutterRow(
         // is the other, and a control that cannot work is not offered.
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (pickerAvailable()) {
-                QuietAction("From the library", paper, onImport, color = paper.ink)
+                QuietAction("Library", paper, onImport, color = paper.ink)
             }
         }
         Shutter(paper, fire)
