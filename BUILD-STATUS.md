@@ -399,3 +399,16 @@ What changed:
 
 Still not verified here: the fix on the user's actual machine, and the Android
 camera. Both need hardware this sandbox does not have.
+
+## Wearables Capture (Meta AI Glasses DAT Integration)
+
+Added Android wearables capture for paired Meta AI glasses via the Meta Wearable Device Access Toolkit (DAT) SDK (`com.meta.wearable.mwdat`).
+
+- **Experimental Surface & Analytics:** Camera capture is an experimental DAT surface. Analytics are explicitly opted out via manifest meta-data (`com.meta.wearable.mwdat.ANALYTICS_OPT_OUT` = true).
+- **Manifest & Permissions:** The app's own manifest remains free of `INTERNET`. Application ID meta-data `com.meta.wearable.mwdat.APPLICATION_ID` is added with a clearly marked placeholder (`PLACEHOLDER_APPLICATION_ID`).
+- **Pipeline Seam:** Reuses `PhotoFiles` and `capturePhoto`. Glasses are a photo source, not a fifth capture path. The photo is written to disk before the row, always.
+- **Cold Start:** Glasses capture arriving with the app not running (`glasses_capture_bytes` intent extra) holds bytes, resolves/creates active trip, persists immediately, and presents `Route.Frame` as launch destination without losing files.
+- **Testing Without Hardware:** MockDeviceKit integration starts its test server in debug builds when launched with extra `--ez mock_glasses true`.
+  Command to launch with simulated device:
+  `adb shell am start -n com.ariadne.app/com.ariadne.android.MainActivity --ez mock_glasses true`
+- **Verification Status:** Compiled and type-checked against stubs/API interfaces; real SDK hardware test unrun in this sandbox environment.

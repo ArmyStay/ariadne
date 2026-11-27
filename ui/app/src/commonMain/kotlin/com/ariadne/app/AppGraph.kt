@@ -25,6 +25,7 @@ import kotlinx.coroutines.cancel
 public class AppGraph(
     private val platform: PlatformServices,
     private val clock: Clock,
+    private val initialCaptureBytes: ByteArray? = null,
 ) {
     /**
      * Every failure in the model is reported here before it disappears.
@@ -88,6 +89,7 @@ public class AppGraph(
             rateSource = platform.rateSource(),
             storageDisclosure = platform.storageDisclosure,
             rateDisclosure = platform.rateDisclosure,
+            initialCaptureBytes = initialCaptureBytes,
         ).also { m -> m.onFailure = { lastFailure = it } }
     }
 

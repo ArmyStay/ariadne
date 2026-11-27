@@ -2,10 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.CAMERA" />
-    <!-- One HTTPS GET to frankfurter.app for exchange rates. No key, no account,
-         no upload: the request carries a currency code and nothing about the
-         person or the trip. -->
-    <uses-permission android:name="android.permission.INTERNET" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
@@ -14,6 +10,14 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:allowBackup="false"
         android:enableOnBackInvokedCallback="true">
+
+        <!-- Meta Wearable Device Access Toolkit (DAT) Configuration -->
+        <meta-data
+            android:name="com.meta.wearable.mwdat.APPLICATION_ID"
+            android:value="PLACEHOLDER_APPLICATION_ID" />
+        <meta-data
+            android:name="com.meta.wearable.mwdat.ANALYTICS_OPT_OUT"
+            android:value="true" />
 
         <activity
             android:name=".MainActivity"

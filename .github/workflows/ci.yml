@@ -51,7 +51,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew :app:ios:compileKotlinIosSimulatorArm64 :app:ios:compileKotlinIosArm64 :app:ios:compileKotlinIosX64 --console=plain --stacktrace
+      - run: ./gradlew :app:ios:compileKotlinIosSimulatorArm64 :app:ios:compileKotlinIosArm64 --console=plain --stacktrace
 
   pages:
     name: wasm demo → GitHub Pages

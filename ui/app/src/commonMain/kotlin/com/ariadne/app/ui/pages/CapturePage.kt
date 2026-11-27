@@ -153,6 +153,23 @@ public fun CapturePage(
             tracking = 1.2.sp,
         )
 
+        val wearable = LocalWearableCapture.current
+        if (wearable != null && wearable.available) {
+            Spacer(Modifier.height(6.dp))
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Label("Meta AI Glasses: ${if (wearable.connected) "Connected" else "Discoverable"}", paper, color = paper.inkMid, size = 10.sp)
+                if (!wearable.connected) {
+                    QuietAction("Connect", paper, { wearable.connect() })
+                } else {
+                    QuietAction("Disconnect", paper, { wearable.disconnect() })
+                }
+            }
+        }
+
         Spacer(Modifier.weight(0.5f))
 
         Row(

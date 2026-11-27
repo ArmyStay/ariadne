@@ -14,6 +14,7 @@ import com.ariadne.app.AppReviewManager
 import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
 import com.ariadne.app.ui.pages.LocalCamera
+import com.ariadne.app.ui.pages.LocalWearableCapture
 import com.ariadne.app.ui.pages.LocalPhotoImageRenderer
 import com.ariadne.app.ui.pages.LocalPhotoPicker
 import com.ariadne.app.ui.pages.LocalTripCardImageExporter
@@ -33,13 +34,17 @@ class MainActivity : ComponentActivity() {
         AppLogger.initialize()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        graph = AppGraph(AndroidServices(this), SystemClock())
+        val startMock = intent.getBooleanExtra("mock_glasses", false) || intent.hasExtra("mock_glasses")
+        val wearable = AndroidWearableCapture(this, startMockServer = startMock)
+        val initialBytes = intent.getByteArrayExtra("glasses_capture_bytes")
+        graph = AppGraph(AndroidServices(this), SystemClock(), initialCaptureBytes = initialBytes)
         val camera = AndroidCamera(this, this)
         setContent {
             // The one place a camera is attached to the shared UI. Every other
             // target leaves the local empty and gets the ruled plate.
             CompositionLocalProvider(
                 LocalCamera provides camera,
+                LocalWearableCapture provides wearable,
                 LocalPhotoImageRenderer provides AndroidPhotoImageRenderer,
                 // The library, on the one target that has a system picker bound.
                 // No storage permission is needed for it: the person hands over a
