@@ -243,7 +243,21 @@ No other page responds to keys.
 
 `Onboarding` → **BEGIN A TRIP** (`startNewTrip()` → `NewTrip` with *from* = today,
 *to* = today + 6, currency = the setting) → **CREATE TRIP** (`commitDraft()`) → `Home`.
-The user-facing onboarding and trip-register flows do not offer the demo roll.
+
+Two other doors, both quiet, both on the same page: **OR LOOK AT A SAMPLE TRIP**
+(`startTripDemo()`, a finished trip with two currencies in it) and **SOMEBODY GAVE YOU A
+CODE?** (`openJoinTrip()` → `JoinTrip` → **JOIN THIS TRIP** (`joinTrip()`) → `Home`).
+
+### 3.1b Two phones, one ledger
+
+1. A closed day → **THE CODES** (trip page) or wherever the hand-off is offered →
+   `HandoffPage`.
+2. **COPY THE TRIP CODE** → sixteen characters after `AR1`; the other phone types them
+   into `JoinTrip` and the plan exists there.
+3. **COPY THE DAY** → one line per confirmed figure on that closed day; the other phone
+   pastes it under `their figures` and taps **ADD THEIR FIGURES**.
+4. The same line pasted twice is refused by its fingerprint: `That ledger is already on
+   this trip.`
 
 ### 3.2 The everyday loop
 
@@ -343,6 +357,7 @@ Wide windows get a left margin column; phones get a single column.
 | three beats | each: number (`01`) in `inkFaint`, an 18dp `blueEdge` rule, the name in tracked capitals, then one serif sentence — see below |
 | primary | **BEGIN A TRIP** (`startNewTrip()`) with the trip mark, blue, max width 360dp |
 | quiet | **OR LOOK AT A SAMPLE TRIP** (`startTripDemo()`) — a finished trip, no form |
+| quiet | **SOMEBODY GAVE YOU A CODE?** (`openJoinTrip()`) — the trip somebody else planned |
 | foot | `No account · no server · no sync` |
 
 The three beats are the whole product, in the order it is used:
@@ -357,6 +372,25 @@ The three beats are the whole product, in the order it is used:
 There is no artwork, no carousel and no tour: the page answers "what is this?" and then
 gets out of the way. `?seed=demo` on the browser build skips this page and opens on the
 sample trip instead.
+
+### 5.1b Join a trip — `JoinPage.kt`, no bar
+
+`Masthead(number = "01c", eyebrow = "a trip, shared", title = "Join a trip", italic = true,
+lede = "Type the code they read out. Sixteen characters, in groups of four.")`
+
+| Element | Text |
+| --- | --- |
+| field | label `the code`, placeholder `AR1-K7QM-2X9B-4HDR-8TQP`, capitals, no autocorrect |
+| as it reads | label `this is the plan`, then the dates as a `Title` (`2026-12-03 to 2026-12-08`), then `INR · budget 40,000.00` |
+| if it does not read | the reason in the serif: `A trip code is sixteen characters after AR1 — this one has 4.` · `One character is wrong — check the code and try again.` · `'X' is not one of a code's characters.` |
+| field (after the readback) | label `what to call it here`, placeholder `the shared trip` |
+| primary | **JOIN THIS TRIP** (`joinTrip()`) — only offered once the code reads |
+| footnote | "A code is a copy, not a link. The plan lands on this phone and stays yours — nothing here updates when theirs does." |
+| quiet | **NOT NOW** (`back()`) |
+
+The readback is the point of the page: a wrong character is a sentence here, not a trip in
+the register with the wrong dates on it. The name is asked for because the code does not
+carry one (§9).
 
 ### 5.2 New trip — `NewTripPage.kt`, no bar
 
@@ -597,6 +631,13 @@ file."* and **BACK TO THE DAY** alone.
 
 **Missing capture.** *"That photograph is not in the record any more."* + **BACK TO THE
 RECORD** (`closeDetail()`).
+
+Under **LEAVE IT OPEN** sits the one destructive control in the book: **DELETE THIS
+PHOTOGRAPH** (`armEntryDeletion()`), which becomes the sentence *"Tap once more to delete
+this photograph and its figures. This cannot be undone, and there is no copy anywhere
+else."*, then **DELETE FOR GOOD** (`deleteEntryNow()`) and **KEEP IT**
+(`armEntryDeletion()`). Two taps, the same rule as deleting a trip, and for the same
+reason: the bytes go with the row.
 
 ### 5.8 The photograph sheet — `FramePage.kt`, overlay over the shutter
 
@@ -900,6 +941,30 @@ or contact details.
 
 ---
 
+### 5.18 Two phones, one ledger — `HandoffPage.kt`, stacked over the timeline
+
+`Masthead(number = "09", eyebrow = "two phones", title = "One ledger,\nhanded over",
+italic = true, lede = "A code goes out with the plan. A code comes back with the figures.
+No account, no server.")`
+
+| Element | Text |
+| --- | --- |
+| label | `the plan`, then the code itself as body text — `AR1-K7QM-2X9B-4HDR-8TQP` |
+| note | "Read it out, or send the line. They join with it and have the same dates, currency and budget — the trip's name is theirs to choose." |
+| note | "The budget is too large for a code to carry, so it is not in it. Everything else is." — only when the trip's budget exceeds 32 bits of minor units |
+| action | **COPY THE TRIP CODE** (`copyTripCode()`), then the label `on the clipboard` |
+| label | `a day, handed back`, then one row per closed day that has a figure: the ISO date, the day's total, and **COPY THE DAY** (`copyLedgerCode(day)`) |
+| empty | "No day is closed with a figure on it yet. Close a day first — the hand-over is what a finished day is for." |
+| label | `their figures`, then a field for the pasted line |
+| as it reads | `Priya · 7 lines · 2026-12-03 to 2026-12-05`, then **ADD THEIR FIGURES** (`addPastedLedger()`) |
+| if it does not read | the reason, e.g. `Line 3 of the ledger is damaged.` · `That ledger is already on this trip.` |
+| list | each traveller: name, `₹4,120.00 · 7 lines` (and any figure with no rate, named in its own currency), with **REMOVE** (`removeTraveller(id)`) |
+| footnote | "A code can be handed over twice; the second paste is refused. A code can be edited by hand — the checksum catches an accident, not a fraud. And there is still no sync: nothing here updates on its own." |
+
+The same page shows both directions because they are one idea. The record quotes them: on
+the day's page a traveller appears under **Tallied** as `Priya ₹4,120.00`, followed by
+**With them** and the combined figure — quoted, never merged, and never in your card.
+
 ## 6. Shared strings and formatting
 
 **Money.** `Money.formatWithSymbol(currency)` = symbol + `format`, e.g. `₹82,141.92`,
@@ -1005,10 +1070,10 @@ fetch a rate.
   sheet and opens `Detail`, so only a restored route lands here.
 - `Route.Settings` → `PreferencesPage` (retired name).
 
-**Not implemented anywhere in the UI:** deleting a single entry (trips can be deleted,
-captures cannot); editing an entry's date; SMS import; bill splitting; accounts, sync,
-analytics; more than one photograph per entry; crop or rotate; importing an archive back
-into Ariadne. Local ZIP export and Trip Card PNG/text sharing are implemented.
+**Not implemented anywhere in the UI:** editing an entry's date; SMS import; bill
+splitting; accounts, sync, analytics; more than one photograph per entry; crop or rotate;
+importing an archive back into Ariadne. Local ZIP export, Trip Card PNG/text sharing, and
+deleting one photograph (two taps, §5.7) are implemented.
 
 Voice *is* implemented — `SpokenExpense` in `core/model` with its tests, a microphone on
 Home and a `Say the amount` row on the kept photograph (§5.3, §5.7) — and it needs a
@@ -1043,6 +1108,7 @@ device with a recogniser app, which is the only reason it is ever absent.
 | iOS compiles (simulator + device arm64) | passing on every push | `ci.yml` → macOS job |
 | browser compiles and builds its distribution | passing on every push | `ci.yml` and `pages.yml` |
 | the browser app is deployed | published as a Pages artifact on every push to `main` | `pages.yml` |
+| the codec (trip plan and ledger, both directions) | passing on every push since 27 Nov 2026, `main` + this branch | `:core:model:jvmTest` → `ShareCodeTest` |
 | `FlowCheck` (stack, overlays, undo, the sheet's pair) | written, runnable offline; **not part of CI** | `tools/flow-check.sh` |
 | the page drawn on a real screen | yes: two stills from a phone in `docs/shots/current/` | human |
 | measured — spacing, contrast, 200% text | **not yet** | `tools/verify-ui.sh` + `tools/shoot.sh` |

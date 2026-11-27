@@ -51,6 +51,9 @@ key — [on the human list](docs/HUMAN-TASKS.md).
 | Startup cannot be blocked by background work | every step in `AppModel.start()` is guarded on its own |
 | The trip card holds the trip | `Trip`, `TripCard` — the product screen and where it ends |
 | A spoken amount is parsed by a pure function, not by a service | `SpokenExpense` over word and digit tokens — `core/model`, with tests |
+| A shared trip is a copy, not a link | `ShareCodes` — a sixteen-character plan and a paste-able ledger, round-trip tested in `core/model`; no socket in either direction |
+| Somebody else's figures are never merged into yours | `Traveller` / `TravellerEntry` in their own tables; quoted beside the day, absent from the card |
+| One photograph can be deleted, and only on purpose | two taps in `DetailPage` — the bytes and the row, and no undo that pretends otherwise |
 | The glasses are the camera when they are paired | `LocalWearableCapture` → `AndroidWearableCapture` over Meta's Wearables Device Access Toolkit |
 | A missing recogniser or a missing pair is a sentence, not a crash | `VoiceEntry.listen` may answer null; every DAT call is wrapped and reported as `status` |
 

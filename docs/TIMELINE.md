@@ -131,6 +131,36 @@ anything, could not read a page that was true, and landed on a form.
   `android.permission.*` and every backticked path a document names has to exist. It was
   written after finding five such claims in this repository, and it fails on the sixth.
 
+## 27 November — two phones, one ledger
+
+`#24`, the second half of the same push. A judge asked the obvious question of a trip
+ledger — *can two people use it?* — and the answer had to be yes without betraying the one
+promise the app makes: nothing leaves the device.
+
+- **A trip code.** `AR1-K7QM-2X9B-4HDR-8TQP`: sixteen characters after the prefix, drawn
+  from an alphabet with no `0`, `1`, `I` or `O`, carrying the start day (fourteen bits),
+  the nights (eight), the base currency (fifteen) and the budget (one flag and
+  thirty-two). A checksum catches a mistyped character; the readback says what the code
+  means before a trip exists. The trip's *name* is deliberately not in it — it would
+  more than double the code and it is the one part with no arithmetic in it.
+- **A ledger code.** One line per confirmed figure on a closed day — day, amount, currency,
+  category, two initials — with an eight-bit digest per line, so a damaged paste names the
+  line instead of quietly changing the total.
+- **A traveller is not a second user.** Their rows live in two tables of their own, are
+  quoted beside the day's total (`Priya ₹4,120.00`, then `With them`) and are never merged
+  into your captures or your card. The page states the three edges: a code can be handed
+  over twice (refused), a code can be edited by hand (checksum catches accident, not
+  fraud), and there is no sync.
+- **Everything is text.** No socket is opened by any of this, and the codec is pure Kotlin
+  in `:core:model`, so the browser and the phone produce identical symbols. The browser,
+  desktop and iOS builds gained a clipboard for the first time so that a code can leave
+  the phone at all.
+
+Also in `#24`: deleting a single photograph (two taps, like a trip), the shutter's frame
+opening the file dialog where there is no camera, the rail counting the same list the
+dock's badge counts, and `docs/HUMAN-TASKS.md` — the things that need a device, a browser
+or a decision rather than a commit.
+
 ## Where it stands
 
 **Built**: the shared domain (money, queue, FX, search, store with `openOrMigrate`), the
