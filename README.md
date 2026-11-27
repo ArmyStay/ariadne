@@ -124,7 +124,9 @@ already been kept instead. No install, no account; the browser build keeps its d
 the tab, so a reload starts again.
 
 **On a phone:** the [releases](https://github.com/ArmyStay/ariadne/releases) carry
-`ariadne.apk`, a debug build signed with the debug key:
+`ariadne.apk`, a debug build signed with the debug key. It is large — around 120 MB —
+because five on-device OCR models are bundled rather than downloaded, which is also why
+recognition works in a shop with no signal:
 
 ```bash
 adb install -r ariadne.apk
