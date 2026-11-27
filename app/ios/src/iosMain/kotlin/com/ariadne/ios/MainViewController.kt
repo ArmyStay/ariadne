@@ -33,6 +33,7 @@ import platform.posix.fwrite
 import platform.Vision.VNImageRequestHandler
 import platform.Vision.VNRecognizeTextRequest
 import platform.Vision.VNRecognizedTextObservation
+import platform.Vision.VNRecognizedText
 import platform.Vision.VNRequestTextRecognitionLevelAccurate
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -186,7 +187,12 @@ private class VisionTextRecognizer : TextRecognizer {
                 }
                 val observations = request?.results?.filterIsInstance<VNRecognizedTextObservation>().orEmpty()
                 val lines = observations.mapNotNull { observation ->
-                    observation.topCandidates(1u).firstOrNull()?.string?.trim()?.takeIf { it.isNotEmpty() }
+                    // `topCandidates` is bridged as a list of `Any`, so the candidate
+                    // has to be named before it can be read.
+                    observation.topCandidates(1u)
+                        .filterIsInstance<VNRecognizedText>()
+                        .firstOrNull()
+                        ?.string?.trim()?.takeIf { it.isNotEmpty() }
                 }
                 cont.resume(OcrResult.Text(lines))
             }.apply {
