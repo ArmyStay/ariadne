@@ -74,8 +74,15 @@ public object Bone {
     public val InkFaint: Color = Color(0xFF64748B)
     public val InkGhost: Color = Color(0xFFCBD5E1)
 
-    /** The one chromatic value. A button, a selected tab, a figure you acted on. */
-    public val Blue: Color = Color(0xFF2563EB)
+    /**
+     * The one chromatic value. A button, a selected tab, a figure you acted on.
+     *
+     * It is the dock's navy — literally [Navy], not a cobalt near it. The shutter is
+     * the control a person presses without looking, so every filled action is the
+     * same ink as the circle it sits under rather than a second blue arguing with
+     * it. The old #2563EB is gone; one blue means one blue.
+     */
+    public val Blue: Color = Color(0xFF1C3155)
 
     /**
      * The book's second dark: the daily-spend panel and the shutter's seat.
@@ -84,9 +91,15 @@ public object Bone {
      * circle is the same weight as the panel it sits under.
      */
     public val Navy: Color = Color(0xFF1C3155)
-    public val BluePressed: Color = Color(0xFF1D4ED8)
-    public val BlueWash: Color = Color(0xFFEFF4FE)
-    public val BlueEdge: Color = Color(0xFFBFD3FB)
+
+    /** Blue under a finger; also the ground of the daily-spend panel. */
+    public val BluePressed: Color = Color(0xFF13243E)
+
+    /** A wash of the same blue: a count pill, a selected row, an armed state. */
+    public val BlueWash: Color = Color(0xFFE9EEF6)
+
+    /** The hairline weight of blue, for a ring or a tick's frame. */
+    public val BlueEdge: Color = Color(0xFFB9C7DC)
 
     // ── night ────────────────────────────────────────────────────────────────
     /** Night is the same design on dark stock: blue lifts, ink inverts. */
@@ -103,7 +116,14 @@ public object Bone {
     public val NightInkFaint: Color = Color(0xFF616C7A)
     public val NightInkGhost: Color = Color(0xFF3A404A)
 
-    public val NightBlue: Color = Color(0xFF7DA2F7)
+    /**
+     * The navy, lifted until it can be read on night stock.
+     *
+     * Night inverts the ladder: the same hue that is a fill by day is a label by
+     * night, so it has to come up far enough to carry text. It stays in the navy
+     * family — a lifted cobalt was the colour the palette was trying to stop using.
+     */
+    public val NightBlue: Color = Color(0xFF9DB4D8)
     public val NightBlueWash: Color = Color(0xFF1A2436)
     public val NightBlueEdge: Color = Color(0xFF2E4470)
 

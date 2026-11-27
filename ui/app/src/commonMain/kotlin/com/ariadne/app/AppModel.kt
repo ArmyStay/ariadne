@@ -1682,6 +1682,11 @@ public class AppModel(
         _state.value = _state.value.copy(entryDeleteArmed = !_state.value.entryDeleteArmed)
     }
 
+    /** Puts the armed delete away without deleting anything. */
+    private fun entryDeleteArmedOff() {
+        _state.value = _state.value.copy(entryDeleteArmed = false)
+    }
+
     public fun deleteEntryNow() {
         val capture = _state.value.detail ?: return
         if (!_state.value.entryDeleteArmed) return
@@ -1906,6 +1911,10 @@ public class AppModel(
         if (_state.value.shutterOpen || _state.value.sheetCaptureId != null) {
             _state.value = _state.value.copy(shutterOpen = false, sheetCaptureId = null)
         }
+        // An armed delete is about one photograph. Carried to the next page it would
+        // be one tap from deleting the wrong one, so travel disarms it — the same
+        // rule the two-tap delete exists for.
+        if (_state.value.entryDeleteArmed) entryDeleteArmedOff()
         // "Today" is a promise about a date, not just a page: arriving on it reads
         // the calendar's today, even if the last thing looked at was the 14th.
         if (route == Route.Home) {
@@ -1951,6 +1960,8 @@ public class AppModel(
             closeShutter()
             return true
         }
+        // Same rule for Back: leaving the photograph puts the delete away.
+        if (state.entryDeleteArmed) entryDeleteArmedOff()
         // The reminder question is answered, not navigated past: Back closes it and
         // records the answer, exactly like **NOT FOR ME**.
         if (state.reminderSheetOpen) {

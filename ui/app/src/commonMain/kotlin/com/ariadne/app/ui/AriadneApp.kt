@@ -33,6 +33,7 @@ import com.ariadne.design.Title
 import com.ariadne.design.TravelGlobeArtwork
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -42,10 +43,12 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -156,11 +159,18 @@ public fun AriadneApp(
         onBack(state.canGoBack) { model.back() }
     }
 
+    // Read here, above the shell's own `imePadding()`: that modifier consumes the
+    // insets, so anything below it would be told the keyboard is never up.
+    val keyboardUp = with(LocalDensity.current) { WindowInsets.ime.getBottom(this) > 0 }
+
     // The shell contains real Material components — the bar, its items, the docked
     // shutter — and each of them asks the theme for whatever it is not told. Without
     // this they answered in the stock purple.
     AriadneTheme(paper) {
-    CompositionLocalProvider(LocalMotionPreference provides MotionPreference(reducedMotion)) {
+    CompositionLocalProvider(
+        LocalMotionPreference provides MotionPreference(reducedMotion),
+        LocalKeyboardUp provides keyboardUp,
+    ) {
         Box(
             Modifier
                 .fillMaxSize()
@@ -302,6 +312,18 @@ public fun AriadneApp(
     }
     }
 }
+
+/**
+ * Whether the keyboard is up, as the shell sees it.
+ *
+ * It cannot be read from a page: the shell applies `imePadding()` to its own root and
+ * that modifier *consumes* the insets, so by the time a page asks `WindowInsets.ime`
+ * the honest answer is zero. The one place that can still see the real height is above
+ * that padding, so it is read once there and handed down. Desktop and browser report
+ * zero and pages simply never hear about a keyboard they do not have.
+ */
+public val LocalKeyboardUp: androidx.compose.runtime.ProvidableCompositionLocal<Boolean> =
+    staticCompositionLocalOf { false }
 
 /**
  * The page between the splash and the record.

@@ -53,7 +53,7 @@ key — [on the human list](docs/HUMAN-TASKS.md).
 | A spoken amount is parsed by a pure function, not by a service | `SpokenExpense` over word and digit tokens — `core/model`, with tests |
 | A shared trip is a copy, not a link | `ShareCodes` — a sixteen-character plan and a paste-able ledger, round-trip tested in `core/model`; no socket in either direction |
 | Somebody else's figures are never merged into yours | `Traveller` / `TravellerEntry` in their own tables; quoted beside the day, absent from the card |
-| One photograph can be deleted, and only on purpose | two taps in `DetailPage` — the bytes and the row, and no undo that pretends otherwise |
+| One photograph can be deleted, and only on purpose | the × in the corner of `DetailPage`, twice — the bytes and the row, and no undo that pretends otherwise |
 | The glasses are the camera when they are paired | `LocalWearableCapture` → `AndroidWearableCapture` over Meta's Wearables Device Access Toolkit |
 | A missing recogniser or a missing pair is a sentence, not a crash | `VoiceEntry.listen` may answer null; every DAT call is wrapped and reported as `status` |
 
@@ -134,7 +134,8 @@ Five things the app will not do, because a record that bends is not a record:
 </p>
 
 Stills from a phone running a 27 November build; the dock's shutter has since gone navy
-(`#1C3155`) and the two stills predate that. The design language is one file —
+(`#1C3155`) and every filled action has followed it there, so the two stills predate
+both. The design language is one file —
 [`docs/DESIGN.md`](docs/DESIGN.md) — and every screen is described, screen by screen,
 with the words it actually prints, in [`docs/UI-AND-FLOW.md`](docs/UI-AND-FLOW.md).
 

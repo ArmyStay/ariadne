@@ -105,11 +105,15 @@ public fun AriadneBar(
                 },
             shape = CircleShape,
             containerColor = if (captureEnabled) paper.navy else paper.edge,
-            contentColor = if (captureEnabled) paper.onBlue else paper.inkFaint,
+            // White in both stocks: the seat is navy at night too, so the night
+            // palette's dark-on-blue pairing would put a near-black glyph on a navy
+            // circle. The one control pressed without looking has to be legible
+            // without the theme's help.
+            contentColor = if (captureEnabled) Bone.PaperRaised else paper.inkFaint,
             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp),
         ) {
             SparkGlyph(
-                ink = if (captureEnabled) paper.onBlue else paper.inkFaint,
+                ink = if (captureEnabled) Bone.PaperRaised else paper.inkFaint,
                 hole = if (captureEnabled) paper.navy else paper.edge,
             )
         }

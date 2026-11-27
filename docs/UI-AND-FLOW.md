@@ -592,14 +592,15 @@ Tuesday.
 2. a horizontally scrolling strip of day tabs (day number + month; closed days on
    `paper.sunk`, selected tab with an ink border) — each tab opens `Record(day)`;
 3. the day's receipt lines: index, photograph thumbnail, title, state label
-   (`Needs an amount`, `Confirmed`, …), the figure or `—`; each → `Detail(id)`;
+   (`Needs an amount`, `Confirmed`, …), the figure **with its symbol** (`฿450.00`,
+   `₹1,240.00`) or `—`; each → `Detail(id)`;
 4. if the day is empty: *"Nothing kept on this day. An empty day is still part of the
    trip — it is the one you spent walking."* + **ADD A PHOTOGRAPH** (`openCapture(shown)`);
    if the day has not happened yet — every day of the trip has a tab from the moment the
    trip exists — the page says *"This day hasn't happened yet. There is nothing on it —
    it is the part of the journey still ahead."* with **GO TO TODAY** (`openRecord(today)`),
    the header's **CAPTURE** is not drawn, and **CLOSE DAY** is disabled;
-5. a rule, then the day's per-currency rows (`THB ฿2,555.00`), then **Tallied** with the
+5. a rule, then the day's per-currency rows (`THB` + `฿2,555.00`), then **Tallied** with the
    day total, prefixed `≈` when anything was converted;
 6. `ConversionNote`: `≈ converted at the rate for 20 Nov` (one rate) or
    `≈ converted at the rates in force 18 Nov – 20 Nov`, and for money that could not be
@@ -652,7 +653,17 @@ file."* and **BACK TO THE DAY** alone.
 
 ### 5.7 Detail — `DetailPage.kt`, no bar
 
-**Header.** `Masthead("", eyebrow = the capture's ISO date \| "Photograph", title = "The photograph", trailing = QuietAction("Back") → closeDetail())`.
+**Header.** `Masthead("", eyebrow = the capture's ISO date \| "Photograph", title = "The photograph", trailing = the delete mark)`.
+
+The mark is a drawn × in a hairline ring, 30 dp inside a 44 dp target, described to a
+screen reader as `Delete this photograph` (`armEntryDeletion()`). Tapped once it fills
+`paper.blue`, grows to 38 dp, and the page prints *"Tap the mark once more to delete this
+photograph and its figures. This cannot be undone, and there is no copy anywhere else."*
+with **KEEP IT** (`armEntryDeletion()`); a second tap on the mark is `deleteEntryNow()`.
+Two taps, the same rule as deleting a trip, and for the same reason: the bytes go with
+the row. It is not drawn on a closed trip, and travel disarms it — leaving the page by any
+route puts the mark back to waiting, so an armed delete can never be inherited by the next
+photograph.
 
 1. the photograph, large;
 2. `Amount` + the figure (or `0`) and the keypad, or, when the row has an unconfirmed
@@ -672,15 +683,16 @@ file."* and **BACK TO THE DAY** alone.
    closed. The photograph and its figures stay exactly as they were; nothing new can be
    filed against a finished journey."*
 
+**Typing.** On a phone the photograph and the fields share a scrolling column with the
+ruled keypad pinned under it. When the keyboard rises (`LocalKeyboardUp`, read by the shell
+above its own `imePadding()` — the modifier consumes the insets, so a page asking for them
+would always be told zero) the page becomes a page about typing: the photograph becomes a
+44 dp line with the same name the record uses (`PhotoLine`, *"typing · the photograph is
+safe"*), and the pinned keypad is not drawn, so two keyboards are never on screen at once.
+The focused field scrolls itself into view; the save buttons sit directly under it.
+
 **Missing capture.** *"That photograph is not in the record any more."* + **BACK TO THE
 RECORD** (`closeDetail()`).
-
-Under **LEAVE IT OPEN** sits the one destructive control in the book: **DELETE THIS
-PHOTOGRAPH** (`armEntryDeletion()`), which becomes the sentence *"Tap once more to delete
-this photograph and its figures. This cannot be undone, and there is no copy anywhere
-else."*, then **DELETE FOR GOOD** (`deleteEntryNow()`) and **KEEP IT**
-(`armEntryDeletion()`). Two taps, the same rule as deleting a trip, and for the same
-reason: the bytes go with the row.
 
 ### 5.8 The photograph sheet — `FramePage.kt`, overlay over the shutter
 

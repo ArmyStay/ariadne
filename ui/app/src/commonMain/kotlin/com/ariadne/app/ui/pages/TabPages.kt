@@ -530,7 +530,9 @@ private fun HomeBalancePanel(
     wide: Boolean,
     onSettle: () -> Unit,
 ) {
-    val navy = Color(0xFF13243E)
+    // The panel and the pressed blue are one value, so the two darks on this page
+    // cannot drift apart in a later edit.
+    val navy = paper.bluePressed
     val shape = RoundedCornerShape(16.dp)
     Box(
         Modifier
