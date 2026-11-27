@@ -9,6 +9,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.core.view.WindowCompat
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -16,6 +21,7 @@ import com.ariadne.app.AppGraph
 import com.ariadne.app.AppLogger
 import com.ariadne.app.AppReviewManager
 import com.ariadne.app.PlatformServices
+import com.ariadne.app.Route
 import com.ariadne.app.ui.AriadneApp
 import com.ariadne.app.ui.pages.LocalCamera
 import com.ariadne.app.ui.pages.LocalVoiceEntry
@@ -53,6 +59,28 @@ class MainActivity : ComponentActivity() {
         graph = AppGraph(AndroidServices(this), SystemClock(), initialCaptureBytes = initialBytes)
         val camera = AndroidCamera(this, this)
         setContent {
+            // These screens draw Ariadne paper behind the system status bar. Match
+            // its icons to that paper, not just the device's system theme; otherwise
+            // light paper on a dark-mode phone leaves white icons on white.
+            val uiState by graph.model.state.collectAsState()
+            val isPicturedPage = when (uiState.route) {
+                Route.Preferences, Route.Settings, Route.Trips, Route.Stats -> true
+                is Route.Frame -> true
+                else -> false
+            }
+            val systemDark = isSystemInDarkTheme()
+            val nightPaper = when (uiState.theme) {
+                com.ariadne.model.Settings.Theme.LIGHT -> false
+                com.ariadne.model.Settings.Theme.DARK -> true
+                com.ariadne.model.Settings.Theme.SYSTEM -> systemDark
+            }
+            DisposableEffect(isPicturedPage, nightPaper) {
+                val controller = WindowCompat.getInsetsController(window, window.decorView)
+                val previous = controller.isAppearanceLightStatusBars
+                if (isPicturedPage) controller.isAppearanceLightStatusBars = !nightPaper
+                onDispose { if (isPicturedPage) controller.isAppearanceLightStatusBars = previous }
+            }
+
             // The amount said out loud: the recogniser is another app, so it answers
             // through this launcher and the transcript lands back in `voice`.
             val speech = rememberLauncherForActivityResult(

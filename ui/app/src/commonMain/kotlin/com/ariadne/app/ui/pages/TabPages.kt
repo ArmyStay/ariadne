@@ -1015,7 +1015,6 @@ public fun PreferencesPage(
             wide = wide,
         )
 
-        Spacer(Modifier.height(14.dp))
         SectionHead("I", "your profile", paper)
         LineField(
             label = "display name · kept on this device",
@@ -1025,7 +1024,6 @@ public fun PreferencesPage(
             onChange = model::editProfileName,
             serif = false,
         )
-        Spacer(Modifier.height(14.dp))
 
         // Every row below is a read-out of something real, and the two that can be
         // changed are the two that are actually changeable. A row that says
@@ -1039,6 +1037,7 @@ public fun PreferencesPage(
             label = "Base currency",
             code = state.trip?.baseCurrency?.code ?: "INR",
             note = "Every total is stated in this one",
+            wrapNote = true,
             glyph = Glyph.Budget,
             paper = paper,
             onChoose = { model.editTripCurrency(it) },
@@ -1047,6 +1046,7 @@ public fun PreferencesPage(
             label = "Home currency",
             code = state.trip?.homeCurrency?.code ?: "INR",
             note = "What a foreign amount is converted back to",
+            wrapNote = true,
             glyph = Glyph.Trip,
             paper = paper,
             onChoose = { model.editTripHomeCurrency(it) },
@@ -1059,7 +1059,6 @@ public fun PreferencesPage(
         // Not decoration: without a rate a foreign amount cannot be converted,
         // and every total silently under-reports. The figures are exact scaled
         // integers all the way down; this is the only place a human types one.
-        Spacer(Modifier.height(26.dp))
         SectionHead("III", "the exchange", paper)
 
         val inUse = model.currenciesInUse()
@@ -1108,7 +1107,6 @@ public fun PreferencesPage(
             Body(state.rateError, paper, color = paper.inkMid, size = 12.sp)
         }
 
-        Spacer(Modifier.height(26.dp))
         SectionHead("IV", "what leaves this device", paper)
 
         PrefReadout(Glyph.Ledger, "Storage", "Local to this build", paper)
@@ -1161,7 +1159,6 @@ public fun PreferencesPage(
             )
         }
 
-        Spacer(Modifier.height(28.dp))
         SectionHead("V", "the evening", paper)
 
         // The one thing in this app that reaches out of it — and it reaches no
@@ -1188,22 +1185,17 @@ public fun PreferencesPage(
                 lineHeight = 18.sp,
             )
         }
-        Spacer(Modifier.height(16.dp))
-
         SectionHead("VI", "this trip", paper)
 
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Icon(Glyph.Trip, paper, size = 16.dp)
             Spacer(Modifier.width(10.dp))
-            Title(state.trip?.name ?: "No trip", paper, size = 17.sp)
-            Spacer(Modifier.weight(1f))
-            Label(
-                state.trip?.place ?: "no place set",
-                paper,
-                color = paper.inkFaint,
-                size = 9.sp,
-                tracking = 1.3.sp,
-            )
+            Column(Modifier.weight(1f)) {
+                Title(state.trip?.name ?: "No trip", paper, size = 17.sp)
+                Spacer(Modifier.height(3.dp))
+                Body(state.trip?.place ?: "No place set", paper,
+                    color = paper.inkSoft, size = 12.sp, lineHeight = 17.sp)
+            }
         }
         Spacer(Modifier.height(14.dp))
 
@@ -1240,7 +1232,7 @@ public fun PreferencesPage(
             // is not deletion is the quieter of the two controls.
             Label("this deletes everything, now", paper, color = paper.blue, size = 9.sp, tracking = 1.6.sp)
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Action("Delete for good", paper, { model.deleteTripNow() }, enabled = !state.busy)
                 OutlineAction("Keep it", paper, { model.armTripDeletion() })
             }
@@ -1294,7 +1286,8 @@ private fun PrefPaper(
                 val chosen = value == theme
                 Box(
                     Modifier
-                        .heightIn(min = 44.dp)
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
                         .border(Bone.Hairline, if (chosen) paper.blue else paper.edge)
                         .tap("Choose $text") { onChoose(value) }
                         .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -1479,13 +1472,15 @@ private fun IconAction(
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(vertical = 10.dp)
-            .tap(text, onClick = onClick),
+            .heightIn(min = 48.dp)
+            .tap(text, onClick = onClick)
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(glyph, paper, size = 16.dp, color = color ?: paper.inkSoft)
         Spacer(Modifier.width(12.dp))
-        Label(text, paper, color = color ?: paper.ink, size = 10.sp, tracking = 1.5.sp)
+        Body(text, paper, color = color ?: paper.ink, size = 14.sp, lineHeight = 19.sp,
+            modifier = Modifier.weight(1f))
     }
 }
 
