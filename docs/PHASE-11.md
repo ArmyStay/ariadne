@@ -62,6 +62,28 @@ A sentence it cannot read is not a figure: the entry stays open and nothing is
 guessed. Deliberately not clever — a misheard amount is one tap from fixed in the
 editor, which costs less than a parser that pretends to understand everything.
 
+## The microphone, made a button; the aeroplane, made visible
+
+The first build on the phone came back with two more things. *Log with voice* should be
+a microphone, not a line of type — and the home page should show the aeroplane.
+
+- **`MicMark`** draws the shape: capsule, cradle, stem, the line it stands on, at one
+  weight in ink. Nothing animates.
+- **`MicAction`** is the kept photograph's row, in place of the old underlined
+  `Say the amount`: that mark beside the words in a hairline capsule, blue-washed and
+  reading `Listening…` while the recogniser is open, `No microphone in this build`
+  where there is none.
+- **`MicDisc`** is the home page's: a 52 dp disc with the same rim, beside **Add an
+  expense manually**. It opens `HomeVoicePanel` over the page (a new `overlay` slot on
+  `TabPage`, so the sheet covers the page and not the four destinations). The sheet
+  listens on open, files a parsed sentence against today through `saveManualEntry` and
+  closes; a sentence with no figure reads *"No amount in that. Try again, or type it."*
+  and **Type it instead** is the way to the keypad.
+- **The hero artwork** comes down (offset −155 → −96 dp, −120 → −100 wide) and the paper
+  wash now ends by 84 % of the width instead of veiling the whole of it. The aeroplane
+  was never outside the crop: it was inside the band the hero showed and under about
+  36 % paper at that x. Both changed, so it reads.
+
 ## What was broken under all of it
 
 The Android build had been red since the wearable commit, and none of the UI you asked
