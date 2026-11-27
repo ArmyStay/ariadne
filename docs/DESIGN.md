@@ -267,3 +267,7 @@ it themselves.
    leave) and `selected` is null; the bar announces where it is stacked from.
 10. **Grow, never shrink.** At 200% text things stack, wrap and reflow; nothing
     drops below the specified rung in §2, and no action may be pushed off-screen.
+11. **A day that has not happened is not a record.** Nothing is filed into a future
+    day: not a photograph, not a spoken amount, not a typed one, not a Close Day. The
+    list of days stops at today because tomorrow has nothing in it yet, and a refusal
+    is a sentence in the margin, never a dialog.

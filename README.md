@@ -134,6 +134,9 @@ How that demo is published, and everything else that happened to get here, is in
 ./gradlew :app:wasm:wasmJsBrowserDevelopmentRun   # or the local web demo
 ```
 
+Every version those targets need — the JDK, the Android SDK path, `minSdk 29`, the
+glasses artifacts, Xcode — is in [`docs/SDK-SETUP.md`](docs/SDK-SETUP.md).
+
 The gates are plain shell scripts, so they run without a full toolchain; **the Gradle
 build is the shipping path** and is what CI runs.
 
