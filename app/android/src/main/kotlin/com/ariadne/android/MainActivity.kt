@@ -1,5 +1,6 @@
 package com.ariadne.android
 
+import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -26,6 +27,7 @@ import com.google.android.play.core.review.ReviewManagerFactory
 class MainActivity : ComponentActivity() {
 
     private lateinit var graph: AppGraph
+    private lateinit var wearable: AndroidWearableCapture
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Must be called before super.onCreate(); shows the system splash
@@ -35,7 +37,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val startMock = intent.getBooleanExtra("mock_glasses", false) || intent.hasExtra("mock_glasses")
-        val wearable = AndroidWearableCapture(this, startMockServer = startMock)
+        wearable = AndroidWearableCapture(this, startMockServer = startMock)
         val initialBytes = intent.getByteArrayExtra("glasses_capture_bytes")
         graph = AppGraph(AndroidServices(this), SystemClock(), initialCaptureBytes = initialBytes)
         val camera = AndroidCamera(this, this)
@@ -66,6 +68,19 @@ class MainActivity : ComponentActivity() {
                     },
                 )
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val startMock = intent.getBooleanExtra("mock_glasses", false) || intent.hasExtra("mock_glasses")
+        if (startMock && ::wearable.isInitialized) {
+            wearable.enableMockServer()
+        }
+        val incomingBytes = intent.getByteArrayExtra("glasses_capture_bytes")
+        if (incomingBytes != null && incomingBytes.isNotEmpty() && ::graph.isInitialized) {
+            graph.model.capturePhoto(incomingBytes)
         }
     }
 

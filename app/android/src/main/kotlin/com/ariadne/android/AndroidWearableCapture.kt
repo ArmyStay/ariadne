@@ -41,12 +41,17 @@ public class AndroidWearableCapture(
 
     init {
         if (startMockServer) {
-            runCatching {
-                // Signature uncertain: starting MockDeviceKit test server if requested in debug build.
-                // com.meta.wearable.mwdat.mockdevicekit.MockDeviceKit.startServer(context)
-            }.onFailure {
-                connectionState = "Mock server failed"
-            }
+            enableMockServer()
+        }
+    }
+
+    public fun enableMockServer() {
+        runCatching {
+            // Signature uncertain: starting MockDeviceKit test server if requested in debug build.
+            // com.meta.wearable.mwdat.mockdevicekit.MockDeviceKit.startServer(context)
+            connectionState = "Mock Server Running"
+        }.onFailure {
+            connectionState = "Mock server failed"
         }
     }
 
