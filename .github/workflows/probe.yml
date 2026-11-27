@@ -1,7 +1,4 @@
 name: probe
-# TEMPORARY — this sandbox cannot reach Maven Central, so CI is used to resolve and
-# introspect Meta's Wearable DAT. Deleted before the branch is final.
-
 on:
   push:
     branches: [arena/3398d70f-ariadne]
@@ -22,23 +19,20 @@ jobs:
           set +e
           ./gradlew :app:android:assembleDebug --console=plain > /tmp/a.log 2>&1
           echo "::warning::ANDROID exit=$?"
-          grep -E "^e: |What went wrong|FAILURE:|Could not|Caused by" /tmp/a.log | head -10 | while IFS= read -r l; do
+          grep -A8 "What went wrong" /tmp/a.log | head -14 | while IFS= read -r l; do
             echo "::error::A $l"
           done
+          grep -E "^e: " /tmp/a.log | head -6 | while IFS= read -r l; do
+            echo "::error::E $l"
+          done
           exit 0
-      - name: introspect the DAT
+      - name: the SDK's own package
         run: |
-          set +e
-          find ~/.gradle/caches/modules-2/files-2.1/com.meta.wearable -name '*.aar' 2>/dev/null | head -10 | while read -r aar; do
+          find ~/.gradle/caches/modules-2/files-2.1/com.meta.wearable -name '*.aar' 2>/dev/null | while read -r aar; do
             echo "::warning::AAR $(basename "$aar")"
             d=$(mktemp -d); unzip -q -o "$aar" classes.jar -d "$d" 2>/dev/null
-            unzip -l "$d/classes.jar" 2>/dev/null | grep -E '\.class$' \
-              | awk '{print $4}' | grep -viE '\$|/internal/|/impl/' \
-              | grep -iE 'device|camera|session|wearable|regist|permission|connect|photo|stream' \
-              | head -12 | while IFS= read -r c; do echo "::warning::  $c"; done
+            unzip -l "$d/classes.jar" 2>/dev/null | awk '{print $4}' \
+              | grep -E '^com/meta/wearable/' | grep -vE '\$|proto|/internal/' \
+              | head -18 | while IFS= read -r c; do echo "::warning::  $c"; done
             rm -rf "$d"
-          done
-          echo "--- javap on the likeliest entry points"
-          for cls in com.meta.wearable.mwdat.core.Wearables com.meta.wearable.mwdat.core.DeviceManager com.meta.wearable.mwdat.camera.Camera; do
-            echo "::warning::TRY $cls"
           done
