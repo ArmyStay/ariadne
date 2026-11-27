@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/brand/ariadne-icon.png" width="120" alt="Ariadne — a paper square with the wordmark, a spark, and an aeroplane crossing a globe">
+</p>
+
 # Ariadne
 
 Kotlin Multiplatform project — **Android** (Jetpack Compose), **iOS** (KMP Compose UI),

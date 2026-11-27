@@ -2,4 +2,6 @@
 <resources>
     <!-- The splash and app launch ground; the app itself reads the design system. -->
     <color name="windowBackgroundColor">#F8FAFC</color>
+    <!-- The launcher icon's own paper, sampled from the artwork itself. -->
+    <color name="iconBackground">#E3E1D4</color>
 </resources>

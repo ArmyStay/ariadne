@@ -329,13 +329,16 @@ exists. There is no demo-roll or demo-prefill action in this flow.
 
 **Header.** `HomeHero`: the `01 — ARIADNE` plate, the current trip name in the large
 Instrument Serif italic, and `PLAN · TRACK · SPEND`, with the shared globe-and-flight
-artwork (`home_globe.png`, `TravelGlobeArtwork`) behind the title: 350 dp wide (380 dp
-wide layout), `ContentScale.Crop`, pinned `TopEnd` and offset **up 96 dp (100 dp on
-wide)** so the aeroplane and its spark sit above the trip name — the top of the
-wallpaper is *not* cropped away, because that is where the picture's subject is. A
-paper wash is drawn over the left two-thirds (`0 → 0.99`, `0.45 → 0.94`,
-`0.66 → 0.28`, `0.84 → transparent`) so the name reads on white and the aeroplane is
-left alone.
+artwork (`home_globe.png`, `TravelGlobeArtwork`) behind the title: **310 dp wide
+(350 dp on the wide layout)**, `ContentScale.Crop`, pinned `TopEnd`, and offset **up
+56 dp (64 dp on wide)** — down from 96/100 dp, and smaller than it was, because at the
+old size only a 190 dp sliver of a 640 dp-tall wallpaper was ever visible and the
+aeroplane fell outside it. At this size the whole subject — spark at a third of the
+artwork's height, aeroplane just below it, the globe's limb under both — fits inside
+the band, and the offset puts all three in the band's lower half. A paper wash is
+drawn over the left two-thirds (`0 → 0.99`, `0.45 → 0.94`, `0.66 → 0.28`,
+`0.84 → transparent`) so the trip's name reads on white and the aeroplane is left
+alone.
 
 **Rail (wide).** `today` = today's ISO or `—`; `days` = the trip's length; `closed N`;
 `waiting today` = `stack.size`; `on this day`.

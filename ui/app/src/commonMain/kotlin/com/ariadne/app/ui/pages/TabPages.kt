@@ -439,10 +439,12 @@ private fun HomeHero(title: String, paper: Paper, wide: Boolean) {
             alignment = Alignment.TopEnd,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                // Down, not up: the aeroplane and its spark are in the top third of
-                // the wallpaper, and cropping the top of it was cropping the story.
-                .offset(y = if (wide) (-100).dp else (-96).dp)
-                .width(if (wide) 380.dp else 350.dp)
+                // Down, not up, and smaller than the hero: the aeroplane sits at a
+                // third of the wallpaper's height and the globe below it, so the
+                // artwork is scaled until all three — spark, aeroplane, limb — fit
+                // inside a 190dp band, then brought down until they sit in its middle.
+                .offset(y = if (wide) (-64).dp else (-56).dp)
+                .width(if (wide) 350.dp else 310.dp)
                 .aspectRatio(0.5333f),
             opacity = if (paper.isNight) 0.3f else 0.92f,
         )
