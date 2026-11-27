@@ -89,7 +89,6 @@ import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
 import com.ariadne.model.Settings
 import com.ariadne.model.dayRange
-import com.ariadne.app.ui.tap
 import com.ariadne.design.tap
 
 /**

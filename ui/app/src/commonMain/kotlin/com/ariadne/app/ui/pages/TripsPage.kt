@@ -42,7 +42,6 @@ import com.ariadne.design.Tick
 import com.ariadne.design.Title
 import com.ariadne.model.Money
 import com.ariadne.model.Trip
-import com.ariadne.app.ui.tap
 import com.ariadne.design.tap
 
 /**

@@ -48,7 +48,6 @@ import com.ariadne.model.LocalDay
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import kotlinx.coroutines.launch
-import com.ariadne.app.ui.tap
 import com.ariadne.design.tap
 
 /**

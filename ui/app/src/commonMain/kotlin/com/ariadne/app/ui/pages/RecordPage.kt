@@ -43,7 +43,6 @@ import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
 import com.ariadne.model.DaySummary
 import com.ariadne.model.entryStatus
-import com.ariadne.app.ui.tap
 import com.ariadne.design.tap
 
 /**

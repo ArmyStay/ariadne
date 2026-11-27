@@ -36,7 +36,6 @@ import com.ariadne.design.Glyph
 import com.ariadne.model.BudgetPlan
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.Money
-import com.ariadne.app.ui.tap
 import com.ariadne.design.tap
 
 /**

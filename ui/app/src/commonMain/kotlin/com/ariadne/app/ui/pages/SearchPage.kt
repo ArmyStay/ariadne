@@ -49,7 +49,6 @@ import com.ariadne.design.Subject
 import com.ariadne.design.Title
 import com.ariadne.model.Capture
 import com.ariadne.model.Money
-import com.ariadne.app.ui.tap
 import com.ariadne.design.tap
 
 /**

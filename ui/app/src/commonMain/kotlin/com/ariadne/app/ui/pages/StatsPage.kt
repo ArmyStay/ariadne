@@ -47,6 +47,7 @@ import com.ariadne.design.LinkAction
 import com.ariadne.design.Masthead
 import com.ariadne.design.Numeral
 import com.ariadne.design.Paper
+import com.ariadne.design.RailFigure
 import com.ariadne.design.Rule
 import com.ariadne.design.SectionHead
 import com.ariadne.design.Title
@@ -166,7 +167,7 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LinkAction("Privacy policy", paper) { model.go(Route.PrivacyPolicy) }
+            LinkAction("Privacy policy", paper, { model.go(Route.PrivacyPolicy) })
             Box(
                 Modifier
                     .padding(horizontal = 12.dp)
@@ -174,7 +175,7 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
                     .height(12.dp)
                     .background(paper.edgeStrong),
             )
-            LinkAction("Terms of use", paper) { model.go(Route.Terms) }
+            LinkAction("Terms of use", paper, { model.go(Route.Terms) })
         }
 
         Spacer(Modifier.height(96.dp))
