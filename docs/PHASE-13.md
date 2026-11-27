@@ -27,10 +27,12 @@ demo build must not wait on the iOS job. The `pages` job has been removed from `
 
 **One repository setting is required and it cannot be set from a workflow.** Pages must
 be switched to *Settings → Pages → Build and deployment → Source: **GitHub Actions***,
-which turns off the branch deployment (`build_type` is `legacy` at the time of writing;
-the REST call that would change it is refused for this token). Until that switch is
-flipped, `deploy-pages` will fail with "Pages is not configured for GitHub Actions" —
-loudly, on purpose, rather than quietly serving a README.
+which turns off the branch deployment. At the time of writing the Pages API still reports
+`build_type: legacy` / `source: { branch: main, path: / }`, the builds listed are Jekyll
+builds of the branch, and the REST call that would change it is refused for this token
+(`Resource not accessible by integration`). So the site is still the README no matter
+what any job reports, and this repository cannot fix that from a file. Once the switch is
+made, `pages.yml` owns the deployment and the branch build stops.
 
 ## 2. The README is a front door
 
