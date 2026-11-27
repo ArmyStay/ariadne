@@ -43,97 +43,14 @@ jobs:
       - name: Build the wasm distribution
         run: ./gradlew :app:wasm:wasmJsBrowserDistribution --console=plain --stacktrace
 
-      - name: Assemble the site
-        # The artifact *is* the site: Pages serves whatever directory is uploaded at
-        # the project's path, so index.html has to sit at its root. The Gradle output
-        # directory has moved between Kotlin versions, and a stale path fails in the
-        # least visible way there is — a 404 at the root URL beside a green check. So
-        # the page is found rather than assumed, and copied into a directory this
-        # workflow builds, whose shape is then asserted.
-        run: |
-          set -euo pipefail
-          # Production first: a developer's tree can also hold a development build,
-          # and the demo is the production one.
-          index=$(find app/wasm/build/dist/wasmJs -path '*productionExecutable*' -name index.html -print -quit)
-          [ -n "$index" ] || index=$(find app/wasm/build/dist/wasmJs -name index.html -print -quit)
-          if [ -z "$index" ]; then
-            echo "::error::the wasm distribution has no index.html under app/wasm/build/dist/wasmJs"
-            find app/wasm/build/dist -maxdepth 4 -printf '%P%0A' | head -40
-            exit 1
-          fi
-          echo "page: $index"
-          site="$RUNNER_TEMP/site"
-          rm -rf "$site"
-          mkdir -p "$site"
-          cp -a "$(dirname "$index")"/. "$site"/
-          ls -la "$site" | head -30
-          # What the page is, in the two files that prove it is a wasm app rather than
-          # an empty directory.
-          compgen -G "$site/*.wasm" > /dev/null || { echo "::error::no .wasm file in the site"; exit 1; }
-          compgen -G "$site/ariadne.js" > /dev/null || { echo "::error::no ariadne.js in the site"; exit 1; }
-
-      - name: Prove it serves the page at the project's path
-        # Served the way Pages will serve it — from /ariadne/, not from / — and every
-        # reference in index.html has to resolve. A page whose assets begin with "/"
-        # works on a laptop and 404s here; this is the check that notices.
-        run: |
-          set -euo pipefail
-          site="$RUNNER_TEMP/site"
-          root="$RUNNER_TEMP/www"
-          rm -rf "$root"
-          mkdir -p "$root/ariadne"
-          cp -a "$site"/. "$root/ariadne"/
-          python3 -m http.server 8123 --bind 127.0.0.1 --directory "$root" >/dev/null 2>&1 &
-          server=$!
-          trap 'kill $server 2>/dev/null || true' EXIT
-          sleep 2
-          python3 - <<'PY'
-          import re
-          import sys
-          import time
-          import urllib.error
-          import urllib.parse
-          import urllib.request
-
-          base = "http://127.0.0.1:8123/ariadne/"
-          html = None
-          for _ in range(20):
-              try:
-                  html = urllib.request.urlopen(base, timeout=5).read().decode("utf-8", "replace")
-                  break
-              except Exception:
-                  time.sleep(0.5)
-          if html is None:
-              print("::error::nothing answered at " + base)
-              sys.exit(1)
-
-          problems = []
-          refs = [r for r in re.findall(r'(?:src|href)="([^"]+)"', html) if r]
-          for ref in refs:
-              if re.match(r'^(?:[a-z]+:|//|#)', ref):
-                  continue
-              if ref.startswith("/"):
-                  problems.append("absolute path " + repr(ref) + " does not exist under /ariadne/")
-                  continue
-              url = urllib.parse.urljoin(base, ref)
-              try:
-                  code = urllib.request.urlopen(
-                      urllib.request.Request(url, method="HEAD"), timeout=10
-                  ).status
-              except urllib.error.HTTPError as failure:
-                  problems.append(ref + ": HTTP " + str(failure.code))
-                  continue
-              except Exception as failure:
-                  problems.append(ref + ": " + str(failure))
-                  continue
-              if code != 200:
-                  problems.append(ref + ": HTTP " + str(code))
-
-          if problems:
-              print("::error::" + "%0A".join(["the site does not serve at /ariadne/"] + problems))
-              sys.exit(1)
-          print("the page and its " + str(len(refs)) + " reference(s) all resolve under /ariadne/")
-          PY
+      - name: Assemble the site, and prove it serves from /ariadne/
+        # Two jobs in one script, because they are the same question: `tools/demo-check.sh`
+        # finds index.html rather than assuming Gradle's output directory, copies its
+        # folder into a stage directory whose root *is* the site, then serves that stage
+        # under `/ariadne/` — the prefix a project page really uses — and requires a 200
+        # with every `src`/`href` resolving. An absolute `/asset` path works on a laptop
+        # and 404s on Pages; this is the check that notices.
+        run: ./tools/demo-check.sh --stage "$RUNNER_TEMP/site"
 
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3

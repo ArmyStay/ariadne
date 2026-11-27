@@ -90,8 +90,12 @@ best camera that is actually there — glasses, then phone, then a ruled plate.
 ## 27 November — the demo, proved
 
 The deploy had been green while the root URL 404'd, which is the worst shape a broken
-link can take. `pages.yml` now finds `index.html` rather than assuming Gradle's output
-directory, serves the site under `/ariadne/` before uploading it, and a `verify` job
+link can take. The cause was a second workflow: the starter `static.yml` the Pages UI
+adds when a repository moves to "GitHub Actions", uploading `path: '.'` — the whole
+repository, with no `index.html` in it — and racing `pages.yml` for the same concurrency
+group. It is gone. `pages.yml` now finds `index.html` rather than assuming Gradle's
+output directory, serves the site under `/ariadne/` with `tools/demo-check.sh` before
+uploading it (`ci.yml` runs the same gate on every pull request), and a `verify` job
 fetches the public URL with no credentials afterwards. The same pass deleted what read as
 template rather than as this repository: the `:shared` boilerplate module
 (`com.example.shared`, `Platform.kt`, two example tests), the duplicate font tree under

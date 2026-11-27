@@ -39,6 +39,14 @@ jobs:
           set -o pipefail
           ./gradlew :app:android:assembleDebug :app:wasm:compileKotlinWasmJs :app:wasm:wasmJsBrowserDistribution --console=plain --stacktrace 2>&1 | tee -a "$RUNNER_TEMP/build.log"
 
+      - name: the demo's artifact is a website at /ariadne/
+        # The same check `pages.yml` runs before it uploads, run here so a pull request
+        # finds out that the demo would 404 *before* it is merged — the deploy that
+        # shipped a green tick beside a broken link is what this gate is for.
+        run: |
+          set -o pipefail
+          ./tools/demo-check.sh 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
       - name: what failed, in one annotation
         # The run log is not reachable from every network, and "the build is red" with no
         # line numbers is not a review. The diagnostics are lifted into a *single*

@@ -127,6 +127,11 @@ The preview proves the UI and the Gradle-free scripts prove domain/store/flow be
 ./gradlew :app:wasm:wasmJsBrowserDevelopmentRun
 ./gradlew :app:wasm:wasmJsBrowserDistribution
 
+# Is that distribution actually a website at the URL the demo lives on?
+# Needs python3, not a JDK. CI runs it after every wasm build, and pages.yml
+# runs it before uploading — a deploy that 404s is the failure it exists for.
+./tools/demo-check.sh
+
 # iOS frameworks (on macOS with Xcode)
 ./gradlew :app:ios:compileKotlinIosSimulatorArm64 :app:ios:compileKotlinIosArm64 :app:ios:compileKotlinIosX64
 ```
