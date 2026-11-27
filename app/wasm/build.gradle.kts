@@ -17,6 +17,8 @@ kotlin {
         wasmJsMain.dependencies {
             implementation(project(":ui:app"))
             implementation(project(":core:store"))
+            // The model types the photo store names (`LocalDay`) and the day rules.
+            implementation(project(":core:model"))
             implementation(project(":core:queue"))
             implementation(project(":core:extract"))
             implementation(project(":core:time"))
