@@ -169,8 +169,8 @@ public fun IndexCard(
     label: String,
     detail: String,
     paper: Paper,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onClick: () -> Unit,
 ) {
     Leaf(
         paper = paper,
@@ -210,9 +210,9 @@ public fun IndexCard(
 public fun PillButton(
     label: String,
     paper: Paper,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     filled: Boolean = false,
+    onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(50)
     Box(
