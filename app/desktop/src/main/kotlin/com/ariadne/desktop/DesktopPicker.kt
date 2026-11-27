@@ -46,7 +46,7 @@ private class DesktopPhotoPicker(private val owner: Frame?) : PhotoPicker {
             }
         }
         return withContext(Dispatchers.IO) {
-            chosen.mapNotNull { file -> file.readBytes().takeIf { it.isNotEmpty() } }
+            chosen.mapNotNull { file -> file.readBoundedImage() }
         }
     }
 }

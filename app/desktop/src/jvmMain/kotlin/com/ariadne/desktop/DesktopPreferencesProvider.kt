@@ -9,5 +9,8 @@ import java.io.File
  * JVM file-based preferences, stored outside the app sandbox in a normal user file.
  */
 internal fun desktopPreferences(): DataStore<Preferences> = PreferenceDataStoreFactory.create(
-    produceFile = { File(".ariadne_preferences.pb") },
+    produceFile = {
+        File(System.getProperty("user.home"), ".ariadne").apply { mkdirs() }
+            .resolve("preferences.pb")
+    },
 )

@@ -25,6 +25,9 @@ internal class TesseractTextRecognizer : TextRecognizer {
     override suspend fun recognize(imagePath: String): OcrResult = runCatching {
         val file = File(imagePath)
         if (!file.exists()) return@runCatching OcrResult.Failure("Photo file missing")
+        if (file.length() > MAX_COMPRESSED_IMAGE_BYTES || !file.hasSafeImageBounds()) {
+            return@runCatching OcrResult.Failure("Image is too large or has unsafe dimensions")
+        }
         // A scratch text file beside the system temp dir; deleted in a finally.
         val out = File.createTempFile("ariadne-ocr-", ".txt")
         try {

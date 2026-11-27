@@ -8,7 +8,7 @@ import kotlin.time.Clock
 
 /** A log sink. Portable from the KMP contest starter kit's logging facade. */
 public interface Logger {
-    public fun initialize(isDebug: Boolean = true)
+    public fun initialize(isDebug: Boolean = false)
     public fun e(message: String, throwable: Throwable? = null, tag: String? = null)
     public fun d(message: String, throwable: Throwable? = null, tag: String? = null)
     public fun i(message: String, throwable: Throwable? = null, tag: String? = null)
@@ -84,11 +84,11 @@ public class RingLogger(private val maxLines: Int = 256) : Logger {
     }
 
     private fun log(level: String, message: String, throwable: Throwable? = null, tag: String?) {
-        val stamp = "${Clock.System.now()} $level ${tag ?: ""} ${message.take(200)}"
+        val stamp = "${Clock.System.now()} $level ${tag ?: ""} ${redact(message).take(200)}"
         val entries = buildList {
             add(stamp)
             throwable?.let {
-                add("    at ${it::class.simpleName}: ${it.message ?: ""}")
+                add("    at ${it::class.simpleName}: ${redact(it.message.orEmpty())}")
                 add("    at ${it::class.qualifiedName}")
             }
         }
@@ -100,6 +100,10 @@ public class RingLogger(private val maxLines: Int = 256) : Logger {
     public fun clear() {
         lines.value = emptyList()
     }
+
+    private fun redact(value: String): String = value
+        .replace(Regex("https?://\\S+"), "[url]")
+        .replace(Regex("(?:/|[A-Za-z]:\\\\)[^\\s]+"), "[path]")
 }
 
 // (RingLogger is registered as a sink — see AppDiagnostics.kt.)
