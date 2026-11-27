@@ -1,2 +1,0 @@
-# If adb/Gradle cannot find your Android SDK, create this file (gitignored in most setups) with your actual SDK path:
-# sdk.dir=C:\\Users\\NAEHA\\AppData\\Local\\Android\\Sdk

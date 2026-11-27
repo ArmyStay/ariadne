@@ -95,7 +95,8 @@ with the words it actually prints, in [`docs/UI-AND-FLOW.md`](docs/UI-AND-FLOW.m
 ## How to run it
 
 The web build is the fastest way to see it: [armystay.github.io/ariadne](https://armystay.github.io/ariadne/).
-The publication of that demo is documented in [`docs/PHASE-13.md`](docs/PHASE-13.md).
+How that demo is published, and everything else that happened to get here, is in
+[`docs/TIMELINE.md`](docs/TIMELINE.md).
 
 ```bash
 # The app, in a desktop window, from the shared UI
@@ -156,4 +157,4 @@ chips, and settings that survive a restart. The stills above are from that build
   not finished, so it is not claimed anywhere above.
 
 Apache-2.0. Kotlin Multiplatform Contest 2027 entry. The entry essay is
-[`ESSAY.md`](ESSAY.md); the phase notes are in [`docs/`](docs/).
+[`ESSAY.md`](ESSAY.md); the history is [`docs/TIMELINE.md`](docs/TIMELINE.md).

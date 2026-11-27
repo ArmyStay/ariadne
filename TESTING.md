@@ -132,9 +132,10 @@ The preview proves the UI and the Gradle-free scripts prove domain/store/flow be
 ```
 
 Human/device verification still required:
-- Install and run Android on a real device/emulator; verify shutter ? capture ? OCR extraction/fallback ? Nightfall ? card flow and record ~30s footage.
-- Confirm GitHub Pages is enabled and the deployed Wasm URL works, then add it to the top of `README.md`.
-- If you run Gradle/CI successfully, update `BUILD-STATUS.md` and this file with the exact commands, dates, and outcomes.
+- Install and run Android on a real device/emulator; verify shutter → capture → OCR extraction/fallback → Close Day → card flow.
+- Speech: needs a device with a recogniser app installed; there is no offline fallback by design.
+- Meta glasses: the path compiles and the mock device exercises it, but it has not been run against real hardware.
+- If you run Gradle/CI successfully, update this file with the exact commands, dates, and outcomes.
 
 ## What is deliberately unfinished
 

@@ -158,14 +158,13 @@ sdk.dir=/path/to/Android/sdk
 
 ### One honest warning
 
-The four-target Gradle build **has not been run end to end** — it was written in a
-sandbox with 2 GB of RAM, where AGP 9's configuration phase is OOM-killed. The
-first `./gradlew build` on your machine may surface dependency-resolution errors
-that no amount of headless compiling would have caught. `gradle.properties`
-already asks for `-Xmx3g`; if you hit an OOM, raise it.
+The four-target Gradle build runs on every push in CI, so if it is broken, main is
+red — check the checks on the commit before blaming your machine. It also runs in a
+sandbox with 2 GB of RAM, where AGP 9's configuration phase can be OOM-killed;
+`gradle.properties` already asks for `-Xmx3g`, so if you hit an OOM, raise it.
 
-`BUILD-STATUS.md` says exactly what has and hasn't been executed. Nothing in it
-is aspirational.
+What CI has and has not executed is in the check list on the pull request, and the
+history of it is in [`docs/TIMELINE.md`](docs/TIMELINE.md).
 
 ---
 
