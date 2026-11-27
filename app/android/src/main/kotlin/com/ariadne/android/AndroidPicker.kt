@@ -126,12 +126,10 @@ private const val MAX_PHOTOS = 12
 
 /** Read, bound and re-encode the chosen photograph. Null if it cannot be read. */
 private fun readPhoto(context: Context, uri: Uri): ByteArray? {
-    val raw = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+    val raw = context.contentResolver.openInputStream(uri)?.use { it.readBoundedImage() }
         ?: return null
-    if (raw.isEmpty()) return null
-    // A format this device cannot decode is still a photograph: keep the bytes
-    // rather than telling the person their picture is not a picture.
-    val decoded = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return raw
+    if (!raw.hasSafeImageBounds()) return null
+    val decoded = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return null
     val scaled = scaleDown(decoded, 1600)
     val out = ByteArrayOutputStream()
     scaled.compress(Bitmap.CompressFormat.JPEG, 88, out)

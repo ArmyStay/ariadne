@@ -13,8 +13,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import com.ariadne.app.ui.pages.PhotoImageRenderer
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -22,9 +22,10 @@ internal object AndroidPhotoImageRenderer : PhotoImageRenderer {
     @Composable
     override fun Render(photoPath: String, modifier: Modifier) {
         var bitmap by remember(photoPath) { mutableStateOf<Bitmap?>(null) }
+        val context = LocalContext.current
 
         LaunchedEffect(photoPath) {
-            bitmap = withContext(Dispatchers.IO) { loadPhoto(photoPath) }
+            bitmap = withContext(Dispatchers.IO) { loadPhoto(context, photoPath) }
         }
 
         bitmap?.let {
@@ -38,8 +39,8 @@ internal object AndroidPhotoImageRenderer : PhotoImageRenderer {
     }
 }
 
-private fun loadPhoto(path: String): Bitmap? {
-    val file = File(path)
+private fun loadPhoto(context: android.content.Context, path: String): Bitmap? {
+    val file = safeAndroidPhotoFile(context, path) ?: return null
     if (!file.isFile) {
         Log.w("AriadnePhoto", "Captured photo is missing")
         return null
@@ -47,7 +48,7 @@ private fun loadPhoto(path: String): Bitmap? {
 
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(path, bounds)
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+    if (!safeImageBounds(bounds.outWidth, bounds.outHeight) || file.length() > MAX_COMPRESSED_IMAGE_BYTES) {
         Log.w("AriadnePhoto", "Captured photo could not be decoded")
         return null
     }

@@ -99,7 +99,7 @@ private fun decodeAndDownscale(file: File, maxEdge: Int): Bitmap? {
     BitmapFactory.decodeFile(file.absolutePath, bounds)
     val srcW = bounds.outWidth
     val srcH = bounds.outHeight
-    if (srcW <= 0 || srcH <= 0) return null
+    if (!safeImageBounds(srcW, srcH) || file.length() > MAX_COMPRESSED_IMAGE_BYTES) return null
 
     val sample = calculateInSampleSize(srcW, srcH, maxEdge, maxEdge)
     val decodeOpts = BitmapFactory.Options().apply {

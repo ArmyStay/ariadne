@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
         // Must be called before super.onCreate(); shows the system splash
         // (the activity theme is @style/Theme.App.Starting) until the app is up.
         installSplashScreen()
-        AppLogger.initialize()
+        AppLogger.initialize(BuildConfig.DEBUG)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         graph = AppGraph(AndroidServices(this), SystemClock())
@@ -86,7 +86,7 @@ private class AndroidServices(
 ) : PlatformServices {
 
     override val storageDisclosure: String =
-        "Trips, rates, and receipt photographs are stored in Ariadne's private app storage on this device. Nothing is synced."
+        "Trip records, receipt photographs, OCR text, merchant names, and notes stay in Ariadne's private app storage on this device. Nothing is synced."
 
     override val rateDisclosure: String =
         "When online, Ariadne requests currency rates from frankfurter.app using currency pairs only, not trip details. Saved rates remain available offline; the date shown is the rate's effective date."
