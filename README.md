@@ -6,11 +6,20 @@
 
 **A trip's spending, remembered as photographs — one shutter press in the shop, the figures settled at the end of the day.**
 
-### ▶ [**Open the app in your browser**](https://armystay.github.io/ariadne/)
+### ▶ [**Open the demo — a trip with photographs already in it**](https://armystay.github.io/ariadne/?seed=demo)
 
-No install, no account, no server. The link runs the same shared Compose UI that ships to
-Android, iOS and desktop — built by [`pages.yml`](.github/workflows/pages.yml) and
-published as an artifact.
+**No toolchain, no install, no account, no server.** That link runs the same shared Compose
+UI that ships to Android, iOS and desktop, built by
+[`pages.yml`](.github/workflows/pages.yml) and published as an artifact. It opens on a trip
+that has already been kept, so the first frame is the record and not a title screen; the
+bare [`/ariadne/`](https://armystay.github.io/ariadne/) opens on the introduction instead,
+three beats and one button, for when you would rather be told what this is first.
+
+<p align="center">
+  <img src="docs/brand/demo-qr.png" width="132" alt="A QR code carrying https://armystay.github.io/ariadne/?seed=demo">
+</p>
+
+<p align="center"><em>Or point a phone at that.</em></p>
 
 <p align="center">
   <img src="docs/shots/demo-stills.gif" width="300" alt="The home screen, then one day's record: date chips and receipt rows with amounts">
@@ -141,16 +150,22 @@ with the words it actually prints, in [`docs/UI-AND-FLOW.md`](docs/UI-AND-FLOW.m
 
 ## Run it, install it, build it
 
-**In a browser, one click:** [armystay.github.io/ariadne](https://armystay.github.io/ariadne/).
-It opens on the first instalment — what this is, in three beats, and one button. Add
-[`?seed=demo`](https://armystay.github.io/ariadne/?seed=demo) to land on a trip that has
-already been kept instead. No install, no account; the browser build keeps its data in
-the tab, so a reload starts again.
+**In a browser, one click:** [the demo, on a kept trip](https://armystay.github.io/ariadne/?seed=demo)
+— no install, no account, no toolchain. The browser build keeps its record in the tab and
+nothing else: there is no IndexedDB in it, so a reload starts again, and a private window
+behaves exactly the same because there is no storage it could be refused. Look at it,
+press everything, and do not type a trip you care about into it.
 
-**On a phone:** the [releases](https://github.com/ArmyStay/ariadne/releases) carry
-`ariadne.apk`, a debug build signed with the debug key. It is large — around 120 MB —
-because five on-device OCR models are bundled rather than downloaded, which is also why
-recognition works in a shop with no signal:
+**On a phone: the second door.** [`v1.0.0`](https://github.com/ArmyStay/ariadne/releases/tag/v1.0.0)
+carries `ariadne.apk`, and it is the only way to see the camera, the photo library, the
+microphone and the glasses path — the browser cannot reach the sensor. **You do not need a
+toolchain for it either:** download it on the phone and tap it, after allowing your files
+app to install. The debug signature is expected; there is no Play listing, so Android will
+say so once and then install.
+
+It is large — around 120 MB — because five on-device OCR models are bundled rather than
+downloaded, which is also why recognition works in a shop with no signal. From a machine
+with `adb` on it, the same thing in one line:
 
 ```bash
 adb install -r ariadne.apk
