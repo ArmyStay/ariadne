@@ -176,6 +176,17 @@ public fun OnboardingPage(model: AppModel, paper: Paper, wide: Boolean) {
                     color = paper.inkSoft,
                 )
 
+                // The other door. Somebody on this trip typed the plan once and read
+                // six groups of symbols out; this is where they are typed back. It
+                // sits with the sample trip rather than beside the primary action,
+                // because the first instalment's one instruction is still "begin".
+                QuietAction(
+                    "Somebody gave you a code?",
+                    paper,
+                    { model.openJoinTrip() },
+                    color = paper.inkSoft,
+                )
+
                 Spacer(Modifier.height(30.dp))
                 Label(
                     "No account · no server · no sync",

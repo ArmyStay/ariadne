@@ -160,6 +160,35 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
         )
         Spacer(Modifier.height(6.dp))
         ConversionNote(state.dayRateDates, state.dayUnconverted, paper)
+
+        // Somebody else's figures for this day, quoted beside the total rather than
+        // added into it. Their money is on their phone; this one holds a copy of the
+        // numbers and none of the receipts, and the day's own total stays yours.
+        if (state.travellerSharesForDay.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            state.travellerSharesForDay.forEach { share ->
+                FigureRow(
+                    share.traveller.name,
+                    Money.ofMinor(share.baseMinor).formatWithSymbol(CurrencyCode.of(state.dayCurrency)),
+                    paper,
+                )
+            }
+            val together = state.dayTotalMinor + state.travellerSharesForDay.sumOf { it.baseMinor }
+            FigureRow(
+                "With them",
+                Money.ofMinor(together).formatWithSymbol(CurrencyCode.of(state.dayCurrency)),
+                paper,
+                emphasised = true,
+            )
+            Spacer(Modifier.height(6.dp))
+            Body(
+                "Their lines arrived as a code: confirmed by the person who spent the money, " +
+                    "and quoted here. Nothing about them is in your record or in your card.",
+                paper,
+                color = paper.inkFaint,
+                size = 12.sp,
+            )
+        }
         // The total only ever holds finished cards. Saying so is the difference
         // between a number you trust and a number that looks broken.
         // Counted from the entry state, so this sentence and the timeline row for

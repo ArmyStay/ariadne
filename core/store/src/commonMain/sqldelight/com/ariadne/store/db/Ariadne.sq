@@ -161,6 +161,36 @@ SELECT * FROM rate;
 deleteRate:
 DELETE FROM rate WHERE base = ? AND quote = ?;
 
+-- -- travellers ------------------------------------------------------------
+-- Somebody else's figures, handed over as a code. Read beside the record,
+-- never mixed into it: no query here joins `travellerEntry` to `capture`.
+
+selectTravellers:
+SELECT * FROM traveller WHERE tripId = ? ORDER BY addedAt ASC;
+
+selectTravellerByFingerprint:
+SELECT * FROM traveller WHERE tripId = ? AND codeFingerprint = ? LIMIT 1;
+
+selectTravellerEntries:
+SELECT * FROM travellerEntry WHERE travellerId = ? ORDER BY localDate ASC, id ASC;
+
+insertTraveller:
+INSERT INTO traveller(id, tripId, name, addedAt, codeFingerprint) VALUES (?, ?, ?, ?, ?);
+
+insertTravellerEntry:
+INSERT INTO travellerEntry(
+    id, travellerId, localDate, amountMinor, currency, category, merchantInitials, digest
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteTraveller:
+DELETE FROM traveller WHERE id = ?;
+
+deleteTravellerEntries:
+DELETE FROM travellerEntry WHERE travellerId = ?;
+
+deleteTravellersForTrip:
+DELETE FROM traveller WHERE tripId = ?;
+
 selectSettings:
 SELECT * FROM settings WHERE id = 1;
 

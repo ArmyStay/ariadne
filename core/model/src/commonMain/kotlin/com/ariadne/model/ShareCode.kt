@@ -259,6 +259,33 @@ public object ShareCodes {
 
     // -- shared plumbing ---------------------------------------------------
 
+    // -- conveniences the UI uses -----------------------------------------
+    //
+    // Reading a code answers two questions - does it read, and why not - and a page asks
+    // both at once. These keep the `when` over the sealed result in this file rather than
+    // in every caller, and keep the UI free of unchecked casts.
+
+    public fun decodeTripOrNull(text: String): Plan? = when (val outcome = decodeTrip(text)) {
+        is Outcome.Ok -> outcome.value
+        is Outcome.Failed -> null
+    }
+
+    /** Null when the code reads; the sentence to show when it does not. */
+    public fun tripProblem(text: String): String? = when (val outcome = decodeTrip(text)) {
+        is Outcome.Ok -> null
+        is Outcome.Failed -> outcome.reason
+    }
+
+    public fun decodeLedgerOrNull(text: String): Ledger? = when (val outcome = decodeLedger(text)) {
+        is Outcome.Ok -> outcome.value
+        is Outcome.Failed -> null
+    }
+
+    public fun ledgerProblem(text: String): String? = when (val outcome = decodeLedger(text)) {
+        is Outcome.Ok -> null
+        is Outcome.Failed -> outcome.reason
+    }
+
     /**
      * A stable name for a code, so the same ledger pasted twice is recognised rather than
      * added twice.

@@ -9,6 +9,7 @@ import com.ariadne.model.DayCard
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Rate
 import com.ariadne.model.Settings
+import com.ariadne.model.Traveller
 import com.ariadne.model.Trip
 import com.ariadne.model.dayRange
 import kotlinx.coroutines.flow.Flow
@@ -29,6 +30,7 @@ public class InMemoryStore : Store {
     private val captures = LinkedHashMap<String, Capture>()
     private val dayCards = LinkedHashMap<String, DayCard>()
     private val rates = LinkedHashMap<String, Rate>()
+    private val travellers = LinkedHashMap<String, Traveller>()
     private var settings = Settings()
     private val revision = MutableStateFlow(0L)
 
@@ -70,6 +72,7 @@ public class InMemoryStore : Store {
         trips.remove(id)
         captures.values.filter { it.tripId == id }.map { it.id }.forEach(captures::remove)
         dayCards.values.filter { it.tripId == id }.map { it.id }.forEach(dayCards::remove)
+        travellers.values.filter { it.tripId == id }.map { it.id }.forEach(travellers::remove)
         bump()
     }
 
@@ -186,6 +189,24 @@ public class InMemoryStore : Store {
 
     public override suspend fun reopenDay(tripId: String, day: LocalDay) {
         dayCards[dayKey(tripId, day)]?.let { dayCards[dayKey(tripId, day)] = it.copy(closedAt = null) }
+        bump()
+    }
+
+    // -- travellers ----------------------------------------------------------
+
+    public override suspend fun travellers(tripId: String): List<Traveller> =
+        travellers.values.filter { it.tripId == tripId }.sortedBy { it.addedAt }
+
+    public override suspend fun travellerByCode(tripId: String, fingerprint: String): Traveller? =
+        travellers.values.firstOrNull { it.tripId == tripId && it.codeFingerprint == fingerprint }
+
+    public override suspend fun addTraveller(traveller: Traveller) {
+        travellers[traveller.id] = traveller
+        bump()
+    }
+
+    public override suspend fun removeTraveller(id: String) {
+        travellers.remove(id)
         bump()
     }
 

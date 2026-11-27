@@ -394,6 +394,10 @@ private fun Destination(
 
         Route.NewTrip -> NewTripPage(state, model, paper, wide)
 
+        Route.JoinTrip -> JoinPage(state, model, paper, wide)
+
+        Route.Handoff -> HandoffPage(state, model, paper, wide)
+
         is Route.Frame -> FramePage(state, model, paper, wide, route.captureId)
 
         // The four tabs.
@@ -478,6 +482,8 @@ private fun Route.backLabel(): String = when (this) {
     is Route.Detail -> "the photograph"
     is Route.TripCard -> "the trip card"
     Route.NewTrip -> "new trip"
+    Route.JoinTrip -> "join a trip"
+    Route.Handoff -> "the codes"
     Route.ManualEntry -> "manual entry"
     Route.DataExport -> "data export"
     Route.PrivacyPolicy -> "privacy"
@@ -492,7 +498,7 @@ private fun Route.backLabel(): String = when (this) {
  * shutter, the ritual, and the card you keep.
  */
 private fun Route.showsTabBar(): Boolean = when (this) {
-    Route.Onboarding, Route.NewTrip, Route.Capture,
+    Route.Onboarding, Route.NewTrip, Route.JoinTrip, Route.Capture,
     is Route.CloseDay, is Route.TripCard, is Route.Detail, is Route.Frame -> false
     else -> true
 }

@@ -9,6 +9,9 @@ import com.ariadne.model.DaySummary
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
 import com.ariadne.model.Settings
+import com.ariadne.model.ShareCodes
+import com.ariadne.model.Traveller
+import com.ariadne.model.TravellerShare
 import com.ariadne.model.Trip
 import com.ariadne.model.entryStatus
 
@@ -72,6 +75,15 @@ public sealed interface Route {
     public data object Onboarding : Route
 
     /**
+     * 01c. Joining a trip somebody else planned.
+     *
+     * The other half of the first instalment: one person types the plan once and reads
+     * six groups of symbols out, the other types them back and has the same trip — same
+     * dates, same currency, same budget — without an account, an invitation or a server.
+     */
+    public data object JoinTrip : Route
+
+    /**
      * 01b. A new trip, typed in.
      *
      * This is the front door: on a first run there is no trip, so there is
@@ -115,6 +127,15 @@ public sealed interface Route {
 
     /** 8. Search by what you remember. */
     public data object Search : Route
+
+    /**
+     * 9. Two phones, one ledger.
+     *
+     * One page for both directions of the hand-off: the plan code to read out, the
+     * day's figures to hand back, and the line that brings somebody else's figures in.
+     * Nothing here is a link and nothing here syncs — the page says so, twice.
+     */
+    public data object Handoff : Route
 
     /**
      * Retired name for [Preferences], kept so a route persisted by an older build
@@ -327,6 +348,35 @@ public data class AppUiState(
 
     /** The photograph whose sheet is open over the page, if one is. */
     public val sheetCaptureId: String? = null,
+
+    // ── two phones, one ledger ───────────────────────────────────────────────
+
+    /** Somebody else's figures for this trip, in the order they arrived. */
+    public val travellers: List<Traveller> = emptyList(),
+
+    /** Their figures across the whole trip, converted to the trip's currency. */
+    public val travellerShares: List<TravellerShare> = emptyList(),
+
+    /** Their figures for the day on screen, converted. Empty until a code arrives. */
+    public val travellerSharesForDay: List<TravellerShare> = emptyList(),
+
+    /** The code being typed on the join page, exactly as typed. */
+    public val joinCode: String = "",
+    /** What to call the trip on this phone. The code does not carry a name. */
+    public val joinName: String = "",
+    /** Why the typed code cannot be read, in one line, or null. */
+    public val joinError: String? = null,
+    /** What the typed code says, once it reads. */
+    public val joinPlan: ShareCodes.Plan? = null,
+
+    /** The ledger line being pasted on the hand-off page. */
+    public val ledgerPaste: String = "",
+    public val ledgerError: String? = null,
+    /** What the pasted line says, once it reads. */
+    public val ledgerPreview: ShareCodes.Ledger? = null,
+
+    /** True for a moment after a code was copied, so the label can say so. */
+    public val codeCopied: Boolean = false,
 
     /**
      * The day the open shutter will file into.

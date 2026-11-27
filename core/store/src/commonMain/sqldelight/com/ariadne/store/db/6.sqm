@@ -1,0 +1,34 @@
+-- Migration 6: somebody else's figures, kept beside yours.
+--
+-- A traveller arrives as a code (see `ShareCodes` in :core:model) and is stored in
+-- two tables of its own. Deliberately not in `capture`: a capture is a photograph
+-- this phone took, and it has a stack, a state machine, an amount waiting to be
+-- confirmed and a picture on disk. A traveller's line is none of those things - it
+-- is a quoted figure, already confirmed by the person who spent it, and the only
+-- operations it supports are "show" and "remove".
+--
+-- `codeFingerprint` is the normalised hash of the code this row arrived in. It is
+-- what makes pasting the same line twice a no-op instead of a doubled total.
+
+CREATE TABLE traveller (
+    id              TEXT NOT NULL PRIMARY KEY,
+    tripId          TEXT NOT NULL REFERENCES trip(id) ON DELETE CASCADE,
+    name            TEXT NOT NULL,
+    addedAt         INTEGER NOT NULL,
+    codeFingerprint TEXT NOT NULL
+);
+
+CREATE INDEX traveller_trip ON traveller(tripId);
+
+CREATE TABLE travellerEntry (
+    id               TEXT NOT NULL PRIMARY KEY,
+    travellerId      TEXT NOT NULL REFERENCES traveller(id) ON DELETE CASCADE,
+    localDate        TEXT NOT NULL,
+    amountMinor      INTEGER NOT NULL,
+    currency         TEXT NOT NULL,
+    category         TEXT,
+    merchantInitials TEXT,
+    digest           INTEGER NOT NULL
+);
+
+CREATE INDEX traveller_entry_trip ON travellerEntry(travellerId);
