@@ -166,8 +166,10 @@ private fun TabPage(
                     )
                 }
             }
-            if (overlay != null) overlay()
         }
+        // Outside `Page`, so the sheet is a sibling of the page rather than a child of
+        // its content column: it draws over the scroller and stays put.
+        if (overlay != null) overlay()
     }
 }
 
