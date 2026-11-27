@@ -240,6 +240,28 @@ public fun TripPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         Spacer(Modifier.height(10.dp))
         QuietAction("the rates", paper, { model.go(Route.Preferences) }, color = paper.inkFaint)
 
+        // ── two phones, one ledger ───────────────────────────────────────────
+        Spacer(Modifier.height(24.dp))
+        Rule(paper)
+        Spacer(Modifier.height(20.dp))
+        Label("two phones", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.6.sp)
+        Spacer(Modifier.height(8.dp))
+        Body(
+            if (state.travellers.isEmpty()) {
+                "Hand this trip to someone with a code — the dates, the currency, the budget. " +
+                    "No account, no server, nothing that syncs."
+            } else {
+                state.travellers.joinToString(", ") { it.name } +
+                    " — figures handed over, quoted beside yours and never merged into them."
+            },
+            paper,
+            color = paper.inkSoft,
+            size = 13.sp,
+            lineHeight = 19.sp,
+        )
+        Spacer(Modifier.height(10.dp))
+        QuietAction("the codes", paper, { model.openHandoff() }, color = paper.inkFaint)
+
         // ── other trips, only when there are some ───────────────────────────
         val others = state.trips.filter { it.id != trip.id }
         if (others.isNotEmpty()) {

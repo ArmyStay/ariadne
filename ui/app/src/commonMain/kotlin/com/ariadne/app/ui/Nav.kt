@@ -259,13 +259,13 @@ private fun SparkGlyph(ink: Color, hole: Color) {
 /** Which destination a route belongs to, or none for a page stacked over all. */
 public fun Route.tab(): Tab? = when (this) {
     Route.Home -> Tab.Home
-    Route.Days, Route.Trip, is Route.Record, is Route.CloseDay -> Tab.Timeline
+    Route.Days, Route.Trip, is Route.Record, is Route.CloseDay, Route.Handoff -> Tab.Timeline
     Route.Stats -> Tab.Stats
     Route.More -> Tab.More
     Route.Trips, Route.Search, is Route.Detail, Route.ManualEntry,
     is Route.TripCard -> Tab.More
     Route.DataExport, Route.PrivacyPolicy, Route.Terms,
-    Route.Onboarding, Route.NewTrip, Route.Capture, is Route.Frame -> null
+    Route.Onboarding, Route.NewTrip, Route.JoinTrip, Route.Capture, is Route.Frame -> null
     Route.Preferences, Route.Settings -> Tab.More
 }
 

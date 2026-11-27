@@ -108,6 +108,59 @@ as a data URL and rescaled to the same 1600px the Android picker uses, then hand
 the same `importPhotos` path as a camera frame. On iOS there is still no picker, so
 **LIBRARY** is not drawn there rather than drawn dead.
 
+## 27 November — the first instalment
+
+`#24`, after the merge of `#23`. The judge's read of the repository (`PLAN.md`) said the
+work was a finalist and the submission was not, because a reviewer could not install
+anything, could not read a page that was true, and landed on a form.
+
+- **The landing page is now an introduction.** One page that says what the object is
+  (three beats: the shutter, Close Day, the record), and one blue thing to press:
+  **Begin a trip**. Under it, quietly, **Or look at a sample trip** — the same demo roll,
+  as a door instead of a secret. `?seed=demo` on the browser build skips the page for
+  anyone who wants to link straight to a kept trip.
+- **A release workflow** (`release.yml`) builds `ariadne.apk` — debug, debug-key signed,
+  installable with `adb install -r` — and `ariadne-web.zip`, and attaches both to a tag.
+  A judge no longer needs JDK 21 and SDK 37 to look at a spending app.
+- **The claims were corrected**: no `window.ariadneRecognize` hook (never built), no
+  `TripShare` route (never existed), voice capture is implemented (§9 had it in the
+  "not implemented" list), the permission paragraph now lists all four permissions, and
+  §11's verification table says what CI proves rather than what a Windows machine once
+  could not.
+- **`tools/claim-check.sh`** runs in CI: every `Route.*`, every `window.*` hook, every
+  `android.permission.*` and every backticked path a document names has to exist. It was
+  written after finding five such claims in this repository, and it fails on the sixth.
+
+## 27 November — two phones, one ledger
+
+`#24`, the second half of the same push. A judge asked the obvious question of a trip
+ledger — *can two people use it?* — and the answer had to be yes without betraying the one
+promise the app makes: nothing leaves the device.
+
+- **A trip code.** `AR1-K7QM-2X9B-4HDR-8TQP`: sixteen characters after the prefix, drawn
+  from an alphabet with no `0`, `1`, `I` or `O`, carrying the start day (fourteen bits),
+  the nights (eight), the base currency (fifteen) and the budget (one flag and
+  thirty-two). A checksum catches a mistyped character; the readback says what the code
+  means before a trip exists. The trip's *name* is deliberately not in it — it would
+  more than double the code and it is the one part with no arithmetic in it.
+- **A ledger code.** One line per confirmed figure on a closed day — day, amount, currency,
+  category, two initials — with an eight-bit digest per line, so a damaged paste names the
+  line instead of quietly changing the total.
+- **A traveller is not a second user.** Their rows live in two tables of their own, are
+  quoted beside the day's total (`Priya ₹4,120.00`, then `With them`) and are never merged
+  into your captures or your card. The page states the three edges: a code can be handed
+  over twice (refused), a code can be edited by hand (checksum catches accident, not
+  fraud), and there is no sync.
+- **Everything is text.** No socket is opened by any of this, and the codec is pure Kotlin
+  in `:core:model`, so the browser and the phone produce identical symbols. The browser,
+  desktop and iOS builds gained a clipboard for the first time so that a code can leave
+  the phone at all.
+
+Also in `#24`: deleting a single photograph (two taps, like a trip), the shutter's frame
+opening the file dialog where there is no camera, the rail counting the same list the
+dock's badge counts, and `docs/HUMAN-TASKS.md` — the things that need a device, a browser
+or a decision rather than a commit.
+
 ## Where it stands
 
 **Built**: the shared domain (money, queue, FX, search, store with `openOrMigrate`), the

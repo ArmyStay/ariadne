@@ -216,9 +216,22 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 Spacer(Modifier.height(4.dp))
                 Label("closed ${state.dayCards.count { it.isClosed }}", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
                 Spacer(Modifier.height(26.dp))
-                RailFigure("waiting today", "${state.stack.size}", paper, 26.sp)
+                // The same number the dock's badge counts, from the same list: the
+                // rail used to say "waiting today" and count only the day that
+                // happened to be open, while the badge counted the whole trip — so on
+                // a trip with an old unsettled day the two disagreed by exactly that
+                // day. One scope, named: the trip, and then today underneath it.
+                RailFigure("waiting", "${state.tripPending.size}", paper, 26.sp)
                 Spacer(Modifier.height(4.dp))
-                Label("on this day", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
+                Label("across this trip", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
+                Spacer(Modifier.height(10.dp))
+                Label(
+                    "${state.stack.size} on this day",
+                    paper,
+                    color = paper.inkFaint,
+                    size = 9.sp,
+                    tracking = 1.2.sp,
+                )
             }
         },
     ) {

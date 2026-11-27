@@ -13,6 +13,8 @@ import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
 import com.ariadne.model.Rate
 import com.ariadne.model.Settings
+import com.ariadne.model.Traveller
+import com.ariadne.model.TravellerEntry
 import com.ariadne.model.Trip
 import com.ariadne.model.dayRange
 import com.ariadne.queue.CaptureRepository
@@ -238,6 +240,83 @@ public class AriadneStore(
         q.upsertRate(rate.base.code, rate.quote.code, rate.date.iso, rate.rateScaled)
         bump()
     }
+
+    // -- travellers --------------------------------------------------------
+    //
+    // Read and written with explicit mappers rather than the generated row types,
+    // for the same reason `capture` is: the generated class for table
+    // `travellerEntry` would be a second `TravellerEntry` in this file, and the
+    // domain type is the one that should win.
+
+    public suspend override fun travellers(tripId: String): List<Traveller> = withContext(io) {
+        q.selectTravellers(tripId).executeAsList().map { row ->
+            Traveller(
+                id = row.id,
+                tripId = row.tripId,
+                name = row.name,
+                addedAt = row.addedAt,
+                codeFingerprint = row.codeFingerprint,
+                entries = q.selectTravellerEntries(row.id).executeAsList().map(::toTravellerEntry),
+            )
+        }
+    }
+
+    public suspend override fun travellerByCode(tripId: String, fingerprint: String): Traveller? =
+        withContext(io) {
+            q.selectTravellerByFingerprint(tripId, fingerprint).executeAsOneOrNull()?.let { row ->
+                Traveller(
+                    id = row.id,
+                    tripId = row.tripId,
+                    name = row.name,
+                    addedAt = row.addedAt,
+                    codeFingerprint = row.codeFingerprint,
+                    entries = q.selectTravellerEntries(row.id).executeAsList().map(::toTravellerEntry),
+                )
+            }
+        }
+
+    public suspend override fun addTraveller(traveller: Traveller): Unit = withContext(io) {
+        q.transaction {
+            q.insertTraveller(
+                id = traveller.id,
+                tripId = traveller.tripId,
+                name = traveller.name,
+                addedAt = traveller.addedAt,
+                codeFingerprint = traveller.codeFingerprint,
+            )
+            traveller.entries.forEachIndexed { index, entry ->
+                q.insertTravellerEntry(
+                    id = "${traveller.id}:$index",
+                    travellerId = traveller.id,
+                    localDate = entry.day.iso,
+                    amountMinor = entry.amountMinor,
+                    currency = entry.currency.code,
+                    category = entry.category?.name,
+                    merchantInitials = entry.merchantInitials,
+                    digest = entry.digest.toLong(),
+                )
+            }
+        }
+        bump()
+    }
+
+    public suspend override fun removeTraveller(id: String): Unit = withContext(io) {
+        q.transaction {
+            q.deleteTravellerEntries(id)
+            q.deleteTraveller(id)
+        }
+        bump()
+    }
+
+    private fun toTravellerEntry(row: com.ariadne.store.db.TravellerEntry): TravellerEntry =
+        TravellerEntry(
+            day = LocalDay.parseOrNull(row.localDate) ?: LocalDay.of(1970, 1, 1),
+            amountMinor = row.amountMinor,
+            currency = CurrencyCode.of(row.currency),
+            category = Category.ofOrNull(row.category),
+            merchantInitials = row.merchantInitials,
+            digest = row.digest.toInt(),
+        )
 
     // -- settings ----------------------------------------------------------
 

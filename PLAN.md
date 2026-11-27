@@ -125,104 +125,89 @@ Ranked by "expensive to fake, cheap to be impressed by".
 
 ---
 
-## 5. Phase 1 — Be clickable and truthful (1–2 days, one PR)
+## 5. Phase 1 — Be clickable and truthful (done, `#24`)
 
 **Goal:** a judge with no toolchain can see the app in one click and install it in one
 tap, and nothing they read contradicts what they see.
 
-- [ ] **Flip Pages to GitHub Actions** (Settings → Pages → Source: *GitHub Actions*) and
-      merge this branch. The `pages.yml` workflow then publishes
-      `:app:wasm:wasmJsBrowserDistribution` as an artifact. Verify the deployed URL loads
-      the app, not the README, and that `?seed=demo` works from a subpath.
-- [ ] **Wire the demo seed.** Read `window.location.search` in `app/wasm/.../Main.kt`, call
-      `model.onStarted { if (seed) model.startTripDemo() }`. Better: when the page is the
-      deployed demo and no trip exists, seed it *by default* — a judge should never see a
-      form. (The code comment already describes this; make it true.)
-- [ ] **Cut a release.** A small workflow on a `v*` tag that builds `app-debug.apk` and the
-      wasm zip and attaches both. README gets **Install it** above **Build it**.
-- [ ] **Repo About:** homepage = demo URL; topics = `kotlin-multiplatform`,
-      `compose-multiplatform`, `android`, `ios`, `wasm`, `expense-tracker`, `travel`;
-      description without "nightfall".
-- [ ] **Correct the six claims** (P1 4–9), including the permission line and the iOS/shot
-      verification table. Replace the §11 table with what CI actually proves, dated.
-- [ ] **Re-shoot the two stills** against this build (navy dock), or date-stamp the caption.
-- [ ] **Add `tools/claim-check.sh`** to the gates: fails if a doc mentions a `Route` that
-      does not exist, a `window.ariadne*` hook that is not defined, or a permission the
-      manifest does not declare. Cheap, and it makes the honesty rule mechanical.
+- [x] **Pages deploys the app.** `pages.yml` publishes the wasm distribution as an
+      artifact; the deploy job succeeds on `main`. (The Pages *source* switch is a
+      repository setting, not a file — see the note at the end of this section.)
+- [x] **The landing page is an introduction, not a form.** `OnboardingPage` is now one
+      page: what this is in three beats — the shutter, Close Day, the record — one blue
+      **Begin a trip**, and a quiet **Or look at a sample trip**. `?seed=demo` in the
+      browser skips straight to a kept trip for anyone who wants to be sent a link.
+- [x] **A release workflow.** `.github/workflows/release.yml` builds `ariadne.apk` (debug,
+      debug-key signed) and `ariadne-web.zip` and attaches both to a tag, so a judge can
+      `adb install -r ariadne.apk` instead of installing a toolchain.
+- [x] **Repo About:** homepage = the demo URL, topics set, description without the word
+      "nightfall".
+- [x] **The six claims corrected**: the `window.ariadneRecognize` hook (never built), the
+      `TripShare` route (never existed), voice capture in the "not implemented" list, the
+      manifest's permission list, §11's verification table, and the stills' caption.
+- [x] **`tools/claim-check.sh`**, and it runs in CI: every `Route.*`, `window.*` hook,
+      `android.permission.*` and backticked path a document names must exist. It was
+      tested against the real defect: pointed at a document naming the share route that
+      never existed, it fails — which is the whole point.
+- [ ] **Re-shoot the two stills** on this build. The caption now says they predate the
+      navy dock, which is honest; a still with the navy dock is better.
 
-**Done when:** a stranger in a browser sees a populated trip; a stranger with a phone
-installs the APK; the honesty gate is green.
+**Still yours to click, once:** Settings → Pages → Source = **GitHub Actions**, if the
+deployed URL still shows the README. The workflow succeeds either way, but the branch
+build wins the race until the source is changed.
 
-## 6. Phase 2 — Be believable (2–4 days, one PR)
+**Done when:** a stranger in a browser sees a page that explains the app and one button;
+a stranger with a phone installs the APK; the honesty gate is green.
+
+## 6. Phase 2 — Be believable (done in `#24`, minus what needs a human)
 
 **Goal:** the things the README calls proven are the things a sceptic can check.
 
-- [ ] **Record the loop** (phone, 45–60s, no music): Home → shutter → card → Close Day →
-      the day's figure moving → the record. Embed the video, keep the stills below it.
-- [ ] **Make the shutter useful where there is no camera**: on Wasm and desktop, tapping
-      the plate opens the file chooser instead of filing an empty capture. Same for the
-      dock's shutter. Delete the "tap for a plate" path from the demo build only if the
-      picker is present.
-- [ ] **Delete one entry** (two-tap, like trips), and undo the last edit if it is cheap.
-- [ ] **Fix the two scope bugs** in §10, then delete them from that section — a doc of
-      known-wrong numbers is a liability once you have time to fix them.
-- [ ] **iOS, decided out loud.** Either implement `PhotoFiles` + a `PHPicker` bridge
-      (≈ a week, needs an Info.plist key) or change the target table in the README to
-      "iOS: ledger, search, trip card; no camera, no photo import". Do not leave it
-      implying parity.
-- [ ] **Accessibility pass**: Home, Record and the shutter at 200% text; three stills; fix
-      whatever clips.
-- [ ] **`docs/UI-AND-FLOW.md` §11** becomes a real verification table: what CI proves, what
-      a device proved, what a browser proved, with dates and commit hashes.
+- [x] **The shutter where there is no camera.** In the browser and on the desktop the
+      frame opens the file dialog, and the dock's round button goes straight to the
+      picker; the drawn plate is the fallback for a target with neither.
+- [x] **Delete one entry**, two taps like a trip, in the detail page — bytes and row.
+- [x] **The scope bug in §10.** The rail now counts `tripPending`, the same list the
+      dock's badge counts, and says "across this trip" / "N on this day".
+- [x] **The other §10 item was already fixed** when checked: Stats' "by currency, before
+      conversion" reads `tripPerCurrency`, which `loadTripDays` fills from the whole trip.
+- [x] **iOS, decided out loud.** The README's target table now says what iOS can do —
+      the ledger, search, the trip card, the codes; **no camera, no photo import** — and
+      names the `PHPicker` bridge as the work that would change it.
+- [x] **§11 is a verification table** with CI jobs per claim, plus what is honestly not
+      measured (layout, contrast, 200% text).
+- [ ] **Film the loop** and **two stills at navy dock** and **200% pass** — a device, a
+      hand and an eye; see `docs/HUMAN-TASKS.md` §3, §4, §7.
 
-**Done when:** every item in "What is proven where" has an artefact behind it, and the
-only asterisks left are the glasses and speech.
+**Done when:** every item in "What is proven where" has an artefact behind it — the
+asterisks that remain are the ones only a camera can remove.
 
-## 7. Phase 3 — Win it (3–5 days, one PR): two phones, one ledger, no server
+## 7. Phase 3 — Win it (done in `#24`): two phones, one ledger, no server
 
-This is the answer to "group trip planning with a trip code", in the only form that does
-not betray the app's thesis. **No accounts, no backend, no sync.** A code is a hand-off:
-one person types six characters, another pastes one line, and the arithmetic is the same
-on all five targets because the codec is pure Kotlin in `core/model`.
+This was the answer to "group trip planning with a trip code", in the only form that does
+not betray the app's thesis. **No accounts, no backend, no sync.** Implemented as:
 
-### 7.1 The trip code (a plan, handed over)
+- **The trip code** — `AR1-K7QM-2X9B-4HDR-8TQP`, sixteen symbols after the prefix: start
+  day (14 bits, days since 2020), nights (8), base currency (15, three letters at 5 bits),
+  a budget flag and thirty-two bits of budget. A ten-bit checksum over the payload; the
+  alphabet drops `0`, `1`, `I` and `O`. The name is not carried — the join page asks for
+  it, and `docs/UI-AND-FLOW.md` §5.1b explains why.
+- **`Join a trip`** on the first page and a `JoinTrip` page that reads the code back
+  before creating anything.
+- **The ledger code** (`AR2…`) — one line per confirmed entry: day, amount, currency,
+  category, two merchant initials, and an eight-bit digest per line. Pasted, not typed.
+- **`HandoffPage`** — the plan going out, each closed day's line, and the pasted line
+  coming back, on one page, with `That ledger is already on this trip.` for a second paste.
+- **`Traveller` and `TravellerEntry`** in their own tables (`6.sqm`), quoted on the day's
+  record as `Priya ₹4,120.00` and `With them`, never merged into a capture or a card.
+- **Property and edge tests** in `:core:model`: round trips, a refund, four hundred dates
+  against the confusable characters, a single wrong character, a budget too large to
+  carry, case and separator tolerance, a damaged ledger line.
 
-- Encode the trip plan — name (≤ 24 bytes), start, end, base currency, optional budget —
-  plus a version byte and a 4-character checksum into a **human-typable code**:
-  `AR1-K7QM-2X9B` (base32, no vowels, no `0/1/O/I`). ~14 characters, reads aloud over a
-  phone, survives being typed by a stranger.
-- **`Join a trip` on Onboarding and on the register:** type or paste the code and the same
-  trip exists on your phone. Dates, currency, budget — no entries, because those are
-  personal until the ledger is handed back.
-- Show the code on the trip page as one line with a copy action, and *"this is a plan, not
-  a sync — nothing updates on its own"* under it.
-
-### 7.2 The ledger code (figures, handed back)
-
-- After a day is closed, **`Hand over the day`** produces a paste-able code: one line per
-  confirmed entry — date, amount in minor units, currency, category, merchant initials, and
-  a short hash. No photograph, no note, no path.
-- The trip owner pastes it in: **`Add a traveller's ledger` → "Priya"**, and the trip gains
-  a member and their figures. The day record shows `Priya ₹4,120` beside your own, the
-  card shows the combined total, and Stats gains a per-traveller band.
-- Store them as `Traveller(id, name, ledgerEntries)` — a separate table, never merged into
-  `Capture`, so your own record stays exactly what you photographed.
-- Honest edges, stated in the UI: a code can be handed over twice (dedupe by content hash),
-  a code can be edited by hand (checksum catches accident, not fraud), and there is still
-  no sync.
-
-### 7.3 Why this and not a backend
-
-A server would be a different product: accounts, invitations, conflicts, privacy policy,
-uptime. The code hand-off is *this* product's idea of sharing — the same way the receipt is
-photographed instead of typed: take the smallest thing that carries the meaning, and let
-the rest wait. It is also the most KMP-flavoured feature you could add: a codec with
-property tests, identical on Android, iOS, desktop and browser.
-
-**Done when:** two devices with no network share one trip and one total, and you can film
-it in fifteen seconds.
-
----
+**What is still true and still stated in the UI:** a code is a copy, not a link; the
+checksum catches accident, not fraud; a code can be handed over twice and is refused; and
+nothing updates on its own. The two-phone test itself is
+[`docs/HUMAN-TASKS.md` §6](docs/HUMAN-TASKS.md) — it needs two phones.
 
 ## 8. What I would not do before the deadline
 

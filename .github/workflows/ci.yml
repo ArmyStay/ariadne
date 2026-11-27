@@ -23,12 +23,40 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+      - name: Documentation claims
+        # No JDK, no Gradle, a second: every Route, hook, permission and path the docs
+        # name has to exist. This is the gate that would have caught a share route that
+        # was only ever a sentence.
+        run: ./tools/claim-check.sh
       - name: Install Linux OCR natives (Tess4J)
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr libtesseract-dev libleptonica-dev
       - name: shared JVM tests
-        run: ./gradlew jvmTest --console=plain --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew jvmTest --console=plain --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
       - name: android debug + wasm compile/distribution
-        run: ./gradlew :app:android:assembleDebug :app:wasm:compileKotlinWasmJs :app:wasm:wasmJsBrowserDistribution --console=plain --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew :app:android:assembleDebug :app:wasm:compileKotlinWasmJs :app:wasm:wasmJsBrowserDistribution --console=plain --stacktrace 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - name: what failed, in one annotation
+        # The run log is not reachable from every network, and "the build is red" with no
+        # line numbers is not a review. The diagnostics are lifted into a *single*
+        # annotation with encoded newlines, because GitHub caps how many annotations a
+        # step may post — ten separate warnings used to use up the whole budget before
+        # the error was reached.
+        if: failure()
+        run: |
+          set -o pipefail
+          [ -f "$RUNNER_TEMP/build.log" ] || exit 0
+          summary=$(sed 's|file:///home/runner/work/ariadne/ariadne/||' "$RUNNER_TEMP/build.log" \
+            | grep -E "^e: |FAILED|AssertionError|expected:|Expected|Caused by:|What went wrong|> Task .*FAILED" \
+            | head -40 | paste -sd '\n' -)
+          if [ -z "$summary" ]; then
+            summary=$(tail -n 25 "$RUNNER_TEMP/build.log")
+          fi
+          encoded=$(printf '%s\n' "$summary" | awk '{printf "%s%%0A", $0}')
+          echo "::error::$encoded"
 
   desktop:
     name: desktop
@@ -42,7 +70,26 @@ jobs:
       - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
       - name: Install Linux OCR natives (Tess4J)
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr libtesseract-dev libleptonica-dev
-      - run: ./gradlew :app:desktop:compileKotlinJvm --console=plain --stacktrace
+      - name: desktop compile
+        run: |
+          set -o pipefail
+          ./gradlew :app:desktop:compileKotlinJvm --console=plain --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      - name: what failed, in one annotation
+        # Same reason as the shared job: the log is not always reachable, and a single
+        # annotation with encoded newlines cannot be crowded out by warnings.
+        if: failure()
+        run: |
+          set -o pipefail
+          [ -f "$RUNNER_TEMP/build.log" ] || exit 0
+          summary=$(sed 's|file:///home/runner/work/ariadne/ariadne/||' "$RUNNER_TEMP/build.log" \
+            | grep -E "^e: |FAILED|AssertionError|expected:|Caused by:|What went wrong|> Task .*FAILED" \
+            | head -30 | paste -sd '\n' -)
+          if [ -z "$summary" ]; then
+            summary=$(tail -n 20 "$RUNNER_TEMP/build.log")
+          fi
+          encoded=$(printf '%s\n' "$summary" | awk '{printf "%s%%0A", $0}')
+          echo "::error::$encoded"
 
   ios:
     name: ios
@@ -54,4 +101,23 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew :app:ios:compileKotlinIosSimulatorArm64 :app:ios:compileKotlinIosArm64 --console=plain --stacktrace
+      - name: ios compile
+        run: |
+          set -o pipefail
+          ./gradlew :app:ios:compileKotlinIosSimulatorArm64 :app:ios:compileKotlinIosArm64 --console=plain --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      - name: what failed, in one annotation
+        # Same reason as the shared job: the log is not always reachable, and a single
+        # annotation with encoded newlines cannot be crowded out by warnings.
+        if: failure()
+        run: |
+          set -o pipefail
+          [ -f "$RUNNER_TEMP/build.log" ] || exit 0
+          summary=$(sed 's|file:///home/runner/work/ariadne/ariadne/||' "$RUNNER_TEMP/build.log" \
+            | grep -E "^e: |FAILED|AssertionError|expected:|Caused by:|What went wrong|> Task .*FAILED" \
+            | head -30 | paste -sd '\n' -)
+          if [ -z "$summary" ]; then
+            summary=$(tail -n 20 "$RUNNER_TEMP/build.log")
+          fi
+          encoded=$(printf '%s\n' "$summary" | awk '{printf "%s%%0A", $0}')
+          echo "::error::$encoded"

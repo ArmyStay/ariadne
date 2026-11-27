@@ -19,15 +19,21 @@ published as an artifact.
 <p align="center"><em>Two stills from a phone, 27 November 2026 — the home screen and one day's record.
 A screen recording replaces this as soon as the next build is on the device.</em></p>
 
-**Four targets, one codebase, checked on every push:**
+**Four targets, one codebase, compiled on every push — and one of them is honest about
+what it does not have:**
 
-| Target | Checked by |
-| --- | --- |
-| Shared domain + UI | `./gradlew jvmTest` (JVM test suites across the shared modules) |
-| Android | `:app:android:assembleDebug` |
-| Desktop | `:app:desktop:compileKotlinJvm` |
-| iOS | `:app:ios:compileKotlinIosArm64` + `compileKotlinIosSimulatorArm64` |
-| WebAssembly | `:app:wasm:compileKotlinWasmJs` |
+| Target | Checked by | What it can do |
+| --- | --- | --- |
+| Shared domain + UI | `./gradlew jvmTest` (JVM test suites across the shared modules) | everything below is this code |
+| Android | `:app:android:assembleDebug` | the whole thing: camera, photo library, voice, glasses |
+| Desktop | `:app:desktop:compileKotlinJvm` | the ledger, the record, import from a file dialog, Tesseract |
+| iOS | `:app:ios:compileKotlinIosArm64` + `compileKotlinIosSimulatorArm64` | **the ledger, search, the trip card, the codes — no camera, no photo import** |
+| WebAssembly | `:app:wasm:compileKotlinWasmJs` | the ledger, import from a file input, no OCR, data lives in the tab |
+
+The iOS line used to imply parity. It has no `PlatformPhotos` bridge, so the shutter has
+no sensor and the picker has no library there; saying so is better than a table that
+flatters the port. Closing that gap is a `PHPickerViewController` bridge and one Info.plist
+key — [on the human list](docs/HUMAN-TASKS.md).
 
 ## The promise this repo keeps in code, not in slides
 
@@ -45,6 +51,9 @@ A screen recording replaces this as soon as the next build is on the device.</em
 | Startup cannot be blocked by background work | every step in `AppModel.start()` is guarded on its own |
 | The trip card holds the trip | `Trip`, `TripCard` — the product screen and where it ends |
 | A spoken amount is parsed by a pure function, not by a service | `SpokenExpense` over word and digit tokens — `core/model`, with tests |
+| A shared trip is a copy, not a link | `ShareCodes` — a sixteen-character plan and a paste-able ledger, round-trip tested in `core/model`; no socket in either direction |
+| Somebody else's figures are never merged into yours | `Traveller` / `TravellerEntry` in their own tables; quoted beside the day, absent from the card |
+| One photograph can be deleted, and only on purpose | two taps in `DetailPage` — the bytes and the row, and no undo that pretends otherwise |
 | The glasses are the camera when they are paired | `LocalWearableCapture` → `AndroidWearableCapture` over Meta's Wearables Device Access Toolkit |
 | A missing recogniser or a missing pair is a sentence, not a crash | `VoiceEntry.listen` may answer null; every DAT call is wrapped and reported as `status` |
 
@@ -56,6 +65,11 @@ You buy something small — a chai, a book, an extra train — and the receipt i
 pocket until it isn't. Ariadne's capture gesture is one photograph, under two seconds,
 with the phone already in your hand. **No amount is a legal entry**: the figure can
 arrive while the card is on screen, later at Close Day, or never.
+
+Two people can be on one trip without a server: one reads a code out, the other types it
+in, and both phones have the same plan. When a day closes, a second code carries its
+figures back — quoted beside your total, never merged into it. Nothing syncs. See
+[**two phones, one ledger**](docs/UI-AND-FLOW.md#9-two-phones-one-ledger).
 
 The record is per trip and per day. Home shows today's spend and what is waiting;
 Timeline shows the trip and its days; Stats breaks it down; the record lists what you
@@ -110,15 +124,37 @@ Five things the app will not do, because a record that bends is not a record:
   <img src="docs/shots/current/02-record-phone.png" width="240" alt="The record: a day's date chips and the receipt rows with amounts" />
 </p>
 
-Stills from a phone running the 27 November build. The design language is one file —
+Stills from a phone running a 27 November build; the dock's shutter has since gone navy
+(`#1C3155`) and the two stills predate that. The design language is one file —
 [`docs/DESIGN.md`](docs/DESIGN.md) — and every screen is described, screen by screen,
 with the words it actually prints, in [`docs/UI-AND-FLOW.md`](docs/UI-AND-FLOW.md).
 
-## How to run it
+## Run it, install it, build it
 
-The web build is the fastest way to see it: [armystay.github.io/ariadne](https://armystay.github.io/ariadne/).
-How that demo is published, and everything else that happened to get here, is in
-[`docs/TIMELINE.md`](docs/TIMELINE.md).
+**In a browser, one click:** [armystay.github.io/ariadne](https://armystay.github.io/ariadne/).
+It opens on the first instalment — what this is, in three beats, and one button. Add
+[`?seed=demo`](https://armystay.github.io/ariadne/?seed=demo) to land on a trip that has
+already been kept instead. No install, no account; the browser build keeps its data in
+the tab, so a reload starts again.
+
+**On a phone:** the [releases](https://github.com/ArmyStay/ariadne/releases) carry
+`ariadne.apk`, a debug build signed with the debug key. It is large — around 120 MB —
+because five on-device OCR models are bundled rather than downloaded, which is also why
+recognition works in a shop with no signal:
+
+```bash
+adb install -r ariadne.apk
+```
+
+Debug builds are the ones that can drive the glasses path without glasses:
+
+```bash
+adb shell am start -n com.ariadne.app/com.ariadne.android.MainActivity --ez mock_glasses true
+```
+
+**From source** — every version, and the SDK path, is in
+[`docs/SDK-SETUP.md`](docs/SDK-SETUP.md). How the demo is published, and everything else
+that happened to get here, is in [`docs/TIMELINE.md`](docs/TIMELINE.md).
 
 ```bash
 # The app, in a desktop window, from the shared UI
@@ -145,11 +181,6 @@ build is the shipping path** and is what CI runs.
 ./tools/flow-check.sh       # end-to-end state checks
 ./tools/store-check.sh      # the store on real SQLite, including the migration
 ./tools/entry-check.sh      # all four entry points, signature-checked
-```
-
-Testing glasses capture without glasses — debug builds only:
-```bash
-adb shell am start -n com.ariadne.app/com.ariadne.android.MainActivity --ez mock_glasses true
 ```
 
 ## What is proven where
@@ -186,8 +217,9 @@ chips, and settings that survive a restart. The stills above are from that build
 - **iOS imports and capture.** The iOS target has no camera, no photo picker and no
   photo file store, so the Library control is not offered there and the shutter keeps a
   ruled plate. Text recognition (Vision) and the database do work.
-- **Public share links.** The `TripShare` route exists in the router but the share path is
-  not finished, so it is not claimed anywhere above.
+- **A link that opens your trip for someone else.** The card saves as a PNG and copies as
+  text, and the record exports as a ZIP — but there is no share link, no route pretending
+  to be one, and nothing that syncs two phones.
 
 Apache-2.0. Kotlin Multiplatform Contest 2027 entry. The entry essay is
 [`ESSAY.md`](ESSAY.md); the history is [`docs/TIMELINE.md`](docs/TIMELINE.md).

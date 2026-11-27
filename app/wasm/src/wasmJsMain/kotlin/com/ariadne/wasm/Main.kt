@@ -21,12 +21,23 @@ import kotlinx.browser.window
 /**
  * The judge's entry point: a browser, nothing installed.
  *
- * No OCR engine is bundled in Wasm. Manual entry remains available, and a host
- * page may provide the optional browser recognition hook below.
+ * There is no OCR engine in this build. The browser gets the shutter (a plate, unless
+ * the person imports a photograph), **Library** for a receipt already on disk, manual
+ * entry, and the whole shared record; extraction simply never runs, and the app treats
+ * that as it treats any extraction failure — the card waits at Close Day for a figure.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     val graph = AppGraph(WasmServices(), SystemClock())
+
+    // `?seed=demo` opens on a trip that has already been kept, instead of the first
+    // instalment: one link a reviewer can paste, no clicking through a form first.
+    // The intro's own "Or look at a sample trip" does the same thing without a URL.
+    graph.model.onStarted {
+        if (wantsDemoSeed() && graph.model.state.value.route == com.ariadne.app.Route.Onboarding) {
+            graph.model.startTripDemo()
+        }
+    }
     val body = document.body ?: error("Ariadne needs a <body> to mount into")
     val reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     ComposeViewport(body) {
@@ -49,6 +60,10 @@ fun main() {
     }
 }
 
+/** True when the page was opened with `?seed=demo`. */
+private fun wantsDemoSeed(): Boolean =
+    window.location.search.contains("seed=demo")
+
 private class WasmServices : PlatformServices {
 
     override val storageDisclosure: String =
@@ -69,6 +84,16 @@ private class WasmServices : PlatformServices {
      */
     override fun files(): com.ariadne.app.PhotoFiles = BrowserPhotoFiles
 
+    /**
+     * The clipboard, via a textarea and `execCommand('copy')`.
+     *
+     * Not `navigator.clipboard.writeText`: that returns a promise, so a synchronous
+     * `copy(text): Boolean` could only guess whether it worked — and a button that
+     * says "copied" when it did not is worse than one that says nothing. The old
+     * command reports synchronously, and it needs no permission prompt.
+     */
+    override fun clipboard(): com.ariadne.app.Clipboard = BrowserClipboard
+
     override fun close() = Unit
 }
 
@@ -82,6 +107,31 @@ private object WasmDataArchiveExporter : DataArchiveExporter {
     override suspend fun saveZip(fileName: String, bytes: ByteArray): Boolean =
         downloadFile(fileName, "application/zip", bytes.toBase64())
 }
+
+private object BrowserClipboard : com.ariadne.app.Clipboard {
+    override fun copy(text: String): Boolean = copyTextToClipboard(text)
+}
+
+@OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+private fun copyTextToClipboard(text: String): Boolean = js(
+    """(() => {
+      try {
+        const field = document.createElement('textarea');
+        field.value = text;
+        field.setAttribute('readonly', '');
+        field.style.position = 'fixed';
+        field.style.top = '-1000px';
+        field.style.opacity = '0';
+        document.body.appendChild(field);
+        field.select();
+        const copied = document.execCommand('copy');
+        document.body.removeChild(field);
+        return copied === true;
+      } catch (e) {
+        return false;
+      }
+    })()""",
+)
 
 @OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
 private fun downloadPng(fileName: String, base64: String): Boolean = js(

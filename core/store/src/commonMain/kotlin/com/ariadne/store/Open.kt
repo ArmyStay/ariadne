@@ -87,7 +87,51 @@ public fun openOrMigrate(
         // nothing is what keeps a full database intact.
         else -> Unit
     }
+    // A table added after a file was stamped is the one thing `ALTER TABLE` cannot
+    // express and a version number cannot repair, so it is created here: `IF NOT
+    // EXISTS` makes this a no-op on a file that already has it, and a file written
+    // by a build that predates the table gets it without losing a single row.
+    driver.createMissingTables()
     return driver
+}
+
+/**
+ * Every table this app has added since the baseline.
+ *
+ * The counterpart of [AddedColumns] for whole tables: `6.sqm` declares the traveller
+ * tables for the migration path, and this declares them for the repair path — a file
+ * that reports a version which already includes them but was written by a build
+ * that did not create them.
+ */
+private val CurrentTables: List<String> = listOf(
+    """CREATE TABLE IF NOT EXISTS traveller (
+        id              TEXT NOT NULL PRIMARY KEY,
+        tripId          TEXT NOT NULL,
+        name            TEXT NOT NULL,
+        addedAt         INTEGER NOT NULL,
+        codeFingerprint TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS travellerEntry (
+        id               TEXT NOT NULL PRIMARY KEY,
+        travellerId      TEXT NOT NULL,
+        localDate        TEXT NOT NULL,
+        amountMinor      INTEGER NOT NULL,
+        currency         TEXT NOT NULL,
+        category         TEXT,
+        merchantInitials TEXT,
+        digest           INTEGER NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS traveller_trip ON traveller(tripId)",
+    "CREATE INDEX IF NOT EXISTS traveller_entry_trip ON travellerEntry(travellerId)",
+)
+
+/** Creates whichever of [CurrentTables] the file is missing. Safe to run twice. */
+public fun SqlDriver.createMissingTables() {
+    CurrentTables.forEach { statement ->
+        runCatching {
+            execute(identifier = null, sql = statement, parameters = 0)
+        }
+    }
 }
 
 /**
@@ -212,7 +256,7 @@ public fun SqlDriver.hasTable(name: String): Boolean = try {
  * on desktop the answer is to move the file aside and keep it, never to delete.
  */
 public fun SqlDriver.dropAll(schema: SqlSchema<QueryResult.Value<Unit>> = AriadneDb.Schema) {
-    listOf("capture", "dayCard", "rate", "settings", "trip").forEach { table ->
+    listOf("capture", "dayCard", "rate", "settings", "travellerEntry", "traveller", "trip").forEach { table ->
         execute(identifier = null, sql = "DROP TABLE IF EXISTS $table", parameters = 0)
     }
     schema.create(this)

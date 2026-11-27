@@ -241,9 +241,23 @@ No other page responds to keys.
 
 ### 3.1 First run
 
-`Onboarding` → **CREATE A TRIP** (`startNewTrip()` → `NewTrip` with *from* = today,
+`Onboarding` → **BEGIN A TRIP** (`startNewTrip()` → `NewTrip` with *from* = today,
 *to* = today + 6, currency = the setting) → **CREATE TRIP** (`commitDraft()`) → `Home`.
-The user-facing onboarding and trip-register flows do not offer the demo roll.
+
+Two other doors, both quiet, both on the same page: **OR LOOK AT A SAMPLE TRIP**
+(`startTripDemo()`, a finished trip with two currencies in it) and **SOMEBODY GAVE YOU A
+CODE?** (`openJoinTrip()` → `JoinTrip` → **JOIN THIS TRIP** (`joinTrip()`) → `Home`).
+
+### 3.1b Two phones, one ledger
+
+1. A closed day → **THE CODES** (trip page) or wherever the hand-off is offered →
+   `HandoffPage`.
+2. **COPY THE TRIP CODE** → sixteen characters after `AR1`; the other phone types them
+   into `JoinTrip` and the plan exists there.
+3. **COPY THE DAY** → one line per confirmed figure on that closed day; the other phone
+   pastes it under `their figures` and taps **ADD THEIR FIGURES**.
+4. The same line pasted twice is refused by its fingerprint: `That ledger is already on
+   this trip.`
 
 ### 3.2 The everyday loop
 
@@ -335,12 +349,48 @@ Wide windows get a left margin column; phones get a single column.
 
 | Element | Text |
 | --- | --- |
-| eyebrow (wide: a rail of labels) | `Ariadne` (tracking 3sp), `edition one`, `no account` |
-| headline | **Welcome to / Ariadne** (42sp phone, 64sp wide; no italic styling) |
+| imprint (wide: left margin rail; phone: inline above the eyebrow) | a 16dp shutter mark in `paper.ink`, `Ariadne` (tracking 3sp), a 28dp `paper.blue` rule; the rail then carries `edition one`, `no account`, `no server` |
+| eyebrow | `01 — THE FIRST INSTALMENT` (9sp, `inkFaint`, tracking 1.8) |
+| headline | *A trip, kept / in photographs.* — serif **italic** (42sp phone, 64sp wide) |
 | rule | `paper.ink` |
-| paragraph | "Keep the moments from a trip without turning them into a chore. Take a photograph now, add the amount later, and keep the whole record on this device." |
-| primary | **CREATE A TRIP** (`startNewTrip()`), max width 360dp |
+| lede | "One press of the shutter in the shop; the figures wait until you close the day. Everything stays on this device." |
+| three beats | each: number (`01`) in `inkFaint`, an 18dp `blueEdge` rule, the name in tracked capitals, then one serif sentence — see below |
+| primary | **BEGIN A TRIP** (`startNewTrip()`) with the trip mark, blue, max width 360dp |
+| quiet | **OR LOOK AT A SAMPLE TRIP** (`startTripDemo()`) — a finished trip, no form |
+| quiet | **SOMEBODY GAVE YOU A CODE?** (`openJoinTrip()`) — the trip somebody else planned |
 | foot | `No account · no server · no sync` |
+
+The three beats are the whole product, in the order it is used:
+
+1. `01` **THE SHUTTER** — "One photograph at the counter, under two seconds. No form, no
+   fields, nothing to type while someone waits for change."
+2. `02` **CLOSE DAY** — "In the evening the day's photographs arrive as cards. Confirm a
+   figure, or keep the card without one — no amount is a legal entry."
+3. `03` **THE RECORD** — "The day, the trip, and a card you keep at the end. No account, no
+   server: nothing leaves the phone but an optional rate lookup."
+
+There is no artwork, no carousel and no tour: the page answers "what is this?" and then
+gets out of the way. `?seed=demo` on the browser build skips this page and opens on the
+sample trip instead.
+
+### 5.1b Join a trip — `JoinPage.kt`, no bar
+
+`Masthead(number = "01c", eyebrow = "a trip, shared", title = "Join a trip", italic = true,
+lede = "Type the code they read out. Sixteen characters, in groups of four.")`
+
+| Element | Text |
+| --- | --- |
+| field | label `the code`, placeholder `AR1-K7QM-2X9B-4HDR-8TQP`, capitals, no autocorrect |
+| as it reads | label `this is the plan`, then the dates as a `Title` (`2026-12-03 to 2026-12-08`), then `INR · budget 40,000.00` |
+| if it does not read | the reason in the serif: `A trip code is sixteen characters after AR1 — this one has 4.` · `One character is wrong — check the code and try again.` · `'X' is not one of a code's characters.` |
+| field (after the readback) | label `what to call it here`, placeholder `the shared trip` |
+| primary | **JOIN THIS TRIP** (`joinTrip()`) — only offered once the code reads |
+| footnote | "A code is a copy, not a link. The plan lands on this phone and stays yours — nothing here updates when theirs does." |
+| quiet | **NOT NOW** (`back()`) |
+
+The readback is the point of the page: a wrong character is a sentence here, not a trip in
+the register with the wrong dates on it. The name is asked for because the code does not
+carry one (§9).
 
 ### 5.2 New trip — `NewTripPage.kt`, no bar
 
@@ -581,6 +631,13 @@ file."* and **BACK TO THE DAY** alone.
 
 **Missing capture.** *"That photograph is not in the record any more."* + **BACK TO THE
 RECORD** (`closeDetail()`).
+
+Under **LEAVE IT OPEN** sits the one destructive control in the book: **DELETE THIS
+PHOTOGRAPH** (`armEntryDeletion()`), which becomes the sentence *"Tap once more to delete
+this photograph and its figures. This cannot be undone, and there is no copy anywhere
+else."*, then **DELETE FOR GOOD** (`deleteEntryNow()`) and **KEEP IT**
+(`armEntryDeletion()`). Two taps, the same rule as deleting a trip, and for the same
+reason: the bytes go with the row.
 
 ### 5.8 The photograph sheet — `FramePage.kt`, overlay over the shutter
 
@@ -884,6 +941,30 @@ or contact details.
 
 ---
 
+### 5.18 Two phones, one ledger — `HandoffPage.kt`, stacked over the timeline
+
+`Masthead(number = "09", eyebrow = "two phones", title = "One ledger,\nhanded over",
+italic = true, lede = "A code goes out with the plan. A code comes back with the figures.
+No account, no server.")`
+
+| Element | Text |
+| --- | --- |
+| label | `the plan`, then the code itself as body text — `AR1-K7QM-2X9B-4HDR-8TQP` |
+| note | "Read it out, or send the line. They join with it and have the same dates, currency and budget — the trip's name is theirs to choose." |
+| note | "The budget is too large for a code to carry, so it is not in it. Everything else is." — only when the trip's budget exceeds 32 bits of minor units |
+| action | **COPY THE TRIP CODE** (`copyTripCode()`), then the label `on the clipboard` |
+| label | `a day, handed back`, then one row per closed day that has a figure: the ISO date, the day's total, and **COPY THE DAY** (`copyLedgerCode(day)`) |
+| empty | "No day is closed with a figure on it yet. Close a day first — the hand-over is what a finished day is for." |
+| label | `their figures`, then a field for the pasted line |
+| as it reads | `Priya · 7 lines · 2026-12-03 to 2026-12-05`, then **ADD THEIR FIGURES** (`addPastedLedger()`) |
+| if it does not read | the reason, e.g. `Line 3 of the ledger is damaged.` · `That ledger is already on this trip.` |
+| list | each traveller: name, `₹4,120.00 · 7 lines` (and any figure with no rate, named in its own currency), with **REMOVE** (`removeTraveller(id)`) |
+| footnote | "A code can be handed over twice; the second paste is refused. A code can be edited by hand — the checksum catches an accident, not a fraud. And there is still no sync: nothing here updates on its own." |
+
+The same page shows both directions because they are one idea. The record quotes them: on
+the day's page a traveller appears under **Tallied** as `Priya ₹4,120.00`, followed by
+**With them** and the combined figure — quoted, never merged, and never in your card.
+
 ## 6. Shared strings and formatting
 
 **Money.** `Money.formatWithSymbol(currency)` = symbol + `format`, e.g. `₹82,141.92`,
@@ -956,8 +1037,9 @@ respect reduced motion and settle on the first frame when it is on.
 **Insets and length.** The shell applies window insets; tab pages end with a 96–104dp
 spacer so the bar and FAB never cover the last row.
 
-**Not verified.** Nothing below has been seen on a screen: no layout, spacing, contrast,
-motion or 200%-font check has been done for any surface in this document. See §11.
+**Not verified.** No layout has been measured, no contrast ratio has been computed, and
+no surface has been read at 200% text. Two screens have been seen on a phone
+(`docs/shots/current/`); everything else below is read from the source. See §11.
 
 ---
 
@@ -967,13 +1049,17 @@ motion or 200%-font check has been done for any surface in this document. See §
 | --- | --- | --- | --- | --- | --- | --- |
 | **Android** | CameraX binding via `LocalCamera` | `PickMultipleVisualMedia(12)` | ML Kit on-device | `HttpURLConnection` → frankfurter.app, 5s timeouts | SQLDelight + private files | none |
 | **Desktop** | none — the engraved plate | system file dialog | Tess4J | none | SQLDelight (`~/.ariadne/ariadne.db`) | none |
-| **Wasm** | none | `BrowserPhotoPicker` — an `<input type="file" accept="image/*">` built by a `@JsFun`, read as data URLs, rescaled to 1600px on a canvas, up to twelve | optional `window.ariadneRecognize` hook, else a polite failure | none | in memory, photographs included (`BrowserPhotoFiles`; `BrowserPhotoImageRenderer` draws them) | none |
+| **Wasm** | none | `BrowserPhotoPicker` — an `<input type="file" accept="image/*">` built by a `@JsFun`, read as data URLs, rescaled to 1600px on a canvas, up to twelve | **none** — `WasmBrowserRecognizer` returns a failure by design, so a card waits for a figure at Close Day | none | in memory, photographs included (`BrowserPhotoFiles`; `BrowserPhotoImageRenderer` draws them) | none |
 | **iOS** | none | **none** — no picker is provided, so **LIBRARY** is not drawn | Vision | none | native SQLite (no photo file storage) | StoreKit |
 
-Visible consequences: where no camera is bound the plate reads **No camera here — tap the
-frame for a plate**; where no picker is bound **LIBRARY** is absent (iOS); on Wasm nothing —
-photographs included — survives a reload, which is what Preferences says; only Android can
-fetch a rate.
+Visible consequences. Where no camera is bound but a picker is, the frame reads **No camera
+here — tap to bring a photograph in** and opens the file dialog, and the dock's round button
+goes straight to it; where neither is bound the plate reads **No camera here — tap for a
+plate** and the drawn plate is what you get (iOS). Where no picker is bound **LIBRARY** is
+absent (iOS). On Wasm nothing — photographs included — survives a reload, which is what
+Preferences says. Only Android fetches a rate. Every target now has a clipboard
+(`UIPasteboard`, AWT, `execCommand('copy')`, Android's `ClipboardManager`), which is what the
+trip and ledger codes are copied with.
 
 ---
 
@@ -988,10 +1074,14 @@ fetch a rate.
   sheet and opens `Detail`, so only a restored route lands here.
 - `Route.Settings` → `PreferencesPage` (retired name).
 
-**Not implemented anywhere in the UI:** deleting a single entry (trips can be deleted,
-captures cannot); editing an entry's date; voice capture; SMS import; bill splitting;
-accounts, sync, analytics; multiple photographs per entry; crop or rotate; importing an
-archive back into Ariadne. Local ZIP export and Trip Card PNG/text sharing are implemented.
+**Not implemented anywhere in the UI:** editing an entry's date; SMS import; bill
+splitting; accounts, sync, analytics; more than one photograph per entry; crop or rotate;
+importing an archive back into Ariadne. Local ZIP export, Trip Card PNG/text sharing, and
+deleting one photograph (two taps, §5.7) are implemented.
+
+Voice *is* implemented — `SpokenExpense` in `core/model` with its tests, a microphone on
+Home and a `Say the amount` row on the kept photograph (§5.3, §5.7) — and it needs a
+device with a recogniser app, which is the only reason it is ever absent.
 
 ---
 
@@ -1014,16 +1104,19 @@ archive back into Ariadne. Local ZIP export and Trip Card PNG/text sharing are i
 
 ## 11. Verification status
 
-| Claim | Status |
-| --- | --- |
-| `:ui:app:jvmTest` | passed locally, including archive ZIP and manual-entry export cases |
-| `:app:android:compileDebugKotlin` | passed locally |
-| `:app:desktop:compileKotlinJvm` | passed locally |
-| `:app:wasm:compileKotlinWasmJs` | passed locally |
-| iOS compile | not run on this Windows machine |
-| `FlowCheck` (stack, overlays, undo, the sheet's pair) | written; **never executed** |
-| Any screen rendered, measured, contrast-checked, or read at 200% | **not yet; human/device review remains** |
-| Stills | `preview/Shots.kt` defines them; `docs/shots/` holds only the pre-redesign archive |
+| Claim | Status | Checked by |
+| --- | --- | --- |
+| shared tests (JVM suites, all modules) | passing on every push | `ci.yml` → `jvmTest` |
+| Android compiles | passing on every push | `ci.yml` → `:app:android:assembleDebug` |
+| desktop compiles | passing on every push | `ci.yml` → `:app:desktop:compileKotlinJvm` |
+| iOS compiles (simulator + device arm64) | passing on every push | `ci.yml` → macOS job |
+| browser compiles and builds its distribution | passing on every push | `ci.yml` and `pages.yml` |
+| the browser app is deployed | published as a Pages artifact on every push to `main` | `pages.yml` |
+| the codec (trip plan and ledger, both directions) | passing on every push since 27 Nov 2026, `main` + this branch | `:core:model:jvmTest` → `ShareCodeTest` |
+| `FlowCheck` (stack, overlays, undo, the sheet's pair) | written, runnable offline; **not part of CI** | `tools/flow-check.sh` |
+| the page drawn on a real screen | yes: two stills from a phone in `docs/shots/current/` | human |
+| measured — spacing, contrast, 200% text | **not yet** | `tools/verify-ui.sh` + `tools/shoot.sh` |
 
-The gate for every visual claim on this page is `tools/verify-ui.sh` (and
-`tools/shoot.sh` for stills) on a machine with Gradle and a display.
+`tools/claim-check.sh` guards the mechanical half of this page: every `Route` and every
+`window.ariadne*` hook named here must exist in the code, and every relative link must
+resolve.

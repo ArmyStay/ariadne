@@ -105,7 +105,12 @@ open docs/shots/contact-sheet.png           # macOS  (xdg-open on Linux, start o
 ./tools/store-check.sh              # -> ALL STORE CHECKS PASSED (30)
 ./tools/flow-check.sh               # -> ALL FLOW CHECKS PASSED (32)
 ./tools/entry-check.sh              # -> all four entry points compile
+./tools/claim-check.sh              # -> every route, hook, permission and path the docs name exists
 ```
+
+`claim-check.sh` is the only gate that needs nothing but bash and a checkout: it greps the
+documents for `Route.*`, `window.*` hooks, `android.permission.*` names and backticked
+paths, and fails if the code does not have them. It runs in CI on every push.
 
 The middle two need six extra jars in `~/.cache/tools/sdl`:
 

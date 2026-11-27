@@ -151,10 +151,18 @@ If Ariadne disappears after `connectedDebugAndroidTest`, that is test-task clean
 
 ---
 
-## 5) Wasm/browser OCR (optional, only if needed for demo timing)
-- Web demo can remain usable with manual/typed entry if OCR hook is not enabled.
-- To enable OCR, host page must lazy-load `tesseract.js` and define `window.ariadneRecognize(imagePathOrUrl)` (pinned CDN/version recommended; note CDN fetch/privacy tradeoff). Current Kotlin hook expects a **synchronous** string/line-array result when invoked; adapt hook/host contract if you need true async Promise resolution.
-- Add real fixtures in `recogniser-fixtures/wasm/` and validate in a browser harness (manual or automated) that bytes/image input → browser OCR text → `ReceiptParser` behaves with fuzzy assertions.
+## 5) Wasm/browser OCR — not implemented
+- **There is no OCR in the browser build.** `WasmBrowserRecognizer` returns
+  `OcrResult.Failure("browser OCR is disabled to keep receipt data local")`, which the
+  app treats like any extraction failure: the card waits for a figure at Close Day, and
+  **Library** plus manual entry cover the same ground without a server or a download.
+- There is also **no host hook** — no `window.*` recognition function is read anywhere in
+  the Kotlin. A previous revision of this document described one; it was never built.
+- If it is ever built, the contract to change is `WasmBrowserRecognizer.recognize` in
+  `app/wasm/src/wasmJsMain/kotlin/com/ariadne/wasm/Main.kt`, and the honest way to keep it
+  local is an on-device engine rather than a CDN: anything that ships the image to a
+  server contradicts the app's one promise.
+- Fixtures would go in `recogniser-fixtures/wasm/` and be driven by a browser harness.
 - Build: `.\gradlew.bat :app:wasm:wasmJsBrowserDistribution` (or dev run task as configured).
 
 ---

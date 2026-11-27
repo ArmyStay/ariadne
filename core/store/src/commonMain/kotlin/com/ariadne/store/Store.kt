@@ -6,6 +6,7 @@ import com.ariadne.model.DayCard
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Rate
 import com.ariadne.model.Settings
+import com.ariadne.model.Traveller
 import com.ariadne.model.Trip
 import com.ariadne.queue.CaptureRepository
 import kotlinx.coroutines.flow.Flow
@@ -45,6 +46,22 @@ public interface Store : CaptureRepository {
 
     /** Forget every rate for this pair: a wrong rate must be removable. */
     public suspend fun deleteRate(base: CurrencyCode, quote: CurrencyCode)
+
+    /**
+     * Somebody else's figures for this trip, oldest hand-off first.
+     *
+     * Kept in their own tables and returned as their own type, so no page can
+     * accidentally treat a traveller's line as one of your captures.
+     */
+    public suspend fun travellers(tripId: String): List<Traveller>
+
+    /** The traveller a code already produced, if it has been pasted here before. */
+    public suspend fun travellerByCode(tripId: String, fingerprint: String): Traveller?
+
+    /** Stores a traveller and every line that came with them, in one transaction. */
+    public suspend fun addTraveller(traveller: Traveller)
+
+    public suspend fun removeTraveller(id: String)
 
     public suspend fun settings(): Settings
     public suspend fun saveSettings(settings: Settings)

@@ -78,7 +78,12 @@ import com.ariadne.app.ui.pages.TripPage
 import com.ariadne.app.ui.pages.MorePage
 import com.ariadne.app.ui.pages.ManualEntryPage
 import com.ariadne.app.ui.pages.DataExportPage
+import com.ariadne.app.ui.pages.HandoffPage
+import com.ariadne.app.ui.pages.JoinPage
 import com.ariadne.app.ui.pages.LegalPage
+import com.ariadne.app.ui.pages.cameraAvailable
+import com.ariadne.app.ui.pages.pickerAvailable
+import com.ariadne.app.ui.pages.rememberPhotoImport
 import com.ariadne.design.AriadneTheme
 import com.ariadne.design.LocalAccentBudget
 import com.ariadne.design.LocalMotionPreference
@@ -235,6 +240,20 @@ public fun AriadneApp(
                     )
                 }
 
+                // The dock's shutter, on a target that has no camera.
+                //
+                // On a phone this is one tap to a viewfinder, which is the product. In
+                // a browser there is no viewfinder, so the same tap used to open a
+                // page whose frame then had to be pressed to reach the same file
+                // dialog: two taps to say "here is the photograph I already took".
+                // Where a picker exists, the dock goes straight to it.
+                val cameraHere = cameraAvailable()
+                val pickerHere = pickerAvailable()
+                val bringOneIn = rememberPhotoImport(
+                    onBytes = { model.importPhoto(it) },
+                    onUnavailable = { model.openCapture() },
+                    onFailure = model::photoImportFailed,
+                )
                 if (route.showsTabBar() && !state.shutterOpen && state.sheetCaptureId == null) {
                     AriadneBar(
                         paper = paper,
@@ -243,7 +262,9 @@ public fun AriadneApp(
                         // as though the underlying destination were selected.
                         barDescription = route.stackedFrom(state.history.lastOrNull()),
                         onSelect = { tab -> model.go(tab.route()) },
-                        onCapture = { model.openCapture() },
+                        onCapture = {
+                            if (!cameraHere && pickerHere) bringOneIn() else model.openCapture()
+                        },
                         waiting = state.tripPending.size,
                         captureEnabled = state.trip?.isClosed == false,
                     )
@@ -394,6 +415,10 @@ private fun Destination(
 
         Route.NewTrip -> NewTripPage(state, model, paper, wide)
 
+        Route.JoinTrip -> JoinPage(state, model, paper, wide)
+
+        Route.Handoff -> HandoffPage(state, model, paper, wide)
+
         is Route.Frame -> FramePage(state, model, paper, wide, route.captureId)
 
         // The four tabs.
@@ -478,6 +503,8 @@ private fun Route.backLabel(): String = when (this) {
     is Route.Detail -> "the photograph"
     is Route.TripCard -> "the trip card"
     Route.NewTrip -> "new trip"
+    Route.JoinTrip -> "join a trip"
+    Route.Handoff -> "the codes"
     Route.ManualEntry -> "manual entry"
     Route.DataExport -> "data export"
     Route.PrivacyPolicy -> "privacy"
@@ -492,7 +519,7 @@ private fun Route.backLabel(): String = when (this) {
  * shutter, the ritual, and the card you keep.
  */
 private fun Route.showsTabBar(): Boolean = when (this) {
-    Route.Onboarding, Route.NewTrip, Route.Capture,
+    Route.Onboarding, Route.NewTrip, Route.JoinTrip, Route.Capture,
     is Route.CloseDay, is Route.TripCard, is Route.Detail, is Route.Frame -> false
     else -> true
 }

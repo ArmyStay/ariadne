@@ -13,6 +13,10 @@ import com.ariadne.model.Money
 import com.ariadne.model.MerchantName
 import com.ariadne.model.RecordDates
 import com.ariadne.model.Settings
+import com.ariadne.model.ShareCodes
+import com.ariadne.model.Traveller
+import com.ariadne.model.TravellerEntry
+import com.ariadne.model.TravellerShare
 import com.ariadne.model.Trip
 import com.ariadne.model.dayRange
 import com.ariadne.queue.Outbox
@@ -289,9 +293,12 @@ public class AppModel(
 
     /**
      * A callback for platform entry points: invoked once, right after
-     * [start] has run the initial routing pass. The Wasm demo page uses it to
-     * open on the demo roll when the URL carries `?seed=demo`, so a judge who
-     * lands on the Pages deploy sees a populated app instead of an empty form.
+     * [start] has run the initial routing pass.
+     *
+     * The browser build registers one: when the page carries `?seed=demo` it opens on
+     * the sample trip instead of the first instalment, so a reviewer can be sent one
+     * link that lands on a kept trip. The intro also offers the same thing as a quiet
+     * action, so the URL is a shortcut rather than the only door.
      */
     public fun onStarted(action: () -> Unit) {
         onStartedAction = action
@@ -477,6 +484,7 @@ public class AppModel(
         )
         refreshDay(day)
         loadTripDays(trip)
+        loadTravellers(trip)
     }
 
     // -- onboarding --------------------------------------------------------
@@ -1638,6 +1646,59 @@ public class AppModel(
         }
     }
 
+    /**
+     * Deletes one photograph's row, and its bytes.
+     *
+     * Two taps, never one, exactly as a trip is deleted: this is the only copy of
+     * the record, and an undo after the bytes are gone would be a lie. What does
+     * *not* happen matters too — the day's total, the trip's total and the search
+     * index are all re-read from the store afterwards, so nothing keeps quoting a
+     * figure whose receipt has just been thrown away.
+     */
+    public fun armEntryDeletion() {
+        _state.value = _state.value.copy(entryDeleteArmed = !_state.value.entryDeleteArmed)
+    }
+
+    public fun deleteEntryNow() {
+        val capture = _state.value.detail ?: return
+        if (!_state.value.entryDeleteArmed) return
+        val day = capture.localDate
+        scope.launch {
+            _state.value = _state.value.copy(busy = true)
+            runCatching {
+                // The bytes first, then the row: a row that outlives its file is a
+                // broken photograph on a page, and a file that outlives its row is
+                // only wasted space.
+                if (files != null && capture.photoPath.isNotBlank() &&
+                    !capture.photoPath.startsWith("demo:")
+                ) {
+                    runCatching { files.delete(capture.photoPath) }
+                }
+                store.delete(capture.id)
+                _state.value = _state.value.copy(
+                    busy = false,
+                    detail = null,
+                    sheetCaptureId = null,
+                    entryDeleteArmed = false,
+                )
+                _state.value.trip?.let { trip ->
+                    runCatching { index.rebuild(store.confirmedForTrip(trip.id)) }
+                    runCatching { refreshDay(day) }
+                    runCatching { loadTripDays(trip) }
+                }
+                if (back()) {
+                    say("The photograph is gone.")
+                } else {
+                    go(Route.Home)
+                    say("The photograph is gone.")
+                }
+            }.onFailure { failure ->
+                _state.value = _state.value.copy(busy = false)
+                report(failure)
+            }
+        }
+    }
+
     /** Leave the detail page for wherever it was opened from. */
     public fun closeDetail() {
         // Back, not a guessed destination: the detail page no longer has to
@@ -2040,6 +2101,260 @@ public class AppModel(
      * has not earned the right to make. Figures are converted through the same FX
      * table the ritual uses.
      */
+    // -- two phones, one ledger --------------------------------------------
+    //
+    // A code is a copy, not a link. Everything below produces or consumes one, and
+    // nothing below opens a socket: the plan arrives as sixteen characters and the
+    // figures as one line of text, and after that each phone is on its own.
+
+    /** The code that carries this trip to another phone, or null when there is no trip. */
+    public fun tripCode(): String? {
+        val trip = _state.value.trip ?: return null
+        return runCatching {
+            ShareCodes.encodeTrip(
+                ShareCodes.Plan(
+                    start = trip.startDate,
+                    end = trip.endDate,
+                    baseCurrency = trip.baseCurrency,
+                    budgetMinor = trip.budgetMinor,
+                ),
+            )
+        }.getOrNull()
+    }
+
+    /**
+     * True when the trip has a budget that a code cannot carry.
+     *
+     * Thirty-two bits of minor units is about four crore; a budget above that is left
+     * out of the code rather than rounded, and the sharing page says so instead of
+     * letting the other phone quietly acquire a cheaper trip.
+     */
+    public fun tripCodeDroppedBudget(): Boolean {
+        val trip = _state.value.trip ?: return false
+        if (trip.budgetMinor == null) return false
+        val code = tripCode() ?: return false
+        return ShareCodes.decodeTripOrNull(code)?.budgetMinor == null
+    }
+
+    public fun copyTripCode() {
+        val code = tripCode() ?: return
+        val copied = clipboard?.copy(code) == true
+        _state.value = _state.value.copy(codeCopied = copied)
+        if (copied) say("The trip code is on the clipboard.")
+    }
+
+    /**
+     * The line that hands one day's figures to somebody else.
+     *
+     * Only a finished day, and only amounts the person confirmed: a photograph still
+     * waiting for a figure is not a figure to hand over. Null when the day has nothing
+     * in it, which is a real answer and one the page states.
+     */
+    public fun ledgerCodeFor(day: LocalDay): String? {
+        val trip = _state.value.trip ?: return null
+        val captures = _state.value.dayCapturesAll[day.iso].orEmpty()
+            .filter { it.state == CaptureState.CONFIRMED || it.state == CaptureState.ARCHIVED }
+            .filter { it.amountMinor != null && it.currency != null }
+        if (captures.isEmpty()) return null
+        val name = settings.displayName.trim().ifEmpty { "me" }
+        return runCatching {
+            ShareCodes.encodeLedger(
+                ShareCodes.Ledger(
+                    traveller = name,
+                    entries = captures.map { capture ->
+                        ShareCodes.Entry(
+                            day = capture.localDate,
+                            amountMinor = capture.amountMinor ?: 0L,
+                            currency = capture.currency ?: trip.baseCurrency,
+                            category = capture.category,
+                            merchantInitials = initialsOf(capture.merchant),
+                        )
+                    },
+                ),
+            )
+        }.getOrNull()
+    }
+
+    public fun copyLedgerCode(day: LocalDay) {
+        val code = ledgerCodeFor(day)
+        if (code == null) {
+            // A button that copies nothing and says nothing is the one thing this app
+            // does not do. Say why there is no line to hand over.
+            say("That day has no confirmed figures to hand over yet.")
+            return
+        }
+        val copied = clipboard?.copy(code) == true
+        _state.value = _state.value.copy(codeCopied = copied)
+        if (copied) say("The day is on the clipboard — send the whole line.")
+    }
+
+    /** Opening the join page: a blank code, and nothing remembered from last time. */
+    public fun openJoinTrip() {
+        _state.value = _state.value.copy(joinCode = "", joinName = "", joinPlan = null, joinError = null)
+        go(Route.JoinTrip)
+    }
+
+    /** Types a code, and says what it is the moment it reads. */
+    public fun editJoinCode(text: String) {
+        _state.value = _state.value.copy(
+            joinCode = text,
+            joinPlan = ShareCodes.decodeTripOrNull(text),
+            joinError = ShareCodes.tripProblem(text),
+        )
+    }
+
+    public fun editJoinName(text: String) {
+        _state.value = _state.value.copy(joinName = text)
+    }
+
+    /**
+     * Creates the trip the code describes.
+     *
+     * A joined trip is an ordinary trip in every respect - it gets its own day cards,
+     * its own shutter and its own card - because the plan is data, not a subscription.
+     * Nothing here will ever update when the other phone does something.
+     */
+    public fun joinTrip() {
+        val plan = _state.value.joinPlan ?: return
+        val name = _state.value.joinName.trim().ifEmpty { "the shared trip" }
+        scope.launch {
+            val trip = Trip(
+                id = newId(),
+                name = name,
+                startDate = plan.start,
+                endDate = plan.end,
+                baseCurrency = plan.baseCurrency,
+                homeCurrency = plan.baseCurrency,
+                budgetMinor = plan.budgetMinor,
+            )
+            runCatching {
+                store.createTrip(trip)
+                _state.value = _state.value.copy(joinCode = "", joinName = "", joinPlan = null, joinError = null)
+                bindTrip(trip)
+                // The join page is behind this trip now, not under it: Back from Home
+                // should leave the app, not offer to join the same trip again.
+                _state.value = _state.value.copy(history = emptyList())
+                say("Joined “$name”. The plan is yours now — nothing syncs.")
+            }.onFailure(::report)
+        }
+    }
+
+    /** The hand-off page: both directions, in one place. */
+    public fun openHandoff() {
+        _state.value = _state.value.copy(ledgerPaste = "", ledgerPreview = null, ledgerError = null, codeCopied = false)
+        go(Route.Handoff)
+    }
+
+    /** Types or pastes a traveller's line, and says what it says. */
+    public fun editLedgerPaste(text: String) {
+        _state.value = _state.value.copy(
+            ledgerPaste = text,
+            ledgerPreview = ShareCodes.decodeLedgerOrNull(text),
+            ledgerError = ShareCodes.ledgerProblem(text),
+        )
+    }
+
+    /**
+     * Stores a traveller's figures beside this trip.
+     *
+     * The same line pasted twice is refused by its fingerprint rather than added
+     * twice: a code can be handed over more than once, and a doubled total is the
+     * first thing that would make this feature untrustworthy.
+     */
+    public fun addPastedLedger() {
+        val trip = _state.value.trip ?: return
+        val ledger = _state.value.ledgerPreview ?: return
+        val fingerprint = ShareCodes.fingerprint(_state.value.ledgerPaste)
+        scope.launch {
+            runCatching {
+                if (store.travellerByCode(trip.id, fingerprint) != null) {
+                    _state.value = _state.value.copy(ledgerError = "That ledger is already on this trip.")
+                    return@runCatching
+                }
+                val traveller = Traveller(
+                    id = newId(),
+                    tripId = trip.id,
+                    name = ledger.traveller,
+                    addedAt = clock.nowMillis(),
+                    codeFingerprint = fingerprint,
+                    entries = ledger.entries.map { entry ->
+                        TravellerEntry(
+                            day = entry.day,
+                            amountMinor = entry.amountMinor,
+                            currency = entry.currency,
+                            category = entry.category,
+                            merchantInitials = entry.merchantInitials,
+                        )
+                    },
+                )
+                store.addTraveller(traveller)
+                _state.value = _state.value.copy(ledgerPaste = "", ledgerPreview = null, ledgerError = null)
+                loadTravellers(trip)
+                say("${ledger.traveller}’s figures are here — ${ledger.entries.size} lines.")
+            }.onFailure(::report)
+        }
+    }
+
+    /** Takes a traveller off this trip. Their rows go; yours were never touched. */
+    public fun removeTraveller(id: String) {
+        val trip = _state.value.trip ?: return
+        scope.launch {
+            runCatching {
+                val name = _state.value.travellers.firstOrNull { it.id == id }?.name
+                store.removeTraveller(id)
+                loadTravellers(trip)
+                if (name != null) say("$name’s figures are off the trip.")
+            }.onFailure(::report)
+        }
+    }
+
+    /** Two initials for a merchant, so a handed-over line stays a line. */
+    private fun initialsOf(merchant: String?): String? {
+        val words = merchant.orEmpty().split(' ', '-', '.', ',', '/').filter { it.isNotBlank() }
+        if (words.isEmpty()) return null
+        return words.take(2).joinToString("") { word -> word.first().uppercase() }
+    }
+
+    /**
+     * Converts somebody else's figures into the trip's money for one window.
+     *
+     * The same rule as the record's own total, in the same place: an amount with no
+     * rate is named in its own currency and is never added to one in another.
+     */
+    private fun sharesFor(
+        travellers: List<Traveller>,
+        trip: Trip,
+        day: LocalDay?,
+    ): List<TravellerShare> = travellers.mapNotNull { traveller ->
+        val entries = traveller.entriesOn(day)
+        if (entries.isEmpty()) return@mapNotNull null
+        var base = 0L
+        val unconverted = mutableMapOf<String, Long>()
+        entries.forEach { entry ->
+            val conversion = fx.convert(
+                Money.ofMinor(entry.amountMinor),
+                entry.currency,
+                trip.baseCurrency,
+                entry.day,
+            )
+            if (conversion.applied) {
+                base += conversion.amount.minorUnits
+            } else {
+                unconverted[entry.currency.code] = (unconverted[entry.currency.code] ?: 0L) + entry.amountMinor
+            }
+        }
+        TravellerShare(traveller = traveller, baseMinor = base, unconverted = unconverted)
+    }
+
+    private suspend fun loadTravellers(trip: Trip) {
+        val travellers = runCatching { store.travellers(trip.id) }.getOrDefault(emptyList())
+        _state.value = _state.value.copy(
+            travellers = travellers,
+            travellerShares = sharesFor(travellers, trip, null),
+            travellerSharesForDay = sharesFor(travellers, trip, _state.value.today),
+        )
+    }
+
     private suspend fun loadTripDays(trip: Trip) {
         val all = store.confirmedForTrip(trip.id) + store.openCaptures().filter { it.tripId == trip.id }
         val byDay = all.groupBy { it.localDate.iso }
@@ -2095,6 +2410,10 @@ public class AppModel(
                 fx = fx,
                 baseCurrency = trip.baseCurrency,
             ),
+            // Somebody else's figures, quoted beside the day rather than merged into
+            // it: the same conversion rule, and the same refusal to add an amount that
+            // has no rate.
+            travellerSharesForDay = sharesFor(_state.value.travellers, trip, day),
         )
         loadTripDays(trip)
         _state.value = _state.value.copy(

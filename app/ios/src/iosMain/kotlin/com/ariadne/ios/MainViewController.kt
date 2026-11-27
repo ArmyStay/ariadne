@@ -22,6 +22,7 @@ import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
 import platform.StoreKit.SKStoreReviewController
 import platform.UIKit.UIActivityViewController
+import platform.UIKit.UIPasteboard
 import platform.UIKit.popoverPresentationController
 import platform.UIKit.UIViewController
 import platform.CoreGraphics.CGRectGetMidX
@@ -70,6 +71,20 @@ private class IosServices : PlatformServices {
     )
 
     override fun recognizer(): TextRecognizer = VisionTextRecognizer()
+
+    /**
+     * The system pasteboard.
+     *
+     * Read back after writing rather than trusting the setter: iOS will refuse the
+     * write in some contexts, and "copied" must mean copied.
+     */
+    override fun clipboard(): com.ariadne.app.Clipboard = object : com.ariadne.app.Clipboard {
+        override fun copy(text: String): Boolean {
+            val pasteboard = UIPasteboard.generalPasteboard
+            pasteboard.string = text
+            return pasteboard.string == text
+        }
+    }
 
     override fun reviewManager(): AppReviewManager = object : AppReviewManager {
         override fun requestReview() = SKStoreReviewController.requestReview()
