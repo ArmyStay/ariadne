@@ -65,6 +65,7 @@ public fun CurrencyField(
     paper: Paper,
     note: String? = null,
     glyph: Glyph = Glyph.Budget,
+    wrapNote: Boolean = false,
     onChoose: (String) -> Unit,
 ) {
     var open by remember(label) { mutableStateOf(false) }
@@ -82,16 +83,15 @@ public fun CurrencyField(
         ) {
             Icon(glyph, paper, size = 16.dp, color = paper.inkSoft)
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).padding(end = if (wrapNote) 12.dp else 0.dp)) {
                 Title(label, paper, size = 17.sp)
                 Spacer(Modifier.height(3.dp))
-                Label(
-                    note ?: (chosen?.name ?: "a code outside the catalogue"),
-                    paper,
-                    color = paper.inkFaint,
-                    size = 9.sp,
-                    tracking = 1.1.sp,
-                )
+                val description = note ?: (chosen?.name ?: "a code outside the catalogue")
+                if (wrapNote) {
+                    Body(description, paper, color = paper.inkSoft, size = 12.sp, lineHeight = 17.sp)
+                } else {
+                    Label(description, paper, color = paper.inkFaint, size = 9.sp, tracking = 1.1.sp)
+                }
             }
             Numeral(code, paper, size = 18.sp, weight = FontWeight.Medium, color = paper.ink)
             Spacer(Modifier.width(8.dp))

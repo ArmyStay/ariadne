@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -176,34 +177,29 @@ public fun FramePage(
                 }
             }
         } else {
-            // Nothing scrolls and nothing overlaps. The card is given whatever height
-            // is left between the head and the two answers, and the photograph inside
-            // it takes what the card's own head leaves: on a phone that is the
-            // largest picture the page can hold, on a small window it shrinks rather
-            // than pushing the amount off the bottom.
-            Spacer(Modifier.height(18.dp))
-            PhotoCard(
-                capture = capture,
-                model = model,
-                paper = paper,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(horizontal = Bone.Margin),
-            )
-            Spacer(Modifier.height(20.dp))
-            Column(Modifier.fillMaxWidth().padding(horizontal = Bone.Margin)) {
-                SheetReadout(headline, subline, paper)
-                Spacer(Modifier.height(22.dp))
-                SheetActions(
-                    status = status,
-                    paper = paper,
-                    onKeep = { model.keepFrameForLater() },
-                    onOpen = { model.openFrame(capture.id) },
-                    onSay = say,
-                    listening = listening,
-                )
-                Spacer(Modifier.height(18.dp))
+            // A compact window or enlarged system text can scroll instead of
+            // squeezing the photograph or hiding the actions below the screen.
+            BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+                val photoHeight = (maxHeight * 0.36f).coerceIn(160.dp, 300.dp)
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                        .padding(horizontal = Bone.Margin),
+                ) {
+                    Spacer(Modifier.height(16.dp))
+                    PhotoCard(capture, model, paper, photoHeight = photoHeight)
+                    Spacer(Modifier.height(20.dp))
+                    SheetReadout(headline, subline, paper)
+                    Spacer(Modifier.height(20.dp))
+                    SheetActions(
+                        status = status,
+                        paper = paper,
+                        onKeep = { model.keepFrameForLater() },
+                        onOpen = { model.openFrame(capture.id) },
+                        onSay = say,
+                        listening = listening,
+                    )
+                    Spacer(Modifier.height(24.dp))
+                }
             }
         }
     }
@@ -233,8 +229,7 @@ private fun SheetHead(
         // it away, and this app has no button for the second thing.
         SheetBack(paper, onBack)
         Spacer(Modifier.width(2.dp))
-        Title(title, paper, size = 24.sp, lineHeight = 28.sp)
-        Spacer(Modifier.weight(1f))
+        Title(title, paper, size = 24.sp, lineHeight = 28.sp, modifier = Modifier.weight(1f))
         Spacer(Modifier.width(10.dp))
         StatusPill(status, paper)
     }
@@ -294,7 +289,7 @@ private fun PhotoCard(
 /** What was kept, what is still owed, and where it is owed. */
 @Composable
 private fun SheetReadout(headline: String, subline: String, paper: Paper) {
-    Label("photograph kept", paper, color = paper.inkGhost, size = 8.sp, tracking = 1.2.sp)
+    Label("photograph kept", paper, color = paper.inkFaint, size = 8.sp, tracking = 1.2.sp)
     Spacer(Modifier.height(10.dp))
     Title(headline, paper, size = 27.sp, lineHeight = 33.sp)
     Spacer(Modifier.height(8.dp))
@@ -349,7 +344,7 @@ private fun SheetActions(
 private fun SheetBack(paper: Paper, onClick: () -> Unit) {
     Box(
         Modifier
-            .size(44.dp)
+            .size(48.dp)
             .semantics { contentDescription = "Back" }
             .tap("Go back one page") { onClick() },
         contentAlignment = Alignment.Center,

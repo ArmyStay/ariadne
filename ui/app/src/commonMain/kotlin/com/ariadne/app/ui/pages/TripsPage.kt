@@ -57,30 +57,25 @@ import com.ariadne.design.tap
  */
 @Composable
 public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(paper.bg)
-            .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
+    val scroll = rememberScrollState()
+    Row(
+        Modifier.fillMaxSize().background(paper.bg)
+            .padding(horizontal = if (wide) 56.dp else Bone.Margin),
     ) {
-        // No plate number: the register is the shelf the plates sit on, not one
-        // of them. 01..09 belong to the pages of the trip itself.
-        Masthead(
-            number = "",
-            eyebrow = "The register",
-            title = "Trips",
-            paper = paper,
-            italic = true,
-            wide = wide,
-            lede = "Every journey this device holds. One of them is open.",
-        )
-
-        Spacer(Modifier.height(10.dp))
-        Rule(paper, color = paper.ink)
-
-        Row(Modifier.fillMaxWidth().weight(1f)) {
-        val scroll = rememberScrollState()
-        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(scroll)) {
+        Column(
+            Modifier.weight(1f).fillMaxHeight().verticalScroll(scroll)
+                .padding(vertical = 22.dp),
+        ) {
+            Masthead(
+                number = "",
+                eyebrow = "The register",
+                title = "Trips",
+                paper = paper,
+                italic = true,
+                wide = wide,
+                lede = "Every journey this device holds. One of them is open.",
+                compact = true,
+            )
             Spacer(Modifier.height(8.dp))
 
             if (state.trips.isEmpty()) {
@@ -114,8 +109,7 @@ public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
                 paper,
                 { model.startNewTrip() },
             )
-            Spacer(Modifier.height(10.dp))
-            Spacer(Modifier.height(26.dp))
+            Spacer(Modifier.height(24.dp))
             Rule(paper, color = paper.edge)
 
             // The space below the register is not padding: it holds the facts the
@@ -124,7 +118,7 @@ public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             val closed = state.trips.count { it.isClosed }
             val open = state.trips.size - closed
             Spacer(Modifier.height(20.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(34.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 ShelfFigure("journeys", state.trips.size.toString(), paper)
                 ShelfFigure("open", open.toString(), paper)
                 ShelfFigure("closed", closed.toString(), paper)
@@ -140,7 +134,6 @@ public fun TripsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             Spacer(Modifier.height(40.dp))
         }
         ScrollRail(scroll, paper, Modifier.fillMaxHeight())
-        }
     }
 }
 
@@ -217,57 +210,36 @@ private fun TripEntry(
                 )
             }
             Column(Modifier.weight(1f)) {
-                Title(
-                    trip.name,
-                    paper,
-                    size = 21.sp,
-                    italic = false,
-                    color = if (active) paper.ink else paper.inkMid,
-                )
-                Spacer(Modifier.height(5.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Title(
+                        trip.name, paper, size = 21.sp, italic = false,
+                        color = if (active) paper.ink else paper.inkMid,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    if (active) {
+                        Tick(paper, width = 22.dp, color = paper.blue)
+                    } else {
+                        Label(if (trip.isClosed) "closed" else "open", paper,
+                            color = paper.inkFaint, size = 8.sp, tracking = 1.2.sp)
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.Top) {
                     Icon(Glyph.Place, paper, size = 13.dp, color = paper.inkFaint)
                     Spacer(Modifier.width(7.dp))
-                    Label(
-                        trip.place ?: "no place",
-                        paper,
-                        color = paper.inkFaint,
-                        size = 9.sp,
-                        tracking = 1.3.sp,
-                    )
-                    Spacer(Modifier.width(14.dp))
-                    Label(
-                        trip.dates(),
-                        paper,
-                        color = paper.inkFaint,
-                        size = 9.sp,
-                        tracking = 1.3.sp,
+                    Body(
+                        "${trip.place ?: "No place"} · ${trip.dates()}",
+                        paper, color = paper.inkSoft, size = 12.sp, lineHeight = 17.sp,
+                        modifier = Modifier.weight(1f),
                     )
                 }
-            }
-            Spacer(Modifier.width(16.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                Numeral(
-                    trip.budgetMinor?.let { Money.ofMinor(it).format(trip.baseCurrency) } ?: "—",
-                    paper,
-                    color = if (trip.budgetMinor == null) paper.inkFaint else paper.inkMid,
-                    size = 15.sp,
+                Spacer(Modifier.height(8.dp))
+                Body(
+                    trip.budgetMinor?.let { "Budget · ${Money.ofMinor(it).formatWithSymbol(trip.baseCurrency)}" }
+                        ?: "No budget set",
+                    paper, color = paper.inkMid, size = 12.sp, lineHeight = 17.sp,
                 )
-                Spacer(Modifier.height(5.dp))
-                if (active) {
-                    // The one blue thing on this page.
-                    Tick(paper, width = 22.dp, color = paper.blue)
-                } else {
-                    // An open trip that is simply not the active one is not
-                    // "closed"; only a closed trip says so.
-                    Label(
-                        if (trip.isClosed) "closed" else "open",
-                        paper,
-                        color = paper.inkFaint,
-                        size = 8.sp,
-                        tracking = 1.2.sp,
-                    )
-                }
             }
         }
     }

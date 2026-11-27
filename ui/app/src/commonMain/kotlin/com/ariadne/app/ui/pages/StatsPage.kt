@@ -3,6 +3,8 @@ package com.ariadne.app.ui.pages
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -24,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.CornerRadius
@@ -192,13 +195,32 @@ private fun CardHead(
     label: String,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        DiscBadge(paper, glyph = glyph)
-        Spacer(Modifier.width(12.dp))
-        Label(label, paper, color = paper.inkMid, size = 9.sp, tracking = 1.5.sp)
-        if (trailing != null) {
-            Spacer(Modifier.weight(1f))
-            trailing()
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (trailing != null && PicturedPageLayout.stack(maxWidth.value, 340f, fontScale)) {
+            Column(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    DiscBadge(paper, glyph = glyph)
+                    Spacer(Modifier.width(12.dp))
+                    Body(label, paper, color = paper.inkMid, size = 13.sp, lineHeight = 18.sp)
+                }
+                Spacer(Modifier.height(10.dp))
+                Box(Modifier.align(Alignment.End)) { trailing() }
+            }
+        } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                DiscBadge(paper, glyph = glyph)
+                Spacer(Modifier.width(12.dp))
+                if (trailing != null) {
+                    Box(Modifier.weight(1f)) {
+                        Body(label, paper, color = paper.inkMid, size = 13.sp, lineHeight = 18.sp)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    trailing()
+                } else {
+                    Body(label, paper, color = paper.inkMid, size = 13.sp, lineHeight = 18.sp)
+                }
+            }
         }
     }
 }
@@ -208,63 +230,42 @@ private fun CardHead(
 @Composable
 private fun TripTotalCard(state: AppUiState, base: CurrencyCode, total: Long, paper: Paper, wide: Boolean) {
     Leaf(paper) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f)) {
-                CardHead(paper, Glyph.Trip, "the trip so far")
-                Spacer(Modifier.height(if (wide) 18.dp else 16.dp))
-                // Two type sizes, one baseline: the symbol is smaller than the figure,
-                // never lower than it. Bottom-aligning them put the rupee under the
-                // digits' descender and it read as a separate mark.
-                Row {
-                    Numeral(
-                        base.symbol(),
-                        paper,
-                        color = paper.inkFaint,
-                        size = if (wide) 24.sp else 19.sp,
-                        modifier = Modifier.alignByBaseline(),
-                    )
-                    Numeral(
-                        // Counts to the new total rather than snapping: this figure is
-                        // read against a fence, and seeing which way it moved is the point.
-                        Money.ofMinor(animatedLong(total)).format(base),
-                        paper,
-                        size = if (wide) 46.sp else 36.sp,
-                        weight = FontWeight.Medium,
-                        modifier = Modifier.alignByBaseline().padding(start = 4.dp),
-                    )
-                }
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                Label("finished entries only", paper, color = paper.inkFaint, size = 8.sp, tracking = 1.1.sp)
-                val budget = state.trip?.budgetMinor
-                if (budget != null) {
-                    val remaining = budget - total
-                    Spacer(Modifier.height(if (wide) 14.dp else 10.dp))
-                    Label("against a budget of", paper, color = paper.inkFaint, size = 8.sp, tracking = 1.1.sp)
-                    Spacer(Modifier.height(3.dp))
-                    // The fence and which side of it, in one line: the number under
-                    // it is the distance, and it never wears red.
-                    Label(
-                        Money.ofMinor(budget).formatWithSymbol(base) + if (remaining >= 0) " left" else " over",
-                        paper,
-                        color = paper.inkMid,
-                        size = 9.sp,
-                        tracking = 1.0.sp,
-                    )
-                    Spacer(Modifier.height(7.dp))
-                    Numeral(
-                        Money.ofMinor(abs(remaining)).format(base),
-                        paper,
-                        color = paper.blue,
-                        size = if (wide) 20.sp else 17.sp,
-                        weight = FontWeight.Medium,
-                    )
-                } else {
-                    Spacer(Modifier.height(if (wide) 14.dp else 10.dp))
-                    Label("no budget set", paper, color = paper.inkFaint, size = 8.sp, tracking = 1.1.sp)
-                }
-            }
+        CardHead(paper, Glyph.Trip, "the trip so far")
+        Spacer(Modifier.height(if (wide) 18.dp else 14.dp))
+        // The total has its own line. Long amounts can be scrolled instead of
+        // overlapping the budget or being silently truncated on narrow screens.
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+            Numeral(
+                base.symbol(), paper, color = paper.inkFaint,
+                size = if (wide) 24.sp else 19.sp,
+                modifier = Modifier.alignByBaseline(),
+            )
+            Numeral(
+                Money.ofMinor(animatedLong(total)).format(base), paper,
+                size = if (wide) 46.sp else 36.sp, weight = FontWeight.Medium,
+                modifier = Modifier.alignByBaseline().padding(start = 4.dp),
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Label("finished entries only", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.1.sp)
+        val budget = state.trip?.budgetMinor
+        if (budget != null) {
+            val remaining = budget - total
+            Spacer(Modifier.height(16.dp))
+            Rule(paper, color = paper.edge)
+            Spacer(Modifier.height(12.dp))
+            Body(
+                "Budget: ${Money.ofMinor(budget).formatWithSymbol(base)}",
+                paper, color = paper.inkSoft, size = 13.sp, lineHeight = 19.sp,
+            )
+            Spacer(Modifier.height(4.dp))
+            Body(
+                "${Money.ofMinor(abs(remaining)).formatWithSymbol(base)} ${if (remaining >= 0) "left" else "over budget"}",
+                paper, color = paper.blue, size = 16.sp, lineHeight = 22.sp,
+            )
+        } else {
+            Spacer(Modifier.height(12.dp))
+            Label("no budget set", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.1.sp)
         }
         Spacer(Modifier.height(16.dp))
         Rule(paper, color = paper.edge)
@@ -344,10 +345,12 @@ private fun SpendChart(values: List<Pair<LocalDay, Long>>, base: CurrencyCode, p
     val ticks = (0..4).map { it * step }
     val peak = values.maxByOrNull { it.second }?.takeIf { it.second > 0 }
     val chartHeight = if (values.size > 14) 118.dp else 134.dp
+    val fontScale = LocalDensity.current.fontScale
+    val labelWidth = 28.dp * fontScale.coerceAtLeast(1f)
 
     Row(Modifier.fillMaxWidth()) {
         // The money, down the left, each label level with its own rule.
-        Box(Modifier.width(42.dp).height(chartHeight)) {
+        Box(Modifier.width((42.dp * fontScale.coerceAtLeast(1f)).coerceAtMost(76.dp)).height(chartHeight)) {
             ticks.forEachIndexed { index, tick ->
                 Box(
                     Modifier
@@ -369,51 +372,29 @@ private fun SpendChart(values: List<Pair<LocalDay, Long>>, base: CurrencyCode, p
         Column(Modifier.weight(1f)) {
             Box(Modifier.fillMaxWidth().height(chartHeight)) {
                 Plot(values, top, paper, Modifier.fillMaxSize())
-                if (peak != null) {
-                    // The largest day, named. A chart without one number on it makes
-                    // the reader estimate, and this page exists to avoid estimating.
-                    BoxWithConstraints(Modifier.fillMaxSize()) {
-                        val slot = maxWidth / values.size
-                        val centre = slot * (values.indexOf(peak) + 0.5f)
-                        val barTop = chartHeight * (1f - (peak.second.toDouble() / top).toFloat())
-                        val bubbleWidth = 92.dp
-                        val inset = 4.dp
-                        Box(
-                            Modifier
-                                .offset(
-                                    x = (centre - bubbleWidth / 2)
-                                        .coerceIn(inset, (maxWidth - bubbleWidth - inset).coerceAtLeast(inset)),
-                                    y = (barTop - 30.dp).coerceIn(0.dp, chartHeight - 26.dp),
-                                )
-                                .widthIn(min = bubbleWidth)
-                                .background(paper.raised, RoundedCornerShape(9.dp))
-                                .border(Bone.Hairline, paper.edge, RoundedCornerShape(9.dp))
-                                .padding(horizontal = 8.dp, vertical = 5.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Numeral(
-                                Money.ofMinor(peak.second).formatWithSymbol(base),
-                                paper,
-                                color = paper.blue,
-                                size = 10.sp,
-                            )
+            }
+            Spacer(Modifier.height(9.dp))
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                // Do not squeeze every date into a long trip's chart. Bars keep
+                // their positions; only the tick labels are thinned to fit.
+                val stride = PicturedPageLayout.chartLabelStride(values.size, maxWidth.value, fontScale)
+                Box(Modifier.fillMaxWidth().height(16.dp * fontScale.coerceAtLeast(1f))) {
+                    values.forEachIndexed { index, (day, _) ->
+                        if (index % stride == 0) {
+                            val x = (maxWidth * ((index + 0.5f) / values.size) - labelWidth / 2)
+                                .coerceIn(0.dp, (maxWidth - labelWidth).coerceAtLeast(0.dp))
+                            Box(Modifier.offset(x = x).width(labelWidth.coerceAtMost(maxWidth)), contentAlignment = Alignment.Center) {
+                                Body(day.iso.takeLast(2), paper, color = paper.inkFaint,
+                                    size = 9.sp, lineHeight = 10.sp)
+                            }
                         }
                     }
                 }
             }
-            Spacer(Modifier.height(9.dp))
-            Row(Modifier.fillMaxWidth()) {
-                values.forEach { (day, _) ->
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        Body(
-                            day.iso.takeLast(2),
-                            paper,
-                            color = paper.inkFaint,
-                            size = 9.sp,
-                            lineHeight = 10.sp,
-                        )
-                    }
-                }
+            if (peak != null) {
+                Spacer(Modifier.height(10.dp))
+                Body("Highest day: ${peak.first.iso} · ${Money.ofMinor(peak.second).formatWithSymbol(base)}",
+                    paper, color = paper.inkSoft, size = 12.sp, lineHeight = 18.sp)
             }
         }
     }
@@ -440,7 +421,7 @@ private fun Plot(values: List<Pair<LocalDay, Long>>, top: Long, paper: Paper, mo
         }
 
         val slot = width / values.size
-        val barWidth = (slot * 0.5f).coerceIn(6.dp.toPx(), 22.dp.toPx())
+        val barWidth = (slot * 0.6f).coerceAtMost(22.dp.toPx())
         values.forEachIndexed { index, (_, value) ->
             if (value <= 0L) return@forEachIndexed
             val barHeight = (value.toDouble() / top.toDouble()).toFloat() * height
