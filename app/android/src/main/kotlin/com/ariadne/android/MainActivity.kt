@@ -33,10 +33,10 @@ class MainActivity : ComponentActivity() {
         // Must be called before super.onCreate(); shows the system splash
         // (the activity theme is @style/Theme.App.Starting) until the app is up.
         installSplashScreen()
-        AppLogger.initialize(BuildConfig.DEBUG)
+        AppLogger.initialize()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val startMock = intent.getBooleanExtra("mock_glasses", false) || intent.hasExtra("mock_glasses")
+        val startMock = intent.getBooleanExtra("mock_glasses", false)
         wearable = AndroidWearableCapture(this, startMockServer = startMock)
         val initialBytes = intent.getByteArrayExtra("glasses_capture_bytes")
         graph = AppGraph(AndroidServices(this), SystemClock(), initialCaptureBytes = initialBytes)
@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        val startMock = intent.getBooleanExtra("mock_glasses", false) || intent.hasExtra("mock_glasses")
+        val startMock = intent.getBooleanExtra("mock_glasses", false)
         if (startMock && ::wearable.isInitialized) {
             wearable.enableMockServer()
         }

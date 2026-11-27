@@ -119,6 +119,25 @@ public fun CaptureOverlay(
             )
         }
 
+        val wearable = LocalWearableCapture.current
+        if (wearable != null && wearable.available) {
+            Spacer(Modifier.height(4.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Glyph.Camera, paper, size = 11.dp, color = paper.inkFaint)
+                Spacer(Modifier.width(6.dp))
+                QuietAction(
+                    if (wearable.connected) "AI Glasses connected" else "Connect AI Glasses",
+                    paper,
+                    { if (wearable.connected) wearable.disconnect() else wearable.connect() },
+                    color = paper.inkFaint,
+                )
+            }
+        }
+
         Row(
             Modifier.fillMaxWidth().padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,

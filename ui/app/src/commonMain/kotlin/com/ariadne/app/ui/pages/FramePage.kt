@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.contentDescription
@@ -110,11 +111,16 @@ public fun FramePage(
         return
     }
 
-    Box(Modifier.fillMaxSize().background(paper.bg)) {
-        // The photograph, whole, behind everything. Square and top-aligned, the same
-        // frame the viewfinder showed, so the shutter and the sheet are visibly the
-        // same object.
-        Box(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().background(paper.bg)) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .weight(0.64f)
+                .padding(horizontal = Bone.Margin, vertical = 8.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(paper.sunk)
+                .border(Bone.Hairline, paper.edgeStrong, RoundedCornerShape(2.dp)),
+        ) {
             PhotoPreview(
                 photoPath = capture.photoPath,
                 caption = model.titleOf(capture),
@@ -123,40 +129,36 @@ public fun FramePage(
             )
         }
 
-        // A scrim only over the part the sheet does not cover: enough to say "the
-        // picture is behind this", not enough to hide what was photographed.
-        Box(Modifier.fillMaxSize().background(paper.scrim)) { }
-
-        // The sheet. Taller than it was, because it now carries the pair and the
-        // labelled sections rather than a figure and a keypad.
         Column(
             Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .fillMaxHeight(0.84f)
+                .weight(0.36f)
                 .background(paper.raised)
                 .border(width = Bone.Hairline, color = paper.edgeStrong),
         ) {
-            // The head of the sheet: the way out on the left, and what this
-            // photograph still owes on the right. Closing keeps the photograph —
-            // it lands in the tray, which is the whole promise of the product.
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = Bone.Margin - 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Back, drawn: the same move as the system gesture, in the corner a
-                // phone puts it. It keeps the photograph — putting it away is not the
-                // same as throwing it away, and this app never has a button for that.
                 SheetBack(paper) { model.keepFrameForLater() }
                 Spacer(Modifier.width(2.dp))
-                Label(
-                    "the photograph is kept",
-                    paper,
-                    color = paper.inkGhost,
-                    size = 8.sp,
-                    tracking = 1.0.sp,
-                )
-                Spacer(Modifier.weight(1f))
+                Column(Modifier.weight(1f)) {
+                    Label(
+                        "the photograph is kept",
+                        paper,
+                        color = paper.inkFaint,
+                        size = 8.sp,
+                        tracking = 1.0.sp,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Label(
+                        longDay(capture.localDate) + " · " + model.clockTimeOf(capture.createdAt),
+                        paper,
+                        color = paper.inkGhost,
+                        size = 8.sp,
+                        tracking = 0.8.sp,
+                    )
+                }
                 Pill(
                     capture.entryStatus.label,
                     paper,
@@ -171,11 +173,10 @@ public fun FramePage(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Bone.Margin),
             ) {
-                QuickCaptureDetails(capture, model, paper)
-                Spacer(Modifier.height(20.dp))
+                QuickCaptureDetails(capture, model, paper, showLabel = false)
+                Spacer(Modifier.height(16.dp))
             }
 
-            // The two answers, pinned where a thumb is, never below the fold.
             Column(Modifier.fillMaxWidth().padding(horizontal = Bone.Margin)) {
                 SheetActions(capture, model, paper)
                 Spacer(Modifier.height(12.dp))
@@ -201,9 +202,16 @@ private fun SheetActions(capture: Capture, model: AppModel, paper: Paper) {
 }
 
 @Composable
-private fun QuickCaptureDetails(capture: Capture, model: AppModel, paper: Paper) {
-    Label("Photograph kept", paper, color = paper.inkFaint, tracking = 1.2.sp)
-    Spacer(Modifier.height(8.dp))
+private fun QuickCaptureDetails(
+    capture: Capture,
+    model: AppModel,
+    paper: Paper,
+    showLabel: Boolean = true,
+) {
+    if (showLabel) {
+        Label("Photograph kept", paper, color = paper.inkFaint, tracking = 1.2.sp)
+        Spacer(Modifier.height(8.dp))
+    }
     Title(model.titleOf(capture), paper, size = 23.sp)
     Spacer(Modifier.height(8.dp))
     Body(

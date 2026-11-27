@@ -157,16 +157,18 @@ public fun CapturePage(
         if (wearable != null && wearable.available) {
             Spacer(Modifier.height(6.dp))
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Label("Meta AI Glasses: ${if (wearable.connected) "Connected" else "Discoverable"}", paper, color = paper.inkMid, size = 10.sp)
-                if (!wearable.connected) {
-                    QuietAction("Connect", paper, { wearable.connect() })
-                } else {
-                    QuietAction("Disconnect", paper, { wearable.disconnect() })
-                }
+                Icon(Glyph.Camera, paper, size = 11.dp, color = paper.inkFaint)
+                Spacer(Modifier.width(6.dp))
+                QuietAction(
+                    if (wearable.connected) "AI Glasses connected" else "Connect AI Glasses",
+                    paper,
+                    { if (wearable.connected) wearable.disconnect() else wearable.connect() },
+                    color = paper.inkFaint,
+                )
             }
         }
 

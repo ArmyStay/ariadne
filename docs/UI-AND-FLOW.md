@@ -508,12 +508,14 @@ RECORD** (`closeDetail()`).
 
 ### 5.8 The photograph sheet — `FramePage.kt`, overlay (or the legacy page)
 
-Bottom sheet at **84% height** over the photograph and a scrim, or, on a wide window, a
-two-column spread: the print on the left and the quick choice on the right.
+On a phone, the photograph has its own large framed stage across the upper 42% of the
+surface; the kept-state details and two choices sit on raised paper below it. The photo
+is no longer reduced to a narrow strip behind an opaque sheet. On a wide window, the
+existing two-column spread keeps the print on the left and the quick choice on the right.
 
 **Header row.** A drawn back chevron (44dp target, `contentDescription = "Back"`, calls
-`keepFrameForLater()`), then `the photograph is kept` (8sp, `inkGhost`), then a pill with
-the entry status.
+`keepFrameForLater()`), then `the photograph is kept` and the capture's day/time, then a
+pill with the entry status.
 
 **Quick choice.** `Photograph kept`; the photograph title; *"No amount is needed now.
 You can finish it at Close Day."* An unconfirmed OCR amount is shown quietly as a
