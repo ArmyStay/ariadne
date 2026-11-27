@@ -23,9 +23,10 @@ package com.ariadne.model
  *
  * Seventy bits, fixed: the start day (fourteen bits, days since 2020-01-01, so a code
  * reaches 2064 without a century byte), the number of nights (eight), the base currency
- * (three letters, five bits each), and a budget in minor units (one flag bit, thirty-two
- * bits). Sixteen characters after the `AR1` prefix, checksum included, written in groups
- * of four so it can be read down a phone line: `AR1-K7QM-2X9B-4HDR-8TQP`.
+ * (three letters, five bits each), a flag for the budget, and the budget in minor units
+ * (thirty-two bits, always present, zero when there is none — a code has to be the same
+ * length every time). Sixteen characters after the `AR1` prefix, checksum included, in
+ * groups of four so it can be read down a phone line: `AR1-K7QM-2X9B-4HDR-8TQP`.
  *
  * The trip's *name* is deliberately not in the payload. A name of the twenty-four bytes
  * the plan allowed would more than double the code and make it unreadable aloud, and a
@@ -138,7 +139,10 @@ public object ShareCodes {
         writer.write(nights, 8)
         code.forEach { letter -> writer.write((letter - 'A').toLong(), 5) }
         writer.write(if (budget == null) 0L else 1L, 1)
-        if (budget != null) writer.write(budget, 32)
+        // Written even when there is no budget, as zero. A code whose length depended
+        // on whether a trip had a budget would be two different codes to read, and the
+        // first thing a person types would be the thing that decides which.
+        writer.write(budget ?: 0L, 32)
         return format(TRIP_PREFIX, writer.finish())
     }
 
@@ -162,7 +166,8 @@ public object ShareCodes {
             val nights = reader.read(8)
             val currency = buildString(3) { repeat(3) { append('A' + reader.read(5).toInt()) } }
             val hasBudget = reader.read(1) == 1L
-            val budget = if (hasBudget) reader.read(32) else null
+            val carried = reader.read(32)
+            val budget = if (hasBudget) carried else null
             if (nights > MAX_NIGHTS) return Outcome.Failed(MISMATCH)
             val code = runCatching { CurrencyCode.of(currency) }.getOrNull()
                 ?: return Outcome.Failed("The code names a currency that is not three letters.")

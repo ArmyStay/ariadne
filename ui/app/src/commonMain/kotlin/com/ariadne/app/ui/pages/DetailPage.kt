@@ -158,6 +158,7 @@ public fun DetailPage(
                                 options = currencyOptions,
                                 keypad = true,
                                 readOnly = readOnly,
+                                deleteArmed = state.entryDeleteArmed,
                             )
                         }
                     }
@@ -194,6 +195,7 @@ public fun DetailPage(
                                 options = currencyOptions,
                                 keypad = false,
                                 readOnly = readOnly,
+                                deleteArmed = state.entryDeleteArmed,
                             )
                         }
                         Spacer(Modifier.height(20.dp))
@@ -256,7 +258,11 @@ private fun Fields(
     options: List<String>,
     keypad: Boolean,
     readOnly: Boolean = false,
+    /** Whether the first tap of "delete this photograph" has already happened. */
+    deleteArmed: Boolean = false,
 ) {
+    // Named `state` on purpose in this file, but it shadows the page's AppUiState, so
+    // anything from the page is passed in rather than read here.
     val state = capture
     Column(Modifier.fillMaxWidth()) {
         // The figure, set as type rather than as a box: it is the page's subject.
@@ -385,7 +391,7 @@ private fun Fields(
             // second does it. There is no undo offer afterwards, because there is
             // nothing left to undo — the bytes go with the row.
             Spacer(Modifier.height(22.dp))
-            if (state.entryDeleteArmed) {
+            if (deleteArmed) {
                 Body(
                     "Tap once more to delete this photograph and its figures. This cannot be " +
                         "undone, and there is no copy anywhere else.",
