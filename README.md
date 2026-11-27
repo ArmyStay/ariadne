@@ -19,15 +19,21 @@ published as an artifact.
 <p align="center"><em>Two stills from a phone, 27 November 2026 — the home screen and one day's record.
 A screen recording replaces this as soon as the next build is on the device.</em></p>
 
-**Four targets, one codebase, checked on every push:**
+**Four targets, one codebase, compiled on every push — and one of them is honest about
+what it does not have:**
 
-| Target | Checked by |
-| --- | --- |
-| Shared domain + UI | `./gradlew jvmTest` (JVM test suites across the shared modules) |
-| Android | `:app:android:assembleDebug` |
-| Desktop | `:app:desktop:compileKotlinJvm` |
-| iOS | `:app:ios:compileKotlinIosArm64` + `compileKotlinIosSimulatorArm64` |
-| WebAssembly | `:app:wasm:compileKotlinWasmJs` |
+| Target | Checked by | What it can do |
+| --- | --- | --- |
+| Shared domain + UI | `./gradlew jvmTest` (JVM test suites across the shared modules) | everything below is this code |
+| Android | `:app:android:assembleDebug` | the whole thing: camera, photo library, voice, glasses |
+| Desktop | `:app:desktop:compileKotlinJvm` | the ledger, the record, import from a file dialog, Tesseract |
+| iOS | `:app:ios:compileKotlinIosArm64` + `compileKotlinIosSimulatorArm64` | **the ledger, search, the trip card, the codes — no camera, no photo import** |
+| WebAssembly | `:app:wasm:compileKotlinWasmJs` | the ledger, import from a file input, no OCR, data lives in the tab |
+
+The iOS line used to imply parity. It has no `PlatformPhotos` bridge, so the shutter has
+no sensor and the picker has no library there; saying so is better than a table that
+flatters the port. Closing that gap is a `PHPickerViewController` bridge and one Info.plist
+key — [on the human list](docs/HUMAN-TASKS.md).
 
 ## The promise this repo keeps in code, not in slides
 
@@ -56,6 +62,11 @@ You buy something small — a chai, a book, an extra train — and the receipt i
 pocket until it isn't. Ariadne's capture gesture is one photograph, under two seconds,
 with the phone already in your hand. **No amount is a legal entry**: the figure can
 arrive while the card is on screen, later at Close Day, or never.
+
+Two people can be on one trip without a server: one reads a code out, the other types it
+in, and both phones have the same plan. When a day closes, a second code carries its
+figures back — quoted beside your total, never merged into it. Nothing syncs. See
+[**two phones, one ledger**](docs/UI-AND-FLOW.md#9-two-phones-one-ledger).
 
 The record is per trip and per day. Home shows today's spend and what is waiting;
 Timeline shows the trip and its days; Stats breaks it down; the record lists what you

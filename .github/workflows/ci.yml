@@ -39,25 +39,24 @@ jobs:
           set -o pipefail
           ./gradlew :app:android:assembleDebug :app:wasm:compileKotlinWasmJs :app:wasm:wasmJsBrowserDistribution --console=plain --stacktrace 2>&1 | tee -a "$RUNNER_TEMP/build.log"
 
-      - name: compiler errors, as annotations
-        # The run log is not always reachable (proxies, corporate networks, a reviewer
-        # on a phone). Kotlin's compiler errors are the one thing worth reading in it,
-        # so they are lifted out and posted as check-run annotations, which the API and
-        # the PR page both serve.
+      - name: what failed, in one annotation
+        # The run log is not reachable from every network, and "the build is red" with no
+        # line numbers is not a review. The diagnostics are lifted into a *single*
+        # annotation with encoded newlines, because GitHub caps how many annotations a
+        # step may post — ten separate warnings used to use up the whole budget before
+        # the error was reached.
         if: failure()
         run: |
           set -o pipefail
-          if [ -f "$RUNNER_TEMP/build.log" ]; then
-            # Compiler diagnostics first, then the lines a failed test prints —
-            # the two things that explain a red run without the log.
-            grep -E "^(e|w): file:///" "$RUNNER_TEMP/build.log" | head -40 | while IFS= read -r line; do
-              echo "::error::$(printf '%s' "$line" | sed 's|file:///home/runner/work/ariadne/ariadne/||')"
-            done
-            grep -E "FAILED|AssertionError|Expected|tests completed" "$RUNNER_TEMP/build.log" \
-              | head -20 | while IFS= read -r line; do
-              echo "::error::$(printf '%s' "$line")"
-            done
+          [ -f "$RUNNER_TEMP/build.log" ] || exit 0
+          summary=$(sed 's|file:///home/runner/work/ariadne/ariadne/||' "$RUNNER_TEMP/build.log" \
+            | grep -E "^e: |FAILED|AssertionError|expected:|Expected|Caused by:|What went wrong|> Task .*FAILED" \
+            | head -40 | paste -sd '\n' -)
+          if [ -z "$summary" ]; then
+            summary=$(tail -n 25 "$RUNNER_TEMP/build.log")
           fi
+          encoded=$(printf '%s\n' "$summary" | awk '{printf "%s%%0A", $0}')
+          echo "::error::$encoded"
 
   desktop:
     name: desktop

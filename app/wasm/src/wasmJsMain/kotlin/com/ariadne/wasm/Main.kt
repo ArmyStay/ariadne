@@ -84,6 +84,16 @@ private class WasmServices : PlatformServices {
      */
     override fun files(): com.ariadne.app.PhotoFiles = BrowserPhotoFiles
 
+    /**
+     * The clipboard, via a textarea and `execCommand('copy')`.
+     *
+     * Not `navigator.clipboard.writeText`: that returns a promise, so a synchronous
+     * `copy(text): Boolean` could only guess whether it worked — and a button that
+     * says "copied" when it did not is worse than one that says nothing. The old
+     * command reports synchronously, and it needs no permission prompt.
+     */
+    override fun clipboard(): com.ariadne.app.Clipboard = BrowserClipboard
+
     override fun close() = Unit
 }
 
@@ -97,6 +107,31 @@ private object WasmDataArchiveExporter : DataArchiveExporter {
     override suspend fun saveZip(fileName: String, bytes: ByteArray): Boolean =
         downloadFile(fileName, "application/zip", bytes.toBase64())
 }
+
+private object BrowserClipboard : com.ariadne.app.Clipboard {
+    override fun copy(text: String): Boolean = copyTextToClipboard(text)
+}
+
+@OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+private fun copyTextToClipboard(text: String): Boolean = js(
+    """(() => {
+      try {
+        const field = document.createElement('textarea');
+        field.value = text;
+        field.setAttribute('readonly', '');
+        field.style.position = 'fixed';
+        field.style.top = '-1000px';
+        field.style.opacity = '0';
+        document.body.appendChild(field);
+        field.select();
+        const copied = document.execCommand('copy');
+        document.body.removeChild(field);
+        return copied === true;
+      } catch (e) {
+        return false;
+      }
+    })()""",
+)
 
 @OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
 private fun downloadPng(fileName: String, base64: String): Boolean = js(

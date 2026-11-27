@@ -287,6 +287,16 @@ public data class AppUiState(
      */
     public val deleteArmed: Boolean = false,
 
+    /**
+     * True once the person has tapped "delete this photograph" once.
+     *
+     * The same rule as a trip, for the same reason: there is no copy of this record
+     * anywhere else, so one tap is not enough consent. Kept separate from
+     * [deleteArmed] because arming one must not arm the other — a page with both
+     * offers would otherwise delete a trip on the second tap of a photograph.
+     */
+    public val entryDeleteArmed: Boolean = false,
+
     /** True for a moment after the card was copied, so the label can say so. */
     public val cardCopied: Boolean = false,
 

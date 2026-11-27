@@ -117,5 +117,22 @@ private class DesktopServices : PlatformServices {
 
     override fun files(): com.ariadne.app.PhotoFiles = DesktopFiles(photosDirectory)
 
+    /**
+     * The system clipboard, so a code can leave this window.
+     *
+     * Guarded rather than assumed: a headless session (a CI box rendering shots) has
+     * no clipboard at all, and `Toolkit.getDefaultToolkit()` throws there. Returning
+     * false is the honest answer, and the page then simply does not claim it copied.
+     */
+    override fun clipboard(): com.ariadne.app.Clipboard = object : com.ariadne.app.Clipboard {
+        override fun copy(text: String): Boolean = try {
+            java.awt.Toolkit.getDefaultToolkit().systemClipboard
+                .setContents(java.awt.datatransfer.StringSelection(text), null)
+            true
+        } catch (missing: Exception) {
+            false
+        }
+    }
+
     override fun close() = Unit
 }

@@ -1646,6 +1646,59 @@ public class AppModel(
         }
     }
 
+    /**
+     * Deletes one photograph's row, and its bytes.
+     *
+     * Two taps, never one, exactly as a trip is deleted: this is the only copy of
+     * the record, and an undo after the bytes are gone would be a lie. What does
+     * *not* happen matters too — the day's total, the trip's total and the search
+     * index are all re-read from the store afterwards, so nothing keeps quoting a
+     * figure whose receipt has just been thrown away.
+     */
+    public fun armEntryDeletion() {
+        _state.value = _state.value.copy(entryDeleteArmed = !_state.value.entryDeleteArmed)
+    }
+
+    public fun deleteEntryNow() {
+        val capture = _state.value.detail ?: return
+        if (!_state.value.entryDeleteArmed) return
+        val day = capture.localDate
+        scope.launch {
+            _state.value = _state.value.copy(busy = true)
+            runCatching {
+                // The bytes first, then the row: a row that outlives its file is a
+                // broken photograph on a page, and a file that outlives its row is
+                // only wasted space.
+                if (files != null && capture.photoPath.isNotBlank() &&
+                    !capture.photoPath.startsWith("demo:")
+                ) {
+                    runCatching { files.delete(capture.photoPath) }
+                }
+                store.delete(capture.id)
+                _state.value = _state.value.copy(
+                    busy = false,
+                    detail = null,
+                    sheetCaptureId = null,
+                    entryDeleteArmed = false,
+                )
+                _state.value.trip?.let { trip ->
+                    runCatching { index.rebuild(store.confirmedForTrip(trip.id)) }
+                    runCatching { refreshDay(day) }
+                    runCatching { loadTripDays(trip) }
+                }
+                if (back()) {
+                    say("The photograph is gone.")
+                } else {
+                    go(Route.Home)
+                    say("The photograph is gone.")
+                }
+            }.onFailure { failure ->
+                _state.value = _state.value.copy(busy = false)
+                report(failure)
+            }
+        }
+    }
+
     /** Leave the detail page for wherever it was opened from. */
     public fun closeDetail() {
         // Back, not a guessed destination: the detail page no longer has to

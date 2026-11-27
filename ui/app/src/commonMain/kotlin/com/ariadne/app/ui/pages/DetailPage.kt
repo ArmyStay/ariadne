@@ -379,6 +379,33 @@ private fun Fields(
             }
             Spacer(Modifier.height(10.dp))
             QuietAction("Leave it open", paper, { model.openRecord(capture.localDate) }, color = paper.inkSoft)
+
+            // The one destructive control in the book, and the two-tap rule it
+            // shares with deleting a trip. The first tap says what will go; the
+            // second does it. There is no undo offer afterwards, because there is
+            // nothing left to undo — the bytes go with the row.
+            Spacer(Modifier.height(22.dp))
+            if (state.entryDeleteArmed) {
+                Body(
+                    "Tap once more to delete this photograph and its figures. This cannot be " +
+                        "undone, and there is no copy anywhere else.",
+                    paper,
+                    serif = true,
+                    color = paper.inkSoft,
+                    size = 14.sp,
+                )
+                Spacer(Modifier.height(10.dp))
+                Action("Delete for good", paper, { model.deleteEntryNow() })
+                Spacer(Modifier.height(8.dp))
+                QuietAction("Keep it", paper, { model.armEntryDeletion() }, color = paper.inkSoft)
+            } else {
+                QuietAction(
+                    "Delete this photograph",
+                    paper,
+                    { model.armEntryDeletion() },
+                    color = paper.inkFaint,
+                )
+            }
         }
     }
 }
