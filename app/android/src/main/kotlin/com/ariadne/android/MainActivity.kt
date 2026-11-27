@@ -5,8 +5,12 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.ariadne.app.AppGraph
@@ -15,6 +19,7 @@ import com.ariadne.app.AppReviewManager
 import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
 import com.ariadne.app.ui.pages.LocalCamera
+import com.ariadne.app.ui.pages.LocalVoiceEntry
 import com.ariadne.app.ui.pages.LocalWearableCapture
 import com.ariadne.app.ui.pages.LocalPhotoImageRenderer
 import com.ariadne.app.ui.pages.LocalPhotoPicker
@@ -22,6 +27,8 @@ import com.ariadne.app.ui.pages.LocalTripCardImageExporter
 import com.ariadne.app.ui.pages.LocalDataArchiveExporter
 import com.ariadne.core.time.SystemClock
 import com.ariadne.extract.TextRecognizer
+import com.meta.wearable.dat.core.Wearables
+import android.speech.RecognizerIntent
 import com.google.android.play.core.review.ReviewManagerFactory
 
 class MainActivity : ComponentActivity() {
@@ -37,14 +44,32 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val startMock = intent.getBooleanExtra("mock_glasses", false) || intent.hasExtra("mock_glasses")
+        // The DAT has to be initialized once, before any other call, and before the
+        // glasses object can answer anything.
+        runCatching { Wearables.initialize(applicationContext) }
         wearable = AndroidWearableCapture(this, startMockServer = startMock)
+        wearable.attach(this)
+        val voice = AndroidVoiceEntry()
         val initialBytes = intent.getByteArrayExtra("glasses_capture_bytes")
         graph = AppGraph(AndroidServices(this), SystemClock(), initialCaptureBytes = initialBytes)
         val camera = AndroidCamera(this, this)
         setContent {
+            // The amount said out loud: the recogniser is another app, so it answers
+            // through this launcher and the transcript lands back in `voice`.
+            val speech = rememberLauncherForActivityResult(
+                ActivityResultContracts.StartActivityForResult(),
+            ) { result ->
+                val heard = result.data
+                    ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                    ?.firstOrNull()
+                voice.deliver(heard)
+            }
+            SideEffect { voice.launch = { wanted -> speech.launch(wanted) } }
+
             // The one place a camera is attached to the shared UI. Every other
             // target leaves the local empty and gets the ruled plate.
             CompositionLocalProvider(
+                LocalVoiceEntry provides voice,
                 LocalCamera provides camera,
                 LocalWearableCapture provides wearable,
                 LocalPhotoImageRenderer provides AndroidPhotoImageRenderer,

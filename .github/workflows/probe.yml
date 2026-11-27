@@ -14,30 +14,18 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - name: android debug
+      - name: compile every target
         run: |
           set +e
-          ./gradlew :app:android:assembleDebug --console=plain > /tmp/a.log 2>&1
-          echo "::warning::ANDROID exit=$?"
-          grep -A6 "What went wrong" /tmp/a.log | head -10 | while IFS= read -r l; do
-            echo "::error::A $l"
+          ./gradlew :app:android:assembleDebug --console=plain > /tmp/a.log 2>&1; a=$?
+          ./gradlew :app:wasm:compileKotlinWasmJs --console=plain > /tmp/w.log 2>&1; w=$?
+          ./gradlew :app:desktop:compileKotlinJvm --console=plain > /tmp/d.log 2>&1; d=$?
+          ./gradlew jvmTest --console=plain > /tmp/j.log 2>&1; j=$?
+          echo "::warning::EXIT android=$a wasm=$w desktop=$d jvm=$j"
+          grep -hE "^e: " /tmp/a.log /tmp/w.log /tmp/d.log /tmp/j.log | head -18 | while IFS= read -r l; do
+            echo "::error::$l"
           done
-          grep -E "^e: " /tmp/a.log | head -6 | while IFS= read -r l; do echo "::error::E $l"; done
+          grep -h -A4 "What went wrong" /tmp/a.log /tmp/w.log /tmp/d.log /tmp/j.log | head -8 | while IFS= read -r l; do
+            echo "::error::W $l"
+          done
           exit 0
-      - name: the three classes that matter
-        run: |
-          for art in mwdat-core mwdat-camera; do
-            find ~/.gradle/caches/modules-2/files-2.1/com.meta.wearable -name "$art*.aar" | head -1 | while read -r aar; do
-              d=$(mktemp -d); unzip -q -o "$aar" classes.jar -d "$d"
-              case $art in
-                mwdat-core) for cls in com.meta.wearable.dat.core.Wearables com.meta.wearable.dat.core.registration.RegistrationRequest;; do
-                  echo "::warning::JAVAP $cls"
-                  javap -classpath "$d/classes.jar:$d/classes.jar" "$cls" 2>&1 | head -14 | while IFS= read -r l; do echo "::warning::  $l"; done
-                done ;;
-                mwdat-camera) for cls in com.meta.wearable.dat.camera.Camera;; do
-                  echo "::warning::JAVAP $cls"
-                  javap -classpath "$d/classes.jar" "$cls" 2>&1 | head -18 | while IFS= read -r l; do echo "::warning::  $l"; done
-                done ;;
-              esac
-            done
-          done

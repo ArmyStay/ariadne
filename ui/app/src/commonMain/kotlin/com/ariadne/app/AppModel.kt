@@ -1464,6 +1464,46 @@ public class AppModel(
         }
     }
 
+    /**
+     * The amount, said out loud.
+     *
+     * A spoken figure is a decision, not a reading, so it lands confirmed: the entry
+     * stops asking, and the day's figure moves. The capture is resolved the way the
+     * sheet resolves it — the one the shutter just kept, else the one being edited,
+     * else the top of the stack — so the microphone works wherever the person is.
+     */
+    public fun hearAmount(minor: Long, currency: CurrencyCode?) {
+        if (minor <= 0L) return
+        val state = _state.value
+        val id = state.sheetCaptureId ?: state.detail?.id ?: state.stack.firstOrNull()?.id ?: return
+        val capture = state.dayCapturesAll.values.asSequence().flatten().firstOrNull { it.id == id }
+            ?: state.detail?.takeIf { it.id == id }
+            ?: state.stack.firstOrNull { it.id == id }
+            ?: return
+        val code = currency ?: capture.currency ?: state.trip?.baseCurrency ?: CurrencyCode.of("INR")
+        scope.launch {
+            store.updateDetails(
+                id = capture.id,
+                amountMinor = minor,
+                currencyCode = code.code,
+                merchant = capture.merchant,
+                markedNoAmount = false,
+                confirmedAt = clock.nowMillis(),
+            )
+            pinRate(capture, minor, code)
+            outbox.apply(capture.id, QueueEvent.AmountEntered)
+            outbox.apply(capture.id, QueueEvent.Confirmed)
+            refreshDay(capture.localDate)
+            val fresh = _state.value.dayCapturesAll.values.asSequence()
+                .flatten().firstOrNull { it.id == capture.id }
+            if (fresh != null) {
+                _state.value = _state.value.copy(
+                    detail = _state.value.detail?.let { if (it.id == fresh.id) fresh else it },
+                )
+            }
+        }
+    }
+
     public fun editDetailMerchant(text: String) {
         _state.value = _state.value.copy(detailMerchant = text.take(60))
     }
