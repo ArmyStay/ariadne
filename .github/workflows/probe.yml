@@ -22,21 +22,22 @@ jobs:
           grep -A6 "What went wrong" /tmp/a.log | head -10 | while IFS= read -r l; do
             echo "::error::A $l"
           done
+          grep -E "^e: " /tmp/a.log | head -6 | while IFS= read -r l; do echo "::error::E $l"; done
           exit 0
-      - name: core api
+      - name: the three classes that matter
         run: |
-          find ~/.gradle/caches/modules-2/files-2.1/com.meta.wearable -name 'mwdat-core*.aar' | head -1 | while read -r aar; do
-            d=$(mktemp -d); unzip -q -o "$aar" classes.jar -d "$d"
-            unzip -l "$d/classes.jar" | awk '{print $4}' | grep -E '^com/meta/wearable/dat/core/' | grep -vE '\$|proto|/internal/' | head -20 | while IFS= read -r c; do echo "::warning::CORE $c"; done
-            for cls in com.meta.wearable.dat.core.DeviceManager com.meta.wearable.dat.core.Session com.meta.wearable.dat.core.Wearables; do
-              echo "::warning::JAVAP $cls"
-              javap -classpath "$d/classes.jar" "$cls" 2>/dev/null | head -18 | while IFS= read -r l; do echo "::warning::  $l"; done
-            done
-          done
-          find ~/.gradle/caches/modules-2/files-2.1/com.meta.wearable -name 'mwdat-camera*.aar' | head -1 | while read -r aar; do
-            d=$(mktemp -d); unzip -q -o "$aar" classes.jar -d "$d"
-            for cls in com.meta.wearable.dat.camera.Camera; do
-              echo "::warning::JAVAP $cls"
-              javap -classpath "$d/classes.jar" "$cls" 2>/dev/null | head -20 | while IFS= read -r l; do echo "::warning::  $l"; done
+          for art in mwdat-core mwdat-camera; do
+            find ~/.gradle/caches/modules-2/files-2.1/com.meta.wearable -name "$art*.aar" | head -1 | while read -r aar; do
+              d=$(mktemp -d); unzip -q -o "$aar" classes.jar -d "$d"
+              case $art in
+                mwdat-core) for cls in com.meta.wearable.dat.core.Wearables com.meta.wearable.dat.core.registration.RegistrationRequest;; do
+                  echo "::warning::JAVAP $cls"
+                  javap -classpath "$d/classes.jar:$d/classes.jar" "$cls" 2>&1 | head -14 | while IFS= read -r l; do echo "::warning::  $l"; done
+                done ;;
+                mwdat-camera) for cls in com.meta.wearable.dat.camera.Camera;; do
+                  echo "::warning::JAVAP $cls"
+                  javap -classpath "$d/classes.jar" "$cls" 2>&1 | head -18 | while IFS= read -r l; do echo "::warning::  $l"; done
+                done ;;
+              esac
             done
           done

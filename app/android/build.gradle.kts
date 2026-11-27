@@ -23,7 +23,12 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    buildFeatures { compose = true }
+    // `MainActivity` reads BuildConfig.DEBUG to decide the logger's verbosity; AGP 8+
+    // stopped generating the class unless it is asked for.
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
