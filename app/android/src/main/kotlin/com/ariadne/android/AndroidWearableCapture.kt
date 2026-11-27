@@ -102,7 +102,8 @@ public class AndroidWearableCapture(
             // session becomes creatable a moment later, and is waited for.
             repeat(45) {
                 if (session != null) return@launch
-                val created = Wearables.createSession(AutoDeviceSelector()).getOrElse { null }
+                val created = Wearables.createSession(AutoDeviceSelector())
+                    .fold(onSuccess = { it }, onFailure = { _, _ -> null })
                 if (created != null) {
                     startSession(created)
                     return@launch
@@ -180,6 +181,11 @@ public class AndroidWearableCapture(
             },
             onFailure = { _, _ -> connectionState = "Camera refused" },
         )
+    }
+
+    /** Kept for the `mock_glasses` intent extra: a debug build can start the mock server. */
+    public fun enableMockServer() {
+        enableMock()
     }
 
     private fun enableMock() {
