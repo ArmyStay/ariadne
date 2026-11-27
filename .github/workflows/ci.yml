@@ -58,7 +58,7 @@ jobs:
           set -o pipefail
           [ -f "$RUNNER_TEMP/build.log" ] || exit 0
           summary=$(sed 's|file:///home/runner/work/ariadne/ariadne/||' "$RUNNER_TEMP/build.log" \
-            | grep -E "^e: |FAILED|AssertionError|expected:|Expected|Caused by:|What went wrong|> Task .*FAILED" \
+            | grep -E "^e: |FAILED|AssertionError|expected:|Expected|Caused by:|What went wrong|> Task .*FAILED|demo-check" \
             | head -40 | paste -sd '\n' -)
           if [ -z "$summary" ]; then
             summary=$(tail -n 25 "$RUNNER_TEMP/build.log")

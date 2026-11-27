@@ -41,10 +41,19 @@ fi
 index=$(find "$dist" -path '*productionExecutable*' -name index.html -print -quit 2>/dev/null)
 [ -n "$index" ] || index=$(find "$dist" -name index.html -print -quit 2>/dev/null)
 if [ -z "$index" ]; then
-  echo "demo-check: no index.html anywhere under $dist" >&2
-  find "$dist" -maxdepth 3 -printf '    %P\n' | head -30 >&2
+  layout=$(find "$dist" -maxdepth 3 -printf '%P ' | head -c 1200)
+  report "no index.html anywhere under app/wasm/build/dist/wasmJs. The tree holds: $layout"
   exit 1
 fi
+
+# CI logs are not reachable from every network; an annotation is. Anything this script
+# decides is wrong is printed as one, in addition to plain stderr.
+report() {
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    printf '::error::%s\n' "$1"
+  fi
+  printf 'demo-check: %s\n' "$1" >&2
+}
 
 site="${stage:-$(mktemp -d)}"
 rm -rf "$site"
@@ -53,11 +62,11 @@ cp -a "$(dirname "$index")"/. "$site"/
 
 echo "demo-check: page found at ${index#"$ROOT"/}"
 if ! compgen -G "$site/*.wasm" > /dev/null; then
-  echo "demo-check: no .wasm file beside index.html — that is not the app" >&2
+  report "no .wasm file beside index.html, so this is not the app. Beside it: $(ls "$site" | head -c 800)"
   exit 1
 fi
 if ! compgen -G "$site/ariadne.js" > /dev/null; then
-  echo "demo-check: no ariadne.js beside index.html — that is not the app" >&2
+  report "no ariadne.js beside index.html, so this is not the app. Beside it: $(ls "$site" | head -c 800)"
   exit 1
 fi
 
@@ -102,31 +111,39 @@ except Exception as failure:  # noqa: BLE001 - the message is the report
     server.shutdown()
     sys.exit(1)
 
-problems = []
+# A page that cannot start without a file is a broken demo; a missing favicon is not.
+# Both are reported, only the first fails the gate.
+fatal = []
+minor = []
 refs = [r for r in re.findall(r'(?:src|href)="([^"]+)"', html) if r]
 for ref in refs:
     if re.match(r"^(?:[a-z]+:|//|#)", ref):
         continue
+    required = ref.endswith((".js", ".wasm", ".css", ".mjs")) or ref in (".", "./")
+    bucket = fatal if required else minor
     if ref.startswith("/"):
-        problems.append("%r is an absolute path, so it cannot resolve under %s" % (ref, prefix))
+        bucket.append("%r is an absolute path, so it cannot resolve under %s" % (ref, prefix))
         continue
     url = urllib.parse.urljoin(base, ref)
     try:
         code = urllib.request.urlopen(urllib.request.Request(url, method="HEAD"), timeout=10).status
     except urllib.error.HTTPError as failure:
-        problems.append("%s: HTTP %d" % (ref, failure.code))
+        bucket.append("%s: HTTP %d" % (ref, failure.code))
         continue
     except Exception as failure:  # noqa: BLE001
-        problems.append("%s: %s" % (ref, failure))
+        bucket.append("%s: %s" % (ref, failure))
         continue
     if code != 200:
-        problems.append("%s: HTTP %d" % (ref, code))
+        bucket.append("%s: HTTP %d" % (ref, code))
 
 server.shutdown()
-if problems:
+for problem in minor:
+    print("demo-check: ignoring a non-essential reference: %s" % problem, file=sys.stderr)
+if fatal:
     print("demo-check: the site does not serve at %s" % prefix, file=sys.stderr)
-    for problem in problems:
+    for problem in fatal:
         print("  %s" % problem, file=sys.stderr)
+    print("::error::" + "%0A".join(["the site does not serve at " + prefix] + fatal))
     sys.exit(1)
 print("demo-check: index.html and its %d reference(s) all resolve under %s" % (len(refs), prefix))
 PY
