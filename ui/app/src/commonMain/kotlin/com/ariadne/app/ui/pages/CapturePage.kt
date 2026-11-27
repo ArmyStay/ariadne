@@ -67,9 +67,23 @@ public fun CapturePage(
         onUnavailable = onImport,
         onFailure = model::photoImportFailed,
     )
-    // With a camera, the shutter fires the sensor and the bytes come back through
-    // onFrame. Without one, the caller's placeholder path runs instead.
-    val fire: () -> Unit = if (cameraAvailable()) ({ shoot() }) else onShutter
+    // Three answers, in order of what a person means by pressing the frame:
+    //
+    //   a camera  -> fire it, and the bytes come back through onFrame;
+    //   a picker  -> open it, because on a desktop or in a browser the photograph
+    //                already exists and pretending a shutter fired is theatre;
+    //   neither   -> the caller's plate, which is a drawing of a receipt and says so.
+    //
+    // The middle case is the one that was missing: the browser offered "No camera
+    // here — tap for a plate", and tapping filed an empty plate into the record
+    // while a perfectly good file input sat one row further down the page.
+    val hasCamera = cameraAvailable()
+    val hasPicker = pickerAvailable()
+    val fire: () -> Unit = when {
+        hasCamera -> ({ shoot() })
+        hasPicker -> import
+        else -> onShutter
+    }
     Box(Modifier.fillMaxSize().background(paper.bg)) {
         ScannerBackdrop(paper, Modifier.fillMaxSize())
     Column(
@@ -148,7 +162,11 @@ public fun CapturePage(
         // outside the picture.
         Spacer(Modifier.height(10.dp))
         Label(
-            if (cameraAvailable()) "Tap the frame to keep it" else "No camera here — tap for a plate",
+            when {
+                hasCamera -> "Tap the frame to keep it"
+                hasPicker -> "No camera here — tap to bring a photograph in"
+                else -> "No camera here — tap for a plate"
+            },
             paper,
             color = paper.inkFaint,
             size = 9.sp,

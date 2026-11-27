@@ -31,9 +31,27 @@ jobs:
       - name: Install Linux OCR natives (Tess4J)
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr libtesseract-dev libleptonica-dev
       - name: shared JVM tests
-        run: ./gradlew jvmTest --console=plain --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew jvmTest --console=plain --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
       - name: android debug + wasm compile/distribution
-        run: ./gradlew :app:android:assembleDebug :app:wasm:compileKotlinWasmJs :app:wasm:wasmJsBrowserDistribution --console=plain --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew :app:android:assembleDebug :app:wasm:compileKotlinWasmJs :app:wasm:wasmJsBrowserDistribution --console=plain --stacktrace 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - name: compiler errors, as annotations
+        # The run log is not always reachable (proxies, corporate networks, a reviewer
+        # on a phone). Kotlin's compiler errors are the one thing worth reading in it,
+        # so they are lifted out and posted as check-run annotations, which the API and
+        # the PR page both serve.
+        if: failure()
+        run: |
+          set -o pipefail
+          if [ -f "$RUNNER_TEMP/build.log" ]; then
+            grep -E "^(e|w): file:///" "$RUNNER_TEMP/build.log" | head -60 | while IFS= read -r line; do
+              echo "::error::$(printf '%s' "$line" | sed 's|file:///home/runner/work/ariadne/ariadne/||')"
+            done
+          fi
 
   desktop:
     name: desktop
@@ -47,7 +65,24 @@ jobs:
       - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
       - name: Install Linux OCR natives (Tess4J)
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr libtesseract-dev libleptonica-dev
-      - run: ./gradlew :app:desktop:compileKotlinJvm --console=plain --stacktrace
+      - name: desktop compile
+        run: |
+          set -o pipefail
+          ./gradlew :app:desktop:compileKotlinJvm --console=plain --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      - name: compiler errors, as annotations
+        # The run log is not always reachable (proxies, corporate networks, a reviewer
+        # on a phone). Kotlin's compiler errors are the one thing worth reading in it,
+        # so they are lifted out and posted as check-run annotations, which the API and
+        # the PR page both serve.
+        if: failure()
+        run: |
+          set -o pipefail
+          if [ -f "$RUNNER_TEMP/build.log" ]; then
+            grep -E "^(e|w): file:///" "$RUNNER_TEMP/build.log" | head -60 | while IFS= read -r line; do
+              echo "::error::$(printf '%s' "$line" | sed 's|file:///home/runner/work/ariadne/ariadne/||')"
+            done
+          fi
 
   ios:
     name: ios
@@ -59,4 +94,21 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew :app:ios:compileKotlinIosSimulatorArm64 :app:ios:compileKotlinIosArm64 --console=plain --stacktrace
+      - name: ios compile
+        run: |
+          set -o pipefail
+          ./gradlew :app:ios:compileKotlinIosSimulatorArm64 :app:ios:compileKotlinIosArm64 --console=plain --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      - name: compiler errors, as annotations
+        # The run log is not always reachable (proxies, corporate networks, a reviewer
+        # on a phone). Kotlin's compiler errors are the one thing worth reading in it,
+        # so they are lifted out and posted as check-run annotations, which the API and
+        # the PR page both serve.
+        if: failure()
+        run: |
+          set -o pipefail
+          if [ -f "$RUNNER_TEMP/build.log" ]; then
+            grep -E "^(e|w): file:///" "$RUNNER_TEMP/build.log" | head -60 | while IFS= read -r line; do
+              echo "::error::$(printf '%s' "$line" | sed 's|file:///home/runner/work/ariadne/ariadne/||')"
+            done
+          fi
