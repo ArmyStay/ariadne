@@ -93,7 +93,13 @@ internal object DataArchiveZip {
         append("\"homeCurrency\":").append(json(settings.homeCurrency.code)).append(',')
         append("\"theme\":").append(json(settings.theme.name)).append(',')
         append("\"ocrProvider\":").append(json(settings.ocrProvider.name)).append(',')
-        append("\"displayName\":").append(json(settings.displayName))
+        append("\"displayName\":").append(json(settings.displayName)).append(',')
+        // The reminder travels with the rest of the settings: it is a preference of the
+        // person, and an export that forgot it would restore a trip with the evening
+        // half-missing.
+        append("\"reminder\":{\"enabled\":").append(settings.reminder.enabled)
+        append(",\"hour\":").append(settings.reminder.hour)
+        append(",\"minute\":").append(settings.reminder.minute).append('}')
         append("},\"trips\":[")
         trips.forEachIndexed { index, trip ->
             if (index > 0) append(',')

@@ -106,7 +106,7 @@ for doc in "${DOCS[@]}"; do
     esac
     # Only paths that name a place in this repository.
     case "$path" in
-      docs/*|tools/*|core/*|ui/app/*|app/*|preview/*|recogniser-fixtures/*|.github/*|shared/*) ;;
+      docs/*|tools/*|core/*|ui/app/*|app/*|preview/*|recogniser-fixtures/*|.github/*) ;;
       *) continue ;;
     esac
     if [ ! -e "$path" ] && [ ! -e "$dir/$path" ]; then

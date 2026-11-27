@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ariadne — a trip, kept in order</title>
+<meta name="description" content="Ariadne keeps a trip's days, receipts and close-of-day sums in one record. This browser build is a demo; nothing is sent to a server.">
+<meta name="theme-color" content="#F8FAFC">
+<!-- The thread and its needle, in navy on paper. Inline, so the page needs no second request. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231C3155'/%3E%3Cpath d='M11 25C11 19 21 17 21 9' stroke='%23F8FAFC' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M21 9m-2.2 0a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0 -4.4 0' fill='%23F8FAFC'/%3E%3C/svg%3E">
+<style>
+  html, body { width: 100%; height: 100%; margin: 0; padding: 0; background: #F8FAFC; }
+  body { overscroll-behavior: none; }
+  canvas { display: block; }
+  /* An overlay, not a block: once the canvas is in the page this goes away, so the app
+     keeps the whole viewport whether or not the bundle has drawn yet. */
+  #booting {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: #475569;
+  }
+</style>
+</head>
+<body>
+<div id="booting">Opening the record…</div>
+<noscript>This demo is drawn by a WebAssembly build of the app, so it needs JavaScript. The app itself is Android and iOS.</noscript>
+<!-- Last in the body: the bundle mounts into document.body, which must exist already. -->
+<script src="ariadne.js"></script>
+<script>
+  // The line above is only true until the first frame; the canvas replaces it.
+  (function () {
+    var booting = document.getElementById("booting");
+    if (!booting) return;
+    if (document.body.querySelector("canvas")) { booting.remove(); return; }
+    var watcher = new MutationObserver(function () {
+      if (!document.body.querySelector("canvas")) return;
+      watcher.disconnect();
+      booting.remove();
+    });
+    watcher.observe(document.body, { childList: true, subtree: true });
+  })();
+</script>
+</body>
+</html>

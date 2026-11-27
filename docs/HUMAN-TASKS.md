@@ -8,20 +8,25 @@ Ordered by what a judge meets first.
 
 ---
 
-## 1. Point Pages at the workflow (2 minutes)
+## 1. Check the demo, logged out (2 minutes)
 
-**Where:** repository → Settings → Pages → *Build and deployment* → Source:
-**GitHub Actions**.
+**Where:** <https://armystay.github.io/ariadne/> in a private window.
 
-**Why:** the deploy job in `.github/workflows/pages.yml` has been green since #23 — it
-uploads the wasm distribution as a Pages artifact — but the repository's Pages source is
-still *Deploy from a branch*, so the legacy Jekyll build races it and can win. If it wins,
-<https://armystay.github.io/ariadne/> serves the rendered README, which is the one failure
-mode that makes the whole submission look empty.
+**Already done:** the Pages source is **GitHub Actions** (it was the blocker in earlier
+guides), and the page is now committed rather than left to the toolchain —
+`app/wasm/src/wasmJsMain/resources/index.html` is the site's front door. `pages.yml`
+finds it, serves the site locally under `/ariadne/` before uploading it, and then a
+`verify` job fetches the public URL with no credentials and asserts a 200 whose HTML
+carries `ariadne.js`. A green deploy now means the link works, not that an upload
+finished.
+
+**Why you and not CI:** a job proves the bytes are served; it cannot see the first frame.
 
 **Done when:** the URL opens on the first instalment — `01 — THE FIRST INSTALMENT`,
 *A trip, kept in photographs.*, three beats, one blue **BEGIN A TRIP** — and
-[`?seed=demo`](https://armystay.github.io/ariadne/?seed=demo) opens on a kept trip.
+[`?seed=demo`](https://armystay.github.io/ariadne/?seed=demo) opens on a trip that is
+already kept. If either 404s, the `verify` job on the last `main` run is the first place
+to look: it prints the status code it got.
 
 ---
 
@@ -94,6 +99,12 @@ adb install -r ariadne.apk
 4. **Close day** → the day's figure.
 5. Trip page → **the codes** → copy the trip code, paste it into a note to check it is the
    sixteen characters the page claims.
+6. Settings → **the evening** → the reminder row → pick the next hour, **SET THE
+   REMINDER**, allow notifications when Android asks. Then close the app from the
+   switcher and wait for that hour: the notification should arrive with the app closed,
+   and tapping it should open Ariadne. If nothing arrives, say so — the fallback line
+   inside the app is the only thing tested so far, and the alarm path has never run on a
+   device.
 
 **Why:** none of this has been seen on a screen. CI compiles; it does not look.
 

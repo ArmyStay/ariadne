@@ -68,6 +68,8 @@ class DataArchiveZipTest {
         assertTrue(manifest.contains("\"state\":\"CONFIRMED\""))
         assertTrue(manifest.contains("\"merchant\":\"Chai & Co\""))
         assertTrue(manifest.contains("\"photo\":null"))
+        // The setting that can speak after the app is closed travels with the rest.
+        assertTrue(manifest.contains("\"reminder\":{\"enabled\":false,\"hour\":20,\"minute\":0}"))
         assertTrue(DataArchiveZip.capturesCsv(listOf(manualEntry), emptyMap()).contains("capture-1"))
         assertTrue(DataArchiveZip.daysCsv(listOf(day)).contains("day-1"))
     }

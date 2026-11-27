@@ -143,8 +143,15 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
         Spacer(Modifier.height(14.dp))
 
         if (state.dayPerCurrency.isNotEmpty()) {
+            // With the symbol, not just the digits: a record is read at a glance and
+            // a bare number in a row of two currencies is the one thing a glance can
+            // get wrong.
             state.dayPerCurrency.forEach { (code, minor) ->
-                FigureRow(code, Money.ofMinor(minor).format(CurrencyCode.of(code)), paper)
+                FigureRow(
+                    code,
+                    Money.ofMinor(minor).formatWithSymbol(CurrencyCode.of(code)),
+                    paper,
+                )
             }
             Spacer(Modifier.height(4.dp))
             Rule(paper)
@@ -327,7 +334,11 @@ private fun ReceiptLine(
             )
         }
         Numeral(
-            capture.amountMinor?.let { Money.ofMinor(it).format(capture.currency ?: CurrencyCode.of("INR")) } ?: "—",
+            // The symbol travels with the figure, so a line read on its own says which
+            // money it is: ฿450 and ₹450 are not the same lunch.
+            capture.amountMinor?.let {
+                Money.ofMinor(it).formatWithSymbol(capture.currency ?: CurrencyCode.of("INR"))
+            } ?: "—",
             paper,
             color = if (capture.amountMinor == null) paper.inkFaint else paper.ink,
             size = 16.sp,

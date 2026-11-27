@@ -147,7 +147,29 @@ The database lives at `~/.ariadne/ariadne.db`. Photos live beside it.
 
 The demo at [armystay.github.io/ariadne](https://armystay.github.io/ariadne/) is the
 `productionExecutable` directory from that second command, uploaded as a Pages artifact
-by `.github/workflows/pages.yml`.
+by `.github/workflows/pages.yml` — with three guards, because this is a *project* page
+served from `/ariadne/` and it was once published green while the root URL answered 404.
+The page itself is **committed**, not generated: `index.html` lives at
+`app/wasm/src/wasmJsMain/resources/index.html` and the distribution task copies it beside
+`ariadne.js`. Kotlin 2.4 writes no page of its own, so the artifact this workflow used to
+upload held a bundle and no way to open it.
+
+1. `tools/demo-check.sh` **finds** the page wherever `build/dist/wasmJs` put it instead of
+   assuming the directory name, and copies its folder into a stage directory whose root
+   is the site;
+2. the same script **serves that stage under `/ariadne/`** (a static server, `python3`,
+   no JDK) and asserts every `src`/`href` in `index.html` resolves — an absolute
+   `/asset` path works on a laptop and 404s here. `ci.yml` runs it on every pull
+   request too, so a demo that would 404 is caught before it is merged;
+3. after deployment a `verify` job performs an **unauthenticated `curl` of the public
+   URL**, requiring HTTP 200 and `ariadne.js` in the HTML, so a README render or an
+   empty artifact fails the run instead of shipping.
+
+One more thing had to go for the link to work: the starter `static.yml` that the Pages
+UI writes when a repository is switched to "GitHub Actions" uploaded `path: '.'` — the
+whole repository, which has no `index.html` — and shared the `pages` concurrency group
+with `pages.yml`. The two raced on every push, and the starter one served a 404 with a
+green tick. It is deleted; `pages.yml` is the only writer to Pages.
 
 What the browser build does *not* have: a camera, OCR, persistent storage, or rate
 fetching. It has the shutter's plate, the file chooser (**Library**), manual entry, and

@@ -1,5 +1,6 @@
 package com.ariadne.app.ui.pages
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -14,15 +15,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
@@ -34,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
+import com.ariadne.app.ui.LocalKeyboardUp
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
@@ -95,6 +100,13 @@ public fun DetailPage(
     val merchant = state.detailMerchant
     val category = state.detailCategory
     val typedNote = state.detailNote
+    // The shell's own reading of the keyboard, not this page's — see
+    // `LocalKeyboardUp`. While it is up, this page becomes a page about typing: the
+    // photograph steps aside to a line and the pinned keypad goes, so the field being
+    // edited and the buttons that finish it are both above the keyboard rather than
+    // behind it.
+    val typing = LocalKeyboardUp.current && !wide
+    val armed = state.entryDeleteArmed
 
     Box(Modifier.fillMaxSize().background(paper.bg), contentAlignment = Alignment.TopCenter) {
         // Wide: one centred, scrolling spread. Phone: a fixed frame whose middle
@@ -117,7 +129,35 @@ public fun DetailPage(
                 title = "The photograph",
                 paper = paper,
                 italic = true,
+                // Deleting lives where a hand looks for it — the corner of the page,
+                // not a quiet line scrolled past the save buttons.
+                trailing = if (capture != null && !readOnly) {
+                    {
+                        DeleteMark(paper, armed) {
+                            if (armed) model.deleteEntryNow() else model.armEntryDeletion()
+                        }
+                    }
+                } else {
+                    null
+                },
             )
+
+            if (capture != null && !readOnly && armed) {
+                // The first tap said nothing; this is the part of the two-tap rule
+                // that says what the second one will do.
+                Spacer(Modifier.height(16.dp))
+                Body(
+                    "Tap the mark once more to delete this photograph and its figures. " +
+                        "This cannot be undone, and there is no copy anywhere else.",
+                    paper,
+                    serif = true,
+                    color = paper.inkSoft,
+                    size = 14.sp,
+                    lineHeight = 21.sp,
+                )
+                Spacer(Modifier.height(10.dp))
+                QuietAction("Keep it", paper, { model.armEntryDeletion() }, color = paper.inkSoft)
+            }
 
             Spacer(Modifier.height(24.dp))
 
@@ -158,7 +198,6 @@ public fun DetailPage(
                                 options = currencyOptions,
                                 keypad = true,
                                 readOnly = readOnly,
-                                deleteArmed = state.entryDeleteArmed,
                             )
                         }
                     }
@@ -173,13 +212,21 @@ public fun DetailPage(
                         Modifier.fillMaxWidth().weight(1f)
                             .verticalScroll(rememberScrollState()),
                     ) {
-                        key(capture.id, capture.state) {
-                            Photograph(
-                                capture.state.name,
-                                capture.photoPath,
-                                capture.merchant,
-                                paper,
-                            )
+                        // A photograph is the thing you look at; a field is the thing
+                        // you type in. While the keyboard is up the picture keeps its
+                        // place in the page as a 44dp line, so the field is high
+                        // enough to be seen and the page never jumps by a screen.
+                        if (typing) {
+                            PhotoLine(capture, paper)
+                        } else {
+                            key(capture.id, capture.state) {
+                                Photograph(
+                                    capture.state.name,
+                                    capture.photoPath,
+                                    capture.merchant,
+                                    paper,
+                                )
+                            }
                         }
                         Spacer(Modifier.height(20.dp))
                         key(typedAmount, merchant, category, typedNote) {
@@ -195,12 +242,13 @@ public fun DetailPage(
                                 options = currencyOptions,
                                 keypad = false,
                                 readOnly = readOnly,
-                                deleteArmed = state.entryDeleteArmed,
                             )
                         }
                         Spacer(Modifier.height(20.dp))
                     }
-                    if (!capture.hasUnconfirmedAmount && !readOnly) {
+                    // Two keyboards at once is a screen with nowhere left to look:
+                    // while the person is typing a name, the figure pad waits below.
+                    if (!typing && !capture.hasUnconfirmedAmount && !readOnly) {
                         RuledKeypad(
                             paper = paper,
                             onDigit = { model.editDetailAmount(it) },
@@ -213,6 +261,80 @@ public fun DetailPage(
             }
 
             if (wide) Spacer(Modifier.height(28.dp))
+        }
+    }
+}
+
+/**
+ * The delete, marked rather than lettered, in the corner the eye checks first.
+ *
+ * It is still two taps, and it is still the same control for both: the first tap
+ * fills the mark and the page prints what the second one will take away. Filling it
+ * is not decoration — an armed mark that looks exactly like a waiting one is how a
+ * deletion happens by accident.
+ */
+@Composable
+private fun DeleteMark(paper: Paper, armed: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            // The target is a finger's width even though the mark is not.
+            .size(44.dp)
+            .semantics {
+                contentDescription = if (armed) {
+                    "Delete this photograph. Tap once more to confirm"
+                } else {
+                    "Delete this photograph"
+                }
+            }
+            .pointerInput(armed) { detectTapGestures(onTap = { onClick() }) },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .size(if (armed) 38.dp else 30.dp)
+                .background(if (armed) paper.blue else paper.bg, CircleShape)
+                .border(
+                    Bone.Hairline,
+                    if (armed) paper.blue else paper.edgeStrong,
+                    CircleShape,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(Modifier.size(12.dp)) {
+                val ink = if (armed) paper.onBlue else paper.inkMid
+                val w = size.width
+                val h = size.height
+                drawLine(ink, Offset(w * 0.1f, h * 0.1f), Offset(w * 0.9f, h * 0.9f), 1.7f)
+                drawLine(ink, Offset(w * 0.9f, h * 0.1f), Offset(w * 0.1f, h * 0.9f), 1.7f)
+            }
+        }
+    }
+}
+
+/**
+ * The photograph as one line, for the minutes when the keyboard owns the page.
+ *
+ * A 44dp frame and the same name the record uses: enough to keep the person oriented
+ * about which photograph they are typing against, small enough to leave the field
+ * room. It is not a thumbnail gallery and it does not open anything.
+ */
+@Composable
+private fun PhotoLine(capture: com.ariadne.model.Capture, paper: Paper) {
+    val title = com.ariadne.model.MerchantName.receiptTitle(capture.merchant)
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(44.dp).border(Bone.Hairline, paper.edge)) {
+            PhotoPreview(
+                photoPath = capture.photoPath,
+                caption = title,
+                paper = paper,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Title(title, paper, size = 15.sp)
+            Spacer(Modifier.height(2.dp))
+            Label("typing · the photograph is safe", paper, color = paper.inkFaint)
         }
     }
 }
@@ -258,8 +380,6 @@ private fun Fields(
     options: List<String>,
     keypad: Boolean,
     readOnly: Boolean = false,
-    /** Whether the first tap of "delete this photograph" has already happened. */
-    deleteArmed: Boolean = false,
 ) {
     // Named `state` on purpose in this file, but it shadows the page's AppUiState, so
     // anything from the page is passed in rather than read here.
@@ -385,33 +505,6 @@ private fun Fields(
             }
             Spacer(Modifier.height(10.dp))
             QuietAction("Leave it open", paper, { model.openRecord(capture.localDate) }, color = paper.inkSoft)
-
-            // The one destructive control in the book, and the two-tap rule it
-            // shares with deleting a trip. The first tap says what will go; the
-            // second does it. There is no undo offer afterwards, because there is
-            // nothing left to undo — the bytes go with the row.
-            Spacer(Modifier.height(22.dp))
-            if (deleteArmed) {
-                Body(
-                    "Tap once more to delete this photograph and its figures. This cannot be " +
-                        "undone, and there is no copy anywhere else.",
-                    paper,
-                    serif = true,
-                    color = paper.inkSoft,
-                    size = 14.sp,
-                )
-                Spacer(Modifier.height(10.dp))
-                Action("Delete for good", paper, { model.deleteEntryNow() })
-                Spacer(Modifier.height(8.dp))
-                QuietAction("Keep it", paper, { model.armEntryDeletion() }, color = paper.inkSoft)
-            } else {
-                QuietAction(
-                    "Delete this photograph",
-                    paper,
-                    { model.armEntryDeletion() },
-                    color = paper.inkFaint,
-                )
-            }
         }
     }
 }

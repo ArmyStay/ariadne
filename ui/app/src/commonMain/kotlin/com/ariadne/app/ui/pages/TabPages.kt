@@ -530,7 +530,9 @@ private fun HomeBalancePanel(
     wide: Boolean,
     onSettle: () -> Unit,
 ) {
-    val navy = Color(0xFF13243E)
+    // The panel and the pressed blue are one value, so the two darks on this page
+    // cannot drift apart in a later edit.
+    val navy = paper.bluePressed
     val shape = RoundedCornerShape(16.dp)
     Box(
         Modifier
@@ -1273,7 +1275,7 @@ public fun PreferencesPage(
             onChange = model::editProfileName,
             serif = false,
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(14.dp))
 
         // Every row below is a read-out of something real, and the two that can be
         // changed are the two that are actually changeable. A row that says
@@ -1400,7 +1402,35 @@ public fun PreferencesPage(
         }
 
         Spacer(Modifier.height(28.dp))
-        SectionHead("V", "this trip", paper)
+        SectionHead("V", "the evening", paper)
+
+        // The one thing in this app that reaches out of it — and it reaches no
+        // further than the phone: an alarm the system keeps, or a line inside the
+        // app when it happens to be open. The line under the row is the honest
+        // half: it names which of those this build will actually do.
+        IconAction(
+            Glyph.Date,
+            if (state.reminder.enabled) {
+                "Reminder · every evening at ${state.reminder.clock}"
+            } else {
+                "Reminder · off"
+            },
+            paper,
+        ) { model.openReminderSheet() }
+        if (state.reminder.enabled) {
+            state.reminderNote?.let { note ->
+                Body(note, paper, color = paper.inkFaint, size = 12.sp, lineHeight = 18.sp)
+            } ?: Body(
+                "One notification a day, from an alarm on this phone. Nothing leaves the device.",
+                paper,
+                color = paper.inkFaint,
+                size = 12.sp,
+                lineHeight = 18.sp,
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+
+        SectionHead("VI", "this trip", paper)
 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Icon(Glyph.Trip, paper, size = 16.dp)

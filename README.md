@@ -53,7 +53,7 @@ key — [on the human list](docs/HUMAN-TASKS.md).
 | A spoken amount is parsed by a pure function, not by a service | `SpokenExpense` over word and digit tokens — `core/model`, with tests |
 | A shared trip is a copy, not a link | `ShareCodes` — a sixteen-character plan and a paste-able ledger, round-trip tested in `core/model`; no socket in either direction |
 | Somebody else's figures are never merged into yours | `Traveller` / `TravellerEntry` in their own tables; quoted beside the day, absent from the card |
-| One photograph can be deleted, and only on purpose | two taps in `DetailPage` — the bytes and the row, and no undo that pretends otherwise |
+| One photograph can be deleted, and only on purpose | the × in the corner of `DetailPage`, twice — the bytes and the row, and no undo that pretends otherwise |
 | The glasses are the camera when they are paired | `LocalWearableCapture` → `AndroidWearableCapture` over Meta's Wearables Device Access Toolkit |
 | A missing recogniser or a missing pair is a sentence, not a crash | `VoiceEntry.listen` may answer null; every DAT call is wrapped and reported as `status` |
 
@@ -75,6 +75,15 @@ The record is per trip and per day. Home shows today's spend and what is waiting
 Timeline shows the trip and its days; Stats breaks it down; the record lists what you
 kept. Everything is local — no account, no sync, nothing leaves the device except a rate
 lookup that the app works without.
+
+One thing reaches out of the app, and only as far as your own phone: the **evening
+reminder**. Turn it on once (a single popup after the first trip, or Settings → *the
+evening*), choose the hour, and at that time each day Ariadne says how many photographs
+are still waiting for a figure. On Android it is an alarm the system keeps after the app
+is closed; on desktop, iOS and the browser there is nothing to arm, so the same line
+appears inside the app while it is open — and the panel says which of the two you are
+getting rather than promising the first and delivering the second. No server, no push
+service, no account.
 
 ## A photograph is the note
 
@@ -125,7 +134,8 @@ Five things the app will not do, because a record that bends is not a record:
 </p>
 
 Stills from a phone running a 27 November build; the dock's shutter has since gone navy
-(`#1C3155`) and the two stills predate that. The design language is one file —
+(`#1C3155`) and every filled action has followed it there, so the two stills predate
+both. The design language is one file —
 [`docs/DESIGN.md`](docs/DESIGN.md) — and every screen is described, screen by screen,
 with the words it actually prints, in [`docs/UI-AND-FLOW.md`](docs/UI-AND-FLOW.md).
 
@@ -191,6 +201,13 @@ Same facts as a claim table, sorted by who checks them.
 Green on `main` means the app compiles for Android, iOS, desktop and the browser, and the
 shared test suites pass.
 
+**Proven by CI on every deploy** — the demo link is fetched by a job with no
+credentials: HTTP 200, and the page carries the wasm build's own script tag. Before it is
+uploaded, `tools/demo-check.sh` serves the artifact locally under `/ariadne/`, the prefix
+a project page actually uses, and every asset reference has to resolve there; `ci.yml`
+runs the same check on every pull request. A green deploy means the link opens; it does
+not mean an upload finished.
+
 **Proven on a phone** — capture on the device, the day's stack, the record, the date
 chips, and settings that survive a restart. The stills above are from that build.
 
@@ -220,6 +237,11 @@ chips, and settings that survive a restart. The stills above are from that build
 - **A link that opens your trip for someone else.** The card saves as a PNG and copies as
   text, and the record exports as a ZIP — but there is no share link, no route pretending
   to be one, and nothing that syncs two phones.
+- **The evening reminder firing on a real phone.** The Android path compiles —
+  `AndroidReminders` arms an inexact daily `AlarmManager` alarm and `ReminderReceiver`
+  posts one notification on a channel of its own — but no build in this repository has
+  sat on a device until 20:00 with the app closed. The in-app fallback, the setting, and
+  the once-only offer are exercised by the shared tests and the desktop renderer.
 
 Apache-2.0. Kotlin Multiplatform Contest 2027 entry. The entry essay is
 [`ESSAY.md`](ESSAY.md); the history is [`docs/TIMELINE.md`](docs/TIMELINE.md).

@@ -329,6 +329,12 @@ public class AriadneStore(
                 ocrProvider = runCatching { Settings.OcrProvider.valueOf(row.ocrProvider) }
                     .getOrDefault(Settings.OcrProvider.ON_DEVICE),
                 displayName = row.displayName,
+                reminder = com.ariadne.model.Reminder(
+                    enabled = row.reminderEnabled != 0L,
+                    hour = row.reminderHour.toInt(),
+                    minute = row.reminderMinute.toInt(),
+                ).normalised(),
+                reminderAsked = row.reminderAsked != 0L,
             )
         } ?: Settings()
     }
@@ -340,6 +346,10 @@ public class AriadneStore(
             theme = settings.theme.name,
             ocrProvider = settings.ocrProvider.name,
             displayName = settings.displayName,
+            reminderEnabled = if (settings.reminder.enabled) 1L else 0L,
+            reminderHour = settings.reminder.hour.toLong(),
+            reminderMinute = settings.reminder.minute.toLong(),
+            reminderAsked = if (settings.reminderAsked) 1L else 0L,
         )
         bump()
     }

@@ -8,6 +8,7 @@ import com.ariadne.model.DayCard
 import com.ariadne.model.DaySummary
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
+import com.ariadne.model.Reminder
 import com.ariadne.model.Settings
 import com.ariadne.model.ShareCodes
 import com.ariadne.model.Traveller
@@ -207,7 +208,17 @@ public data class Notice(
     public val text: String,
     public val actionLabel: String? = null,
     public val id: Long = 0,
+    /**
+     * What the action does.
+     *
+     * There used to be exactly one thing a notice could offer — take the last edit
+     * back — and the bar said so by calling `undoLastEdit()` directly. The evening
+     * reminder needs a notice that offers the day instead, so the offer is named.
+     */
+    public val kind: NoticeKind = NoticeKind.UNDO,
 )
+
+public enum class NoticeKind { UNDO, CLOSE_DAY }
 
 public data class AppUiState(
     public val route: Route = Route.Onboarding,
@@ -388,6 +399,32 @@ public data class AppUiState(
     /** True for a moment after a code was copied, so the label can say so. */
     public val codeCopied: Boolean = false,
 
+    // ── the evening reminder ─────────────────────────────────────────────────
+
+    /** On or off, and the clock it is set for. */
+    public val reminder: Reminder = Reminder(),
+
+    /** The sheet is open: either the one-time offer or the settings row. */
+    public val reminderSheetOpen: Boolean = false,
+
+    /** True when this is the one-time offer after the first trip, not a settings visit. */
+    public val reminderIsOffer: Boolean = false,
+
+    /**
+     * Whether the question has been asked and answered, either way.
+     *
+     * Mirrors `Settings.reminderAsked` so the offer is decided from state rather than
+     * from a query, and so an answer written to the store is not forgotten until the
+     * next launch.
+     */
+    public val reminderAsked: Boolean = false,
+
+    /**
+     * What the platform managed to do, in one line, or null when it did exactly what
+     * the person asked for. Never a silent failure dressed as success.
+     */
+    public val reminderNote: String? = null,
+
     /**
      * The day the open shutter will file into.
      *
@@ -428,7 +465,7 @@ public data class AppUiState(
      * between pages.
      */
     public val canGoBack: Boolean
-        get() = shutterOpen || sheetCaptureId != null || history.isNotEmpty()
+        get() = shutterOpen || sheetCaptureId != null || reminderSheetOpen || history.isNotEmpty()
 }
 
 /**

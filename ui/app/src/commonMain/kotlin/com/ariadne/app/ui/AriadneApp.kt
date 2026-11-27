@@ -33,6 +33,7 @@ import com.ariadne.design.Title
 import com.ariadne.design.TravelGlobeArtwork
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -42,10 +43,12 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -68,6 +71,7 @@ import com.ariadne.app.ui.pages.HomePage
 import com.ariadne.app.ui.pages.CloseDayPage
 import com.ariadne.app.ui.pages.OnboardingPage
 import com.ariadne.app.ui.pages.PreferencesPage
+import com.ariadne.app.ui.pages.ReminderOverlay
 import com.ariadne.app.ui.pages.RecordPage
 import com.ariadne.app.ui.pages.SearchPage
 import com.ariadne.app.ui.pages.StatsPage
@@ -155,11 +159,18 @@ public fun AriadneApp(
         onBack(state.canGoBack) { model.back() }
     }
 
+    // Read here, above the shell's own `imePadding()`: that modifier consumes the
+    // insets, so anything below it would be told the keyboard is never up.
+    val keyboardUp = with(LocalDensity.current) { WindowInsets.ime.getBottom(this) > 0 }
+
     // The shell contains real Material components — the bar, its items, the docked
     // shutter — and each of them asks the theme for whatever it is not told. Without
     // this they answered in the stock purple.
     AriadneTheme(paper) {
-    CompositionLocalProvider(LocalMotionPreference provides MotionPreference(reducedMotion)) {
+    CompositionLocalProvider(
+        LocalMotionPreference provides MotionPreference(reducedMotion),
+        LocalKeyboardUp provides keyboardUp,
+    ) {
         Box(
             Modifier
                 .fillMaxSize()
@@ -235,7 +246,9 @@ public fun AriadneApp(
                     NoticeBar(
                         notice = notice,
                         paper = paper,
-                        onAction = { model.undoLastEdit() },
+                        // The offer names what it does: an undo most of the time, the
+                        // day for the evening reminder.
+                        onAction = { model.noticeAction() },
                         onDismiss = { model.dismissNotice() },
                     )
                 }
@@ -286,10 +299,31 @@ public fun AriadneApp(
             state.sheetCaptureId?.let { id ->
                 FramePage(state, model, paper, wide, id)
             }
+
+            // Last, so it covers everything: the reminder question is about the app
+            // rather than about where you are in it, and it is asked over whatever
+            // page the trip happens to have left you on. Not over a viewfinder or a
+            // photograph being framed — a question asked there is a question
+            // interrupting a photograph.
+            if (!state.shutterOpen && state.sheetCaptureId == null) {
+                ReminderOverlay(state = state, model = model, paper = paper, wide = wide)
+            }
         }
     }
     }
 }
+
+/**
+ * Whether the keyboard is up, as the shell sees it.
+ *
+ * It cannot be read from a page: the shell applies `imePadding()` to its own root and
+ * that modifier *consumes* the insets, so by the time a page asks `WindowInsets.ime`
+ * the honest answer is zero. The one place that can still see the real height is above
+ * that padding, so it is read once there and handed down. Desktop and browser report
+ * zero and pages simply never hear about a keyboard they do not have.
+ */
+public val LocalKeyboardUp: androidx.compose.runtime.ProvidableCompositionLocal<Boolean> =
+    staticCompositionLocalOf { false }
 
 /**
  * The page between the splash and the record.
@@ -537,7 +571,9 @@ private fun handleKey(
     if (event.type != KeyEventType.KeyDown) return false
     // Whatever is open over the page closes first, exactly as Back does. Escape is
     // the desktop's version of that gesture and should not mean something else.
-    if (event.key == Key.Escape && (state.shutterOpen || state.sheetCaptureId != null)) {
+    if (event.key == Key.Escape &&
+        (state.shutterOpen || state.sheetCaptureId != null || state.reminderSheetOpen)
+    ) {
         model.back()
         return true
     }

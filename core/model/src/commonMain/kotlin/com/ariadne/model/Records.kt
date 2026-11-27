@@ -173,6 +173,15 @@ public data class Settings(
     public val theme: Theme = Theme.LIGHT,
     public val ocrProvider: OcrProvider = OcrProvider.ON_DEVICE,
     public val displayName: String = "",
+    /** The evening reminder: off until somebody says otherwise. */
+    public val reminder: Reminder = Reminder(),
+    /**
+     * Whether the one-time offer has been made.
+     *
+     * Set when the sheet is answered either way, so the app asks once and remembers
+     * the answer — including "not for me".
+     */
+    public val reminderAsked: Boolean = false,
 ) {
     public enum class Theme { LIGHT, DARK, SYSTEM }
     public enum class OcrProvider { ON_DEVICE, CLOUD_BYOK, NONE }

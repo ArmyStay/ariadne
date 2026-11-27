@@ -7,6 +7,15 @@ name: web demo
 # live demo pointing at a week-old build. It also has to be the *only* thing writing to
 # Pages — the repository's Pages source is "GitHub Actions", not a branch, so nothing
 # re-publishes the README as a web page.
+#
+# Two checks exist because of the way this went wrong once. The site is a *project*
+# page, served from /ariadne/, and it was published with a green tick while the root
+# URL answered 404: the upload path was assumed rather than found, nothing fetched the
+# deployed URL, and — the other half — the wasm bundle had no page beside it at all.
+# `index.html` is now a committed resource of `:app:wasm`, so the build cannot lose it.
+# It is located rather than assumed, served locally under the same prefix Pages uses
+# before it is uploaded, and — after deployment — fetched from its public URL by a job
+# with no credentials, which is the test a person opening the link in a browser makes.
 
 on:
   push:
@@ -34,16 +43,61 @@ jobs:
       - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
       - name: Build the wasm distribution
         run: ./gradlew :app:wasm:wasmJsBrowserDistribution --console=plain --stacktrace
+
+      - name: Assemble the site, and prove it serves from /ariadne/
+        # Two jobs in one script, because they are the same question: `tools/demo-check.sh`
+        # finds index.html rather than assuming Gradle's output directory, copies its
+        # folder into a stage directory whose root *is* the site, then serves that stage
+        # under `/ariadne/` — the prefix a project page really uses — and requires a 200
+        # with every `src`/`href` resolving. An absolute `/asset` path works on a laptop
+        # and 404s on Pages; this is the check that notices.
+        run: ./tools/demo-check.sh --stage "$RUNNER_TEMP/site"
+
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
-          path: app/wasm/build/dist/wasmJs/productionExecutable
+          path: ${{ runner.temp }}/site
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: The public URL serves the app, logged out
+        # The README's strongest claim is "open the app in your browser", and this is
+        # that claim, checked: an unauthenticated GET of the deployed URL. Two things
+        # are asserted, because one of them was already true while the site was wrong.
+        # A 200, and a page that is *this app* — the script tag the wasm build writes —
+        # rather than the repository's README rendered as a web page.
+        env:
+          URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          url="${URL:-https://armystay.github.io/ariadne/}"
+          code=000
+          for _ in $(seq 1 18); do
+            code=$(curl -sS -o "$RUNNER_TEMP/page.html" -w '%{http_code}' --max-time 20 "$url" || echo 000)
+            [ "$code" = "200" ] && break
+            sleep 5
+          done
+          if [ "$code" != "200" ]; then
+            echo "::error::$url answered HTTP $code after retrying"
+            exit 1
+          fi
+          if ! grep -q 'ariadne\.js' "$RUNNER_TEMP/page.html"; then
+            echo "::error::$url served a page that is not the app (no ariadne.js in the HTML)"
+            head -c 400 "$RUNNER_TEMP/page.html" | tr '\n' ' '
+            exit 1
+          fi
+          echo "$url serves the app (HTTP 200, ariadne.js present, unauthenticated)"

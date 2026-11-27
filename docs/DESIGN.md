@@ -32,9 +32,16 @@ a page means one of them is wrong.
 | `InkSoft` | `#475569` | `#8794A3` | Running text that is not the point. |
 | `InkFaint` | `#64748B` | `#616C7A` | Footnotes, inactive tabs, metadata. |
 | `InkGhost` | `#CBD5E1` | `#3A404A` | Ticks, plate line work. |
-| `Blue` | `#2563EB` | `#7DA2F7` | The one action. |
-| `BlueWash` | `#EFF4FE` | `#1A2436` | A count pill, a selected row. |
+| `Blue` | `#1C3155` | `#9DB4D8` | The one action — the dock's navy, not a second blue beside it. |
+| `BluePressed` | `#13243E` | `#2E4470` | Blue under a finger; the daily-spend panel's ground. |
+| `BlueWash` | `#E9EEF6` | `#1A2436` | A count pill, a selected row, an armed delete. |
+| `Navy` | `#1C3155` | `#1C3155` | The shutter's seat and the docked circle. The same value as `Blue`: the one control pressed without looking is not a different colour from the buttons. |
 | `TripGround` | `#F5F2E7` | `#14181E` | The kept card's warmer stock. |
+
+**Night lifts the navy rather than swapping it for a different hue.** On dark stock the
+same token is a *label* far more often than a fill, so it has to come up far enough to
+carry text (`#9DB4D8`). The docked shutter keeps the literal navy in both stocks, with
+white inside it.
 
 **No red.** It is not in the palette, so it cannot appear in the product: errors
 are ink, and a failure says what happened in words.
@@ -182,7 +189,7 @@ make it feel like an errand.
 | 10 | `TripCard` | — | The thing you keep. |
 | 11 | `Detail` | Timeline | One photograph in the hand: amount, currency, category, a line to keep it by. |
 | 12 | `Search` | — | Remember a thing by shop, price, currency or day. |
-| 13 | `Settings` | — | Currency, paper, and plainly what leaves the device. Reachable from Home; it is a corner, not a destination. |
+| 13 | `Settings` | — | Currency, paper, the evening reminder, and plainly what leaves the device. Reachable from Home; it is a corner, not a destination. |
 
 `Settings` survives in the sealed route type so an older persisted route still
 resolves, but it renders the register behind it. `Trips` is the register the
