@@ -368,7 +368,7 @@ public fun DataExportPage(state: AppUiState, model: AppModel, paper: Paper, wide
             )
             Spacer(Modifier.height(18.dp))
             Body(
-                "The archive includes JSON and CSV records. Photos stay on this device unless you choose where to save or share the ZIP.",
+                "This ZIP is not encrypted and contains sensitive records and photos. A cloud-backed save location may upload it. Store and share it carefully. This build cannot restore an archive.",
                 paper,
                 color = paper.inkSoft,
                 size = 14.sp,
@@ -445,6 +445,7 @@ public fun LegalPage(state: AppUiState, paper: Paper, wide: Boolean, terms: Bool
             } else {
                 LegalSection("What stays here", state.storageDisclosure, paper)
                 LegalSection("Network requests", state.rateDisclosure, paper)
+                LegalSection("Voice input", "On Android, voice input opens another app's speech recognizer. It may send audio to its provider for processing. You can type instead.", paper)
                 LegalSection(
                     "Notifications",
                     "The evening reminder is set, computed and delivered on this device. Turning it on asks your system for permission to post notifications; no account, device token or server is involved, and turning it off cancels the alarm.",

@@ -1,5 +1,7 @@
 package com.ariadne.android
 
+import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.speech.RecognizerIntent
 import com.ariadne.app.ui.pages.VoiceEntry
@@ -15,7 +17,7 @@ import com.ariadne.app.ui.pages.VoiceEntry
  * `available` is false until that launcher exists, which is why the interface can
  * offer the voice control only on a screen where it can actually work.
  */
-public class AndroidVoiceEntry : VoiceEntry {
+public class AndroidVoiceEntry(private val activity: Activity) : VoiceEntry {
 
     /** Bound by the Compose root; null before the first frame and on any other target. */
     public var launch: ((Intent) -> Unit)? = null
@@ -30,17 +32,24 @@ public class AndroidVoiceEntry : VoiceEntry {
             onHeard(null)
             return
         }
-        pending = onHeard
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Say the amount")
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-        }
-        val started = runCatching { opener(intent) }.isSuccess
-        if (!started) {
-            pending = null
-            onHeard(null)
-        }
+        AlertDialog.Builder(activity)
+            .setTitle("Voice input")
+            .setMessage("Your device's speech recognizer is another app and may send audio to its provider. You can type instead.")
+            .setNegativeButton("Type instead") { _, _ -> onHeard(null) }
+            .setOnCancelListener { onHeard(null) }
+            .setPositiveButton("Continue") { _, _ ->
+                pending = onHeard
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Say the amount")
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                }
+                if (runCatching { opener(intent) }.isFailure) {
+                    pending = null
+                    onHeard(null)
+                }
+            }
+            .show()
     }
 
     /** The recogniser's answer: the first transcript, or null when nothing was heard. */

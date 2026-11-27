@@ -150,7 +150,7 @@ public fun OnboardingPage(model: AppModel, paper: Paper, wide: Boolean) {
                     number = "03",
                     name = "the record",
                     line = "The day, the trip, and a card you keep at the end. No account, no " +
-                        "server: nothing leaves the phone but an optional rate lookup.",
+                        "server. Android rate requests disclose currency pairs and IP address; voice may use another app.",
                     paper = paper,
                     wide = wide,
                 )

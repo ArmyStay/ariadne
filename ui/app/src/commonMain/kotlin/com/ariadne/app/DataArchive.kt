@@ -5,6 +5,7 @@ import com.ariadne.model.DayCard
 import com.ariadne.model.Rate
 import com.ariadne.model.Settings
 import com.ariadne.model.Trip
+import com.ariadne.model.Traveller
 
 /** Saves a ZIP archive through the platform's native file/share surface. */
 public interface DataArchiveExporter {
@@ -87,6 +88,7 @@ internal object DataArchiveZip {
         captures: List<Capture>,
         rates: List<Rate>,
         photoEntries: Map<String, String>,
+        travellers: List<Traveller> = emptyList(),
     ): String = buildString {
         append("{\"format\":\"ariadne-export-v1\",\"settings\":{")
         append("\"baseCurrency\":").append(json(settings.baseCurrency.code)).append(',')
@@ -100,6 +102,7 @@ internal object DataArchiveZip {
         append("\"reminder\":{\"enabled\":").append(settings.reminder.enabled)
         append(",\"hour\":").append(settings.reminder.hour)
         append(",\"minute\":").append(settings.reminder.minute).append('}')
+        append(",\"reminderAsked\":").append(settings.reminderAsked)
         append("},\"trips\":[")
         trips.forEachIndexed { index, trip ->
             if (index > 0) append(',')
@@ -150,6 +153,26 @@ internal object DataArchiveZip {
             append(",\"date\":").append(json(rate.date.iso))
             append(",\"rateScaled\":").append(rate.rateScaled).append('}')
         }
+        append("],\"travellers\":[")
+        travellers.forEachIndexed { index, traveller ->
+            if (index > 0) append(',')
+            append("{\"id\":").append(json(traveller.id))
+            append(",\"tripId\":").append(json(traveller.tripId))
+            append(",\"name\":").append(json(traveller.name))
+            append(",\"addedAt\":").append(traveller.addedAt)
+            append(",\"codeFingerprint\":").append(json(traveller.codeFingerprint))
+            append(",\"entries\":[")
+            traveller.entries.forEachIndexed { entryIndex, entry ->
+                if (entryIndex > 0) append(',')
+                append("{\"day\":").append(json(entry.day.iso))
+                append(",\"amountMinor\":").append(entry.amountMinor)
+                append(",\"currency\":").append(json(entry.currency.code))
+                append(",\"category\":").append(json(entry.category?.name))
+                append(",\"merchantInitials\":").append(json(entry.merchantInitials))
+                append(",\"digest\":").append(entry.digest).append('}')
+            }
+            append("]}")
+        }
         append("]}")
     }
 
@@ -177,7 +200,7 @@ internal object DataArchiveZip {
                     capture.rateScaled?.toString().orEmpty(),
                     capture.rateDate?.iso.orEmpty(),
                     photoEntries[capture.id].orEmpty(),
-                ).joinToString(",") { csv(it) },
+                ).mapIndexed { index, value -> csv(value, index !in setOf(3, 5, 8, 9, 13)) }.joinToString(","),
             )
         }
     }
@@ -196,7 +219,7 @@ internal object DataArchiveZip {
                     trip.homeCurrency.code,
                     trip.budgetMinor?.toString().orEmpty(),
                     trip.closedAt?.toString().orEmpty(),
-                ).joinToString(",") { csv(it) },
+                ).mapIndexed { index, value -> csv(value, index !in setOf(7, 8)) }.joinToString(","),
             )
         }
     }
@@ -264,5 +287,12 @@ internal object DataArchiveZip {
             }
         } ?: "null"
 
-    private fun csv(value: String): String = "\"${value.replace("\"", "\"\"")}\""
+    // Spreadsheet programs can evaluate formulas even in quoted CSV cells. Neutralize
+    // untrusted text, including formulas preceded by whitespace or control characters.
+    private fun csv(value: String, untrustedText: Boolean = false): String {
+        val dangerous = untrustedText && (value.firstOrNull() in listOf('\t', '\r', '\n') ||
+            value.trimStart().firstOrNull() in listOf('=', '+', '-', '@'))
+        val safe = if (dangerous) "'$value" else value
+        return "\"${safe.replace("\"", "\"\"")}\""
+    }
 }

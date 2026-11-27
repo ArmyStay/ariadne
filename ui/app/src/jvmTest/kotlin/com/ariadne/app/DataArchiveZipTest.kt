@@ -7,6 +7,8 @@ import com.ariadne.model.DayCard
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Settings
 import com.ariadne.model.Trip
+import com.ariadne.model.Traveller
+import com.ariadne.model.TravellerEntry
 import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 import kotlin.test.Test
@@ -73,4 +75,38 @@ class DataArchiveZipTest {
         assertTrue(DataArchiveZip.capturesCsv(listOf(manualEntry), emptyMap()).contains("capture-1"))
         assertTrue(DataArchiveZip.daysCsv(listOf(day)).contains("day-1"))
     }
+    @Test
+    fun csvNeutralizesSpreadsheetFormulasButJsonPreservesOriginals() {
+        val date = LocalDay.of(2026, 11, 27)
+        val currency = CurrencyCode.of("INR")
+        val trip = Trip("trip-1", "=1+1", date, date, currency, currency)
+        val capture = Capture(
+            id = "capture-1", tripId = trip.id, localDate = date, photoPath = "",
+            createdAt = 1L, state = CaptureState.CONFIRMED, amountMinor = -1250L,
+            currency = currency, merchant = "  @evil", note = "+cmd",
+        )
+        val csv = DataArchiveZip.capturesCsv(listOf(capture), emptyMap())
+        assertTrue(csv.contains("\"'  @evil\""))
+        assertTrue(csv.contains("\"'+cmd\""))
+        assertTrue(csv.contains("\"-1250\""))
+        assertTrue(DataArchiveZip.tripsCsv(listOf(trip)).contains("\"'=1+1\""))
+        val json = DataArchiveZip.manifest(Settings(), listOf(trip), emptyList(), listOf(capture), emptyList(), emptyMap())
+        assertTrue(json.contains("\"name\":\"=1+1\""))
+        assertTrue(json.contains("\"merchant\":\"  @evil\""))
+    }
+
+    @Test
+    fun manifestKeepsTravellerFiguresAndReminderOffer() {
+        val day = LocalDay.of(2026, 11, 27)
+        val traveller = Traveller("person-1", "trip-1", "Friend", 1, "fingerprint", listOf(
+            TravellerEntry(day, 1200, CurrencyCode.of("INR"), merchantInitials = "AB", digest = 42),
+        ))
+        val json = DataArchiveZip.manifest(Settings(reminderAsked = true), emptyList(), emptyList(),
+            emptyList(), emptyList(), emptyMap(), listOf(traveller))
+        assertTrue(json.contains("\"reminderAsked\":true"))
+        assertTrue(json.contains("\"codeFingerprint\":\"fingerprint\""))
+        assertTrue(json.contains("\"merchantInitials\":\"AB\""))
+        assertTrue(json.contains("\"amountMinor\":1200"))
+    }
+
 }

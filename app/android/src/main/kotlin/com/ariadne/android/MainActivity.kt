@@ -12,7 +12,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.ariadne.app.AppGraph
 import com.ariadne.app.AppLogger
 import com.ariadne.app.AppReviewManager
@@ -49,7 +48,7 @@ class MainActivity : ComponentActivity() {
         runCatching { Wearables.initialize(applicationContext) }
         wearable = AndroidWearableCapture(this, startMockServer = startMock)
         wearable.attach(this)
-        val voice = AndroidVoiceEntry()
+        val voice = AndroidVoiceEntry(this)
         val initialBytes = intent.getByteArrayExtra("glasses_capture_bytes")
         graph = AppGraph(AndroidServices(this), SystemClock(), initialCaptureBytes = initialBytes)
         val camera = AndroidCamera(this, this)
@@ -134,19 +133,15 @@ private class AndroidServices(
         "Trip records, receipt photographs, OCR text, merchant names, and notes stay in Ariadne's private app storage on this device. Nothing is synced."
 
     override val rateDisclosure: String =
-        "When online, Ariadne requests currency rates from frankfurter.app using currency pairs only, not trip details. Saved rates remain available offline; the date shown is the rate's effective date."
+        "Only when you choose Fetch exchange rates now, Ariadne requests rates from frankfurter.app. The provider receives currency pairs and your IP address; the pairs can reveal currencies used on your trip. Saved rates remain available offline."
 
     override fun store(): com.ariadne.store.Store = com.ariadne.store.AriadneStore(
-        driver = AndroidSqliteDriver(
-            schema = com.ariadne.store.db.AriadneDb.Schema,
-            context = activity,
-            name = "ariadne.db",
-        ),
+        driver = openAndroidDatabase(activity, "ariadne.db"),
     )
 
     override fun recognizer(): TextRecognizer = MlKitTextRecognizer(activity.applicationContext)
 
-    // The only outbound request in the app: exchange rates. See AndroidRateSource.
+    // Exchange rates use a restricted network client. Voice uses a separate recognizer app.
     override fun rateSource(): com.ariadne.fx.RateSource = AndroidRateSource()
 
     override fun files(): com.ariadne.app.PhotoFiles = AndroidFiles(activity)

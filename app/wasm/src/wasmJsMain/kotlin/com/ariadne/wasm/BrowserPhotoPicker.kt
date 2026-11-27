@@ -46,9 +46,8 @@ internal object BrowserPhotoPicker : PhotoPicker {
  *
  * The scaling happens here rather than in Kotlin because the browser already has the
  * decoder and the canvas. A 12-megapixel photograph becomes a 1600px JPEG at the same
- * quality the phone's picker uses; if anything about that fails — an exotic codec, an
- * old engine, a canvas the browser refuses to give us — the original bytes are used
- * instead. Losing the rescale is acceptable; losing the photograph is not.
+ * quality the phone's picker uses. Oversized or undecodable files are rejected.
+ * The browser decoder may allocate before dimensions can be checked.
  */
 @OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
 @JsFun(
@@ -71,6 +70,9 @@ internal object BrowserPhotoPicker : PhotoPicker {
   };
 
   const readOne = (file) => new Promise((resolve) => {
+    if (!file.type.startsWith('image/') || file.size <= 0 || file.size > 20 * 1024 * 1024) {
+      resolve(''); return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const original = typeof reader.result === 'string' ? reader.result : '';
@@ -79,20 +81,22 @@ internal object BrowserPhotoPicker : PhotoPicker {
       image.onload = () => {
         try {
           const longest = Math.max(image.width, image.height);
-          if (!longest || longest <= 1600) { resolve(original); return; }
-          const scale = 1600 / longest;
+          if (!image.width || !image.height || longest > 12000 || image.width * image.height > 40000000) {
+            resolve(''); return;
+          }
+          const scale = Math.min(1, 1600 / longest);
           const canvas = document.createElement('canvas');
-          canvas.width = Math.round(image.width * scale);
-          canvas.height = Math.round(image.height * scale);
+          canvas.width = Math.max(1, Math.round(image.width * scale));
+          canvas.height = Math.max(1, Math.round(image.height * scale));
           const context = canvas.getContext('2d');
-          if (!context) { resolve(original); return; }
+          if (!context) { resolve(''); return; }
           context.drawImage(image, 0, 0, canvas.width, canvas.height);
           resolve(canvas.toDataURL('image/jpeg', 0.85));
         } catch (ignored) {
-          resolve(original);
+          resolve('');
         }
       };
-      image.onerror = () => resolve(original);
+      image.onerror = () => resolve('');
       image.src = original;
     };
     reader.onerror = () => resolve('');
@@ -102,9 +106,14 @@ internal object BrowserPhotoPicker : PhotoPicker {
   input.addEventListener('change', () => {
     const files = Array.prototype.slice.call(input.files || [], 0, limit);
     if (files.length === 0) { finish(''); return; }
-    Promise.all(files.map(readOne)).then((urls) => {
-      finish(urls.filter((url) => typeof url === 'string' && url).join('\n'));
-    });
+    (async () => {
+      const urls = [];
+      for (const file of files) {
+        const url = await readOne(file);
+        if (url) urls.push(url);
+      }
+      finish(urls.join('\n'));
+    })().catch(() => finish(''));
   });
 
   // Newer engines fire this when the dialog is dismissed without a choice; older ones
