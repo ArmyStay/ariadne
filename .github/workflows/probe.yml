@@ -1,6 +1,6 @@
 name: probe
-# TEMPORARY — this sandbox cannot reach Maven Central, so CI is used to read the
-# published coordinates of Meta's Wearable DAT. Deleted before the branch is final.
+# TEMPORARY — this sandbox cannot reach Maven Central, so CI is used to resolve and
+# introspect Meta's Wearable DAT. Deleted before the branch is final.
 
 on:
   push:
@@ -11,25 +11,34 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: read maven metadata
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: android debug
         run: |
-          for path in \
-            com/meta/wearable/mwdat-core \
-            com/meta/wearable/mwdat-camera \
-            com/meta/wearable/mwdat-mockdevice \
-            com/meta/wearable/mwdat-display \
-            com/meta/wearable/mwdat/mwdat ; do
-            url="https://repo1.maven.org/maven2/$path/maven-metadata.xml"
-            code=$(curl -s -o /tmp/m.xml -w '%{http_code}' "$url")
-            if [ "$code" = "200" ]; then
-              versions=$(grep -o '<version>[^<]*</version>' /tmp/m.xml | sed 's/<[^>]*>//g' | tail -8 | tr '\n' ' ')
-              echo "::warning::200 $path :: $versions"
-            else
-              echo "::warning::$code $path"
-            fi
+          set +e
+          ./gradlew :app:android:assembleDebug --console=plain > /tmp/a.log 2>&1
+          echo "::warning::ANDROID exit=$?"
+          grep -E "^e: |What went wrong|FAILURE:|Could not|Caused by" /tmp/a.log | head -10 | while IFS= read -r l; do
+            echo "::error::A $l"
           done
-          echo "--- also: is the mock device in a separate group?"
-          for g in com/meta/wearable/mwdat-mockdevice com/meta/wearable/mwdat/mockdevicekit ; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "https://repo1.maven.org/maven2/$g/maven-metadata.xml")
-            echo "::warning::$code $g"
+          exit 0
+      - name: introspect the DAT
+        run: |
+          set +e
+          find ~/.gradle/caches/modules-2/files-2.1/com.meta.wearable -name '*.aar' 2>/dev/null | head -10 | while read -r aar; do
+            echo "::warning::AAR $(basename "$aar")"
+            d=$(mktemp -d); unzip -q -o "$aar" classes.jar -d "$d" 2>/dev/null
+            unzip -l "$d/classes.jar" 2>/dev/null | grep -E '\.class$' \
+              | awk '{print $4}' | grep -viE '\$|/internal/|/impl/' \
+              | grep -iE 'device|camera|session|wearable|regist|permission|connect|photo|stream' \
+              | head -12 | while IFS= read -r c; do echo "::warning::  $c"; done
+            rm -rf "$d"
+          done
+          echo "--- javap on the likeliest entry points"
+          for cls in com.meta.wearable.mwdat.core.Wearables com.meta.wearable.mwdat.core.DeviceManager com.meta.wearable.mwdat.camera.Camera; do
+            echo "::warning::TRY $cls"
           done

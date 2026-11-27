@@ -14,7 +14,10 @@
         <!-- Meta Wearable Device Access Toolkit (DAT) Configuration -->
         <meta-data
             android:name="com.meta.wearable.mwdat.APPLICATION_ID"
-            android:value="PLACEHOLDER_APPLICATION_ID" />
+            android:value="${mwdatApplicationId}" />
+        <meta-data
+            android:name="com.meta.wearable.mwdat.CLIENT_TOKEN"
+            android:value="${mwdatClientToken}" />
         <meta-data
             android:name="com.meta.wearable.mwdat.ANALYTICS_OPT_OUT"
             android:value="true" />

@@ -12,6 +12,11 @@ android {
     defaultConfig {
         applicationId = "com.ariadne.app"
         minSdk = libs.versions.android.minSdk.get().toInt()
+        // Meta Wearables DAT identity. 0/0 is the documented developer-mode pair: the
+        // glasses accept an unregistered app while the developer switch is on in Meta
+        // AI. A release build overrides both from the Wearables Developer Center.
+        manifestPlaceholders["mwdatApplicationId"] = "0"
+        manifestPlaceholders["mwdatClientToken"] = "0"
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
@@ -45,6 +50,7 @@ dependencies {
     implementation(libs.android.inappreview)
     // Meta Wearable Device Access Toolkit (DAT) - experimental surface, analytics opted out
     implementation(libs.mwdat.core)
+    implementation(libs.mwdat.camera)
     debugImplementation(libs.mwdat.mock)
     // The camera, bound to this activity's lifecycle.
     implementation(libs.androidx.camera.core)
