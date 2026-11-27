@@ -47,7 +47,10 @@ private fun loadPhoto(context: android.content.Context, path: String): Bitmap? {
     }
 
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeFile(path, bounds)
+    // Decode the same canonical file that passed the private-directory check.
+    // Capture rows persist canonical paths, but older rows or imported records
+    // can contain an equivalent path with different separators or dot segments.
+    BitmapFactory.decodeFile(file.path, bounds)
     if (!safeImageBounds(bounds.outWidth, bounds.outHeight) || file.length() > MAX_COMPRESSED_IMAGE_BYTES) {
         Log.w("AriadnePhoto", "Captured photo could not be decoded")
         return null
@@ -57,7 +60,7 @@ private fun loadPhoto(context: android.content.Context, path: String): Bitmap? {
     var sampleSize = 1
     while (maxEdge / sampleSize > 1600) sampleSize *= 2
     val decoded = BitmapFactory.decodeFile(
-        path,
+        file.path,
         BitmapFactory.Options().apply {
             inSampleSize = sampleSize
             inPreferredConfig = Bitmap.Config.ARGB_8888

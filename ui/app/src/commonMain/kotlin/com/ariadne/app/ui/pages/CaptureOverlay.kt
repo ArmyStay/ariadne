@@ -1,4 +1,4 @@
-package com.ariadne.app.ui.pages
+﻿package com.ariadne.app.ui.pages
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

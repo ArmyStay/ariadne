@@ -1,4 +1,4 @@
-# Ariadne — the interface, surface by surface, as built
+﻿# Ariadne — the interface, surface by surface, as built
 
 **What this document is.** A source-level description of the Ariadne interface and
 flows. The navigation and route details below reflect the current Home / Timeline /
