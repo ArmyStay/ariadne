@@ -175,10 +175,11 @@ chips, and settings that survive a restart. The stills above are from that build
   whole reason, and it is the only feature in the app that costs a device generation.
 - **Speech** needs a device with a recogniser app; where there is none, the control says
   `No microphone in this build` and **Type it instead** stays available.
-- **The browser's file dialog.** It compiles and is wired
-  (`LocalPhotoPicker` → a `@JsFun` file input in `app/wasm`), but the demo has not been
-  driven from this machine, so "open the chooser and keep the photo" is not among the
-  things tested on a device.
+- **The browser's file dialog.** It compiles, and the photograph it returns is kept in
+  the tab's memory and drawn in the record like any other (`app/wasm`: `BrowserPhotoPicker`,
+  `BrowserPhotoFiles`, `BrowserPhotoImageRenderer`). It has not been driven from a
+  browser in this build, so "open the chooser, keep the photo, see it in the record" is
+  not among the things tested on a device.
 - **iOS imports and capture.** The iOS target has no camera, no photo picker and no
   photo file store, so the Library control is not offered there and the shutter keeps a
   ruled plate. Text recognition (Vision) and the database do work.

@@ -962,12 +962,13 @@ motion or 200%-font check has been done for any surface in this document. See §
 | --- | --- | --- | --- | --- | --- | --- |
 | **Android** | CameraX binding via `LocalCamera` | `PickMultipleVisualMedia(12)` | ML Kit on-device | `HttpURLConnection` → frankfurter.app, 5s timeouts | SQLDelight + private files | none |
 | **Desktop** | none — the engraved plate | system file dialog | Tess4J | none | SQLDelight (`~/.ariadne/ariadne.db`) | none |
-| **Wasm** | none | `BrowserPhotoPicker` — an `<input type="file" accept="image/*">` built by a `@JsFun`, read as data URLs, rescaled to 1600px on a canvas, up to twelve | optional `window.ariadneRecognize` hook, else a polite failure | none | in memory | none |
+| **Wasm** | none | `BrowserPhotoPicker` — an `<input type="file" accept="image/*">` built by a `@JsFun`, read as data URLs, rescaled to 1600px on a canvas, up to twelve | optional `window.ariadneRecognize` hook, else a polite failure | none | in memory, photographs included (`BrowserPhotoFiles`; `BrowserPhotoImageRenderer` draws them) | none |
 | **iOS** | none | **none** — no picker is provided, so **LIBRARY** is not drawn | Vision | none | native SQLite (no photo file storage) | StoreKit |
 
 Visible consequences: where no camera is bound the plate reads **No camera here — tap the
-frame for a plate**; where no picker is bound **LIBRARY** is absent (iOS); on Wasm nothing
-survives a reload; only Android can fetch a rate.
+frame for a plate**; where no picker is bound **LIBRARY** is absent (iOS); on Wasm nothing —
+photographs included — survives a reload, which is what Preferences says; only Android can
+fetch a rate.
 
 ---
 
