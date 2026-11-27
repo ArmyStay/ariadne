@@ -75,8 +75,9 @@ paying for and not using.
   page at 200 % text are written and compiled, not looked at.
 - **It does compile, on every target.** `jvmTest` is green on the branch, and
   `:app:android:assembleDebug`, `:app:wasm:compileKotlinWasmJs` and
-  `:app:wasm:wasmJsBrowserDistribution` were each run on the exact head commit and each
-  exited 0.
+  `:app:wasm:wasmJsBrowserDistribution` were each run against this branch's code and each
+  exited 0. The last commit after that run deleted one modifier from the pill and edited
+  this file; `jvmTest` is green on it.
 - The `shared` job in `ci.yml` is red for this branch **and** for `main`
   (`f203863`, `d08f280`), while that job's own command sequence succeeds when run
   out of band on both this head and its base `b2dedfa` — so the red check is a property
