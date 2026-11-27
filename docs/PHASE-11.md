@@ -90,6 +90,21 @@ them from the Wearables Developer Center.
   `:app:android:assembleDebug` **0**, `:app:wasm:compileKotlinWasmJs` **0**,
   `:app:desktop:compileKotlinJvm` **0**, `./gradlew jvmTest` **0**.
 - `SpokenExpense` passes its eight tests in the local harness (`passed=8 failed=0`).
+- **CI is green on all three jobs** — `shared` (jvm + wasm + android), `desktop`, and
+  `ios` — for the first time since the wearable commit. The `ios` job had been red on
+  every commit for a different reason, found by asking the macOS runner to print the
+  compiler's errors: the export code used `NSData.create` and `NSData.writeToFile`,
+  which do not resolve in this module's interop, and read `view.bounds.size.width`
+  through the cascade. It now writes the file with `fopen`/`fwrite`, centres the share
+  sheet with `CGRectGetMidX`/`CGRectGetMidY`, and names `VNRecognizedText` before
+  reading it — the Vision bridge hands the candidates back as `Any`.
+- **`dependency review` passes but reviews nothing:** the repository has its dependency
+  graph switched off, which the action reports as "not supported on this repository".
+  The workflow now asks the graph first and skips the review when there is none, with a
+  warning that says where the setting is. Turn it on (Settings → Code security →
+  Dependency graph) and the check starts doing its job again.
+- **`wasm demo → GitHub Pages` is skipped on pull requests by design** — it is gated on
+  `github.ref == 'refs/heads/main'`.
 - **Not run on a phone by me, and not run against glasses at all.** The DAT calls are
   the documented ones in the documented order, and they compile against the published
   SDK 1.1.0 — but nothing here has watched a pair of Ray-Bans answer. The mock device
