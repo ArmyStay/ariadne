@@ -14,6 +14,7 @@ Companion documents that survive, because they are not history:
 | [`../ESSAY.md`](../ESSAY.md) | the 300-word entry essay |
 | [`DESIGN.md`](DESIGN.md) | the design language: palette, type, spacing, motion |
 | [`UI-AND-FLOW.md`](UI-AND-FLOW.md) | every screen, with the words it actually prints |
+| [`SDK-SETUP.md`](SDK-SETUP.md) | the versions, the SDK path, and what each target needs |
 | [`RUN.md`](../RUN.md), [`TESTING.md`](../TESTING.md) | how to run it, and what has been verified |
 | [`RECOGNISER-TESTING.md`](RECOGNISER-TESTING.md) | exercising the receipt fixtures |
 | `shots/` | stills from a phone, and the two-still loop the README uses |
@@ -86,6 +87,27 @@ best camera that is actually there — glasses, then phone, then a ruled plate.
   Gradle shipping path;
 - **this file**: eighteen documents into one, and the rest of the queue cleared.
 
+## 27 November — the rules, and the other way in
+
+`#23`, still open, gained two things that change what the app allows rather than how it
+looks.
+
+**A day that has not happened is not a record.** `RecordDates` in `core/model` — four
+predicates with tests — and every surface now asks it: the shutter files into today, or
+into the day whose record it was opened from, and the day line under the frame says
+which (`THIS GOES ON TODAY, 27 NOV`). Tap it and a day sheet lists the trip's days that
+have happened, newest first, four to a row; tomorrow is not disabled there, it is
+absent. A trip that starts next month has no shutter until it starts, a typed date
+later than today is refused in one sentence, and Close Day refuses a day that is still
+ahead. This is the first rule in the app that is older than the feature that needed it.
+
+**The library, in the browser.** The demo had a shutter and nothing else: with no camera
+behind it, the plate. `BrowserPhotoPicker` fixes the gap the way each other target
+already had — an `<input type="file" accept="image/*">`, up to twelve images, each read
+as a data URL and rescaled to the same 1600px the Android picker uses, then handed to
+the same `importPhotos` path as a camera frame. On iOS there is still no picker, so
+**LIBRARY** is not drawn there rather than drawn dead.
+
 ## Where it stands
 
 **Built**: the shared domain (money, queue, FX, search, store with `openOrMigrate`), the
@@ -107,6 +129,9 @@ needs a device with a recogniser app.
 
 - **One shutter press, no form.** The camera is never a page of its own; the sheet comes
   up over it.
+- **A day that has not happened is not a record.** Not for the shutter, not for a typed
+  date, not for Close Day. The list of days stops at today because tomorrow has nothing
+  in it yet.
 - **No red, ever.** Material's `error` is mapped to indigo; failure is a sentence.
 - **The bar is flat**, four labels and a round button in a gap — never the curved bar and
   never the mockup's pill.

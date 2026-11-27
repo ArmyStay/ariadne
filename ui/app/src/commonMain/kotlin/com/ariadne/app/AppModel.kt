@@ -11,6 +11,7 @@ import com.ariadne.model.CurrencyCode
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
 import com.ariadne.model.MerchantName
+import com.ariadne.model.RecordDates
 import com.ariadne.model.Settings
 import com.ariadne.model.Trip
 import com.ariadne.model.dayRange
@@ -213,7 +214,10 @@ public class AppModel(
                         store.createTrip(defaultTrip)
                         defaultTrip
                     }
-                    val today = clock.today().coerceInto(trip)
+                    // A photograph handed in from outside (a share, an intent) is
+                    // filed on a day that has happened, or not at all.
+                    val today = RecordDates.filingDay(clock.today(), trip.startDate, trip.endDate)
+                        ?: return@launch
                     val capture = runCatching { persistPhotograph(trip, today, initialCaptureBytes) }.getOrNull()
                     if (capture != null) {
                         bindTrip(trip)
@@ -342,6 +346,12 @@ public class AppModel(
             ?: return "Enter the date as YYYY-MM-DD."
         if (day < trip.startDate || day > trip.endDate) {
             return "Choose a date within this trip (${trip.startDate.iso} to ${trip.endDate.iso})."
+        }
+        // The record is a record. A day that has not happened is not one, however
+        // the date arrived here — typed, remembered wrongly, or pasted from a
+        // booking confirmation for tomorrow.
+        if (!RecordDates.isFiled(day, clock.today())) {
+            return "That day hasn't happened yet. Add it on the day, or choose today or an earlier day."
         }
         scope.launch {
             _state.value = _state.value.copy(busy = true)
@@ -543,7 +553,14 @@ public class AppModel(
         val trip = _state.value.trip ?: return
         // A closed trip is a finished record, not a destination for new paper.
         if (trip.isClosed) return
-        val day = clock.today().coerceInto(trip)
+        // The shutter names its day when it opens. A capture that arrives with no
+        // open shutter (a platform callback after the sheet was dismissed) still
+        // files, but on a day that has happened.
+        val day = _state.value.shutterDay ?: RecordDates.filingDay(
+            today = clock.today(),
+            start = trip.startDate,
+            end = trip.endDate,
+        ) ?: return
         scope.launch {
             val capture = try {
                 persistPhotograph(trip, day, bytes)
@@ -677,7 +694,11 @@ public class AppModel(
         }
         val trip = _state.value.trip ?: return
         if (trip.isClosed) return
-        val day = clock.today().coerceInto(trip)
+        val day = _state.value.shutterDay ?: RecordDates.filingDay(
+            today = clock.today(),
+            start = trip.startDate,
+            end = trip.endDate,
+        ) ?: return
         scope.launch {
             var saved = 0
             var failed = 0
@@ -698,11 +719,16 @@ public class AppModel(
                 runCatching { refreshRates() }.onFailure(::report)
             }
             _state.value = _state.value.copy(shutterOpen = false, captureError = null)
+            // The day is named when it is not today: a photograph filed on Tuesday
+            // is not in the stack the person is looking at, and saying so is the
+            // difference between "it vanished" and "it is on Tuesday".
+            val where = if (day == clock.today()) "" else " on ${day.iso}"
             say(
                 when {
                     saved == 0 -> "None of the selected photographs could be kept."
-                    failed == 0 -> "$saved photographs added to the waiting stack."
-                    else -> "$saved photographs kept; $failed could not be saved."
+                    failed == 0 && where.isEmpty() -> "$saved photographs added to the waiting stack."
+                    failed == 0 -> "$saved photographs filed$where."
+                    else -> "$saved photographs kept$where; $failed could not be saved."
                 },
             )
         }
@@ -1152,7 +1178,15 @@ public class AppModel(
     public fun openCloseDay(day: LocalDay? = null) {
         val trip = _state.value.trip ?: return
         scope.launch {
-            val target = (day ?: clock.today()).coerceInto(trip)
+            val today = clock.today()
+            val asked = day ?: today
+            // Closing a day is filing everything on it, so it obeys the same rule as
+            // the shutter: only a day that has happened can be closed.
+            if (!RecordDates.isFiled(asked, today)) {
+                say("That day hasn't happened yet. A day is closed after it, not before.")
+                return@launch
+            }
+            val target = asked.coerceInto(trip)
             refreshDay(target)
             go(Route.CloseDay(target))
         }
@@ -1360,8 +1394,13 @@ public class AppModel(
         // Same rule as the shutter: a closed trip cannot be closed again, and its
         // days may not be re-filed into a finished record.
         if (trip.isClosed) return
+        val asked = day ?: (_state.value.route as? Route.CloseDay)?.day ?: clock.today()
+        if (!RecordDates.isFiled(asked, clock.today())) {
+            say("That day hasn't happened yet. A day is closed after it, not before.")
+            return
+        }
         scope.launch {
-            val target = day ?: (_state.value.route as? Route.CloseDay)?.day ?: clock.today()
+            val target = asked
             store.capturesForDay(trip.id, target).forEach { capture ->
                 if (capture.state.isOpen) {
                     // An untouched capture is not silently dropped: it becomes a
@@ -1894,13 +1933,62 @@ public class AppModel(
      * so the explanation page is still the right answer rather than a camera that
      * files into nowhere.
      */
-    public fun openCapture() {
+    public fun openCapture(day: LocalDay? = null) {
         val trip = _state.value.trip
         if (trip == null || trip.isClosed) {
             go(Route.Capture)
             return
         }
-        _state.value = _state.value.copy(shutterOpen = true, captureError = null)
+        // Which day this photograph will belong to. The page the shutter was opened
+        // from can name it — the record for Tuesday asks for Tuesday — and the answer
+        // is never a day in the future, because there is nothing there to photograph.
+        val filing = RecordDates.chosenOrFiling(
+            chosen = day,
+            today = clock.today(),
+            start = trip.startDate,
+            end = trip.endDate,
+        )
+        if (filing == null) {
+            // The journey has not begun. A shutter here would file into a day that
+            // does not exist yet, so it does not open.
+            say("This journey starts on ${trip.startDate.iso}. There is nothing to photograph yet.")
+            return
+        }
+        _state.value = _state.value.copy(
+            shutterOpen = true,
+            shutterDay = filing,
+            captureError = null,
+        )
+    }
+
+    /**
+     * The days the shutter may file into, newest first.
+     *
+     * The day sheet is this list and nothing else, which is why a future day is not
+     * merely refused there — it is absent, so there is nothing to press.
+     */
+    public fun daysOpenForFiling(): List<LocalDay> {
+        val trip = _state.value.trip ?: return emptyList()
+        return RecordDates.openDays(clock.today(), trip.startDate, trip.endDate).asReversed()
+    }
+
+    /**
+     * Files the open shutter into another day of the trip.
+     *
+     * Only days that have happened are on offer, so this cannot move the shutter
+     * forward: a day in the future, or a day outside the trip, is ignored and the
+     * shutter keeps the day it had.
+     */
+    public fun chooseShutterDay(day: LocalDay) {
+        val trip = _state.value.trip ?: return
+        val allowed = RecordDates.chosenOrFiling(
+            chosen = day,
+            today = clock.today(),
+            start = trip.startDate,
+            end = trip.endDate,
+        ) ?: return
+        if (allowed != day) return
+        _state.value = _state.value.copy(shutterDay = allowed)
     }
 
     /** Put the camera away without taking anything. */

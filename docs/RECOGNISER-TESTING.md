@@ -117,7 +117,7 @@ If you want samples shown in docs/README, copy **redacted** images to `docs/` (o
 .\gradlew.bat :app:android:installDebug
 adb shell monkey -p com.ariadne.app 1
 ```
-If Ariadne disappears after `connectedDebugAndroidTest`, that is test-task cleanup rather than an app crash; run `installDebug` again after the test. Then open Ariadne, capture/import a real receipt, confirm extraction completes or fails gracefully, and that Nightfall/edit flows remain usable.
+If Ariadne disappears after `connectedDebugAndroidTest`, that is test-task cleanup rather than an app crash; run `installDebug` again after the test. Then open Ariadne, capture/import a real receipt, confirm extraction completes or fails gracefully, and that Close Day/edit flows remain usable.
 
 ---
 

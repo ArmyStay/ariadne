@@ -137,7 +137,7 @@ You should now see `ariadne.db`. Two things worth knowing:
   remembered across restarts.
 - **From the library.** On the capture page, "From the library" opens the Windows
   file dialog instead of the camera. The image takes exactly the same path as a
-  photograph - it joins the queue and meets the same two taps at Nightfall.
+  photograph - it joins the queue and meets the same two taps at Close Day.
 - **Trimmed copy.** The pages say less. Where a paragraph was explaining the
   product, there is now a figure, a glyph or a rule.
 

@@ -6,6 +6,7 @@ import com.ariadne.app.AppGraph
 import com.ariadne.app.DataArchiveExporter
 import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
+import com.ariadne.app.ui.pages.LocalPhotoPicker
 import com.ariadne.app.ui.pages.LocalTripCardImageExporter
 import com.ariadne.app.ui.pages.LocalDataArchiveExporter
 import com.ariadne.app.ui.pages.TripCardImageExporter
@@ -31,6 +32,9 @@ fun main() {
         CompositionLocalProvider(
             LocalTripCardImageExporter provides WasmTripCardImageExporter,
             LocalDataArchiveExporter provides WasmDataArchiveExporter,
+            // The shutter is one way to put a receipt in; this is the other. Below it
+            // the page offers "Library", which opens the browser's own file dialog.
+            LocalPhotoPicker provides BrowserPhotoPicker,
         ) {
             AriadneApp(
                 model = graph.model,

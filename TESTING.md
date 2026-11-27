@@ -3,7 +3,7 @@
 Three ways, ordered by how little you have to install. None of them need an
 Apple developer account, an emulator, or a network connection.
 
-> **Workspace note:** Android OCR is now bound to on-device ML Kit in source, extraction refreshes UI state after settling, and Nightfall can batch-confirm ready captures. These changes were not device/Gradle-verified in this session; run real-target checks on your machine and record outcomes.
+> **Workspace note:** Android OCR is bound to on-device ML Kit in source, extraction refreshes UI state after settling, and Close Day can batch-confirm ready captures. CI compiles all five targets on every push; the device checks below are what CI cannot do.
 
 ---
 
@@ -45,7 +45,7 @@ in-memory store and a preview recognizer that returns OcrResult.Failure (a desig
 
 1. **Begin with the demo roll.** You land on Home with five photographs waiting,
    the shutter in the notch and four destinations under it.
-2. **Finish 5 photographs** (the blue block) → Nightfall. The tea glass fills the
+2. **Finish 5 photographs** (the blue block) → Close Day. The tea glass fills the
    plate; the merchant and the amount were "read from the photograph". Type over
    the number. Both decisions — **Confirm** and **No amount** — are on screen
    above the keypad, so nothing needs a scroll.
@@ -56,7 +56,7 @@ in-memory store and a preview recognizer that returns OcrResult.Failure (a desig
    finished, and the figures match what you confirmed.
 6. **Prefs → Close the trip into a card** → the card page.
 
-Keyboard on desktop, at Nightfall only: `0–9` and `.` type, `Backspace` deletes,
+Keyboard on desktop, at Close Day only: `0–9` and `.` type, `Backspace` deletes,
 `Enter` confirms, `J`/`K` move through the stack, `Esc` leaves.
 
 > The window is real AWT. On a headless box you need `Xvfb`:

@@ -65,21 +65,43 @@ lookup that the app works without.
 ## A photograph is the note
 
 The reason a spending app gets abandoned is that it asks for the receipt to be re-typed.
-So Ariadne asks for the picture first and lets the figure wait. Three ways in, cheapest
+So Ariadne asks for the picture first and lets the figure wait. Four ways in, cheapest
 to rarest:
 
 1. **The phone's camera** — the shutter in the dock. Nothing to enable, no hardware.
-2. **Your voice** — a microphone on Home, next to **Add an expense manually**, and a
+2. **The library** — a receipt you already photographed. **Library** on the shutter
+   opens the system photo picker (up to twelve at once), the desktop's file dialog, or,
+   in the browser demo, the page's own file chooser, which rescales to 1600px before the
+   image is kept. It is the same record either way: an imported photograph meets the
+   same two taps at Close Day as one taken at the counter.
+3. **Your voice** — a microphone on Home, next to **Add an expense manually**, and a
    `Say the amount` row on the kept photograph. Say `twelve fifty`, `five euros fifty`,
    `coffee twelve fifty`; the figure and the merchant are filed. A spoken amount is a
    decision, so it lands confirmed. The parser is a pure function with tests
    (`SpokenExpense` in `core/model`); a sentence it cannot read is simply not a figure.
-3. **Meta AI glasses** — optional, and **no hardware is needed to try this app**. If you
+4. **Meta AI glasses** — optional, and **no hardware is needed to try this app**. If you
    own a pair, pair once (one panel, one trip to Meta AI), and the shutter takes the
    picture the glasses see instead of the phone's. The wiring is written against Meta's
    published SDK and compiles on every target; it has not been run against glasses from
    the machine it was written on, and a build needs your own app id to pair (see
    [What is proven where](#what-is-proven-where)).
+
+## The rules
+
+Five things the app will not do, because a record that bends is not a record:
+
+- **A day that hasn't happened yet is not a record.** The shutter files into today, or
+  into an earlier day of the trip if you say so — tap the day under the frame to change
+  it, and the list of days it offers stops at today. Tomorrow is not on the list. A
+  typed date is refused with a sentence, not an error dialog, and a trip that starts
+  next month has no shutter at all until it starts.
+- **No red.** Failure is a sentence in the same ink as everything else.
+- **Nothing leaves the device** except the one optional rate lookup, which carries no
+  trip data.
+- **A photograph needs a journey.** With no open trip the shutter explains itself
+  instead of filing into nowhere.
+- **Money is never a float**, and an amount you cannot convert is named in its own
+  currency rather than added to the total.
 
 ## The screens
 
@@ -153,6 +175,13 @@ chips, and settings that survive a restart. The stills above are from that build
   whole reason, and it is the only feature in the app that costs a device generation.
 - **Speech** needs a device with a recogniser app; where there is none, the control says
   `No microphone in this build` and **Type it instead** stays available.
+- **The browser's file dialog.** It compiles and is wired
+  (`LocalPhotoPicker` → a `@JsFun` file input in `app/wasm`), but the demo has not been
+  driven from this machine, so "open the chooser and keep the photo" is not among the
+  things tested on a device.
+- **iOS imports and capture.** The iOS target has no camera, no photo picker and no
+  photo file store, so the Library control is not offered there and the shutter keeps a
+  ruled plate. Text recognition (Vision) and the database do work.
 - **Public share links.** The `TripShare` route exists in the router but the share path is
   not finished, so it is not claimed anywhere above.
 

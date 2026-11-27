@@ -5,7 +5,7 @@ flows. The navigation and route details below reflect the current Home / Timelin
 Stats / More structure, manual entry, profile settings, and local data export. Device
 layout and platform save/share behavior still need human verification.
 
-**Audited at** `d6f6fe0` (main, after the data-export pass), 2026-11-27. **Second revision:** every
+**Audited at** `de61c29` (the documentation consolidation), 2026-11-27. **Second revision:** every
 surface lists its blocks in order, with the exact words on every label, button, pill,
 placeholder, empty state and note, and the control each one calls. **Third revision
 (phase 8):** the timeline was rebuilt to the journey reference — globe backdrop,
@@ -17,11 +17,15 @@ wash of blue, a plate with crop marks, the glasses in a capsule, a blue disc for
 shutter — and §5.9 was rewritten. **Sixth revision (phase 11):** the glasses became one
 mark in the corner with a single setup panel, the shutter fires through them when they
 are paired, the amount can be said out loud, and the photograph page stopped scrolling;
-§5.8 and §5.9 were rewritten.
+§5.8 and §5.9 were rewritten. **Seventh revision:** the shutter names the day it files
+into and offers a day sheet that stops at today, the browser gained a real file chooser,
+and the record's Capture action carries the day being read — §5.9, §5.17 and §8 were
+updated.
 
 **What it is not.** Not a roadmap, not a changelog, and not a claim that any of this has
-been looked at on a screen. No screenshot in this repository was produced by this build:
-`docs/shots/` holds only `docs/shots/archive-2026-11-26-pre-third-review/`.
+been looked at on a screen. The screenshots that do exist are under
+`docs/shots/current/` (two stills from a phone) and `docs/shots/demo-stills.gif` (those
+two stills looping); `docs/shots/archive-2026-11-26-pre-third-review/` is superseded.
 
 **How strings are quoted here.** Exactly as they appear in the source. Two rules of the
 design system change how they appear on screen and are worth stating once:
@@ -211,8 +215,12 @@ It is set like a cover, not like a spinner:
 | `shutterOpen` | `CaptureOverlay`, full cover | `openCapture()` with an open trip; the FAB; record **CAPTURE**; record **ADD A PHOTOGRAPH**; Home **TAKE PHOTO** | **CLOSE**, Back, Escape, taking a frame |
 | `sheetCaptureId` | `FramePage`, photograph sheet | one successful photo from camera or picker | **KEEP FOR LATER**, **OPEN THE FULL EDITOR**, Back, Escape |
 
-Picking multiple photographs files them into the current day's waiting stack and returns
-to the underlying page. A single picked photograph opens the same sheet as a camera photo.
+Picking multiple photographs files them into the shutter's day and returns to the
+underlying page. A single picked photograph opens the same sheet as a camera photo.
+
+The **day sheet** is drawn inside `CaptureOverlay`, not by the shell, so it is not a
+third entry in this table: it is the shutter's own choice of day, and it closes with
+**DONE**, the scrim, or a day.
 
 ### 2.4 Desktop keys (`handleKey`)
 
@@ -239,10 +247,15 @@ The user-facing onboarding and trip-register flows do not offer the demo roll.
 
 ### 3.2 The everyday loop
 
-1. FAB (or record **CAPTURE**) → `CaptureOverlay` over the same page.
-2. Tap the plate → `capturePhoto()` → the saved photograph appears in the sheet over the
+1. FAB (or record **CAPTURE**, or record **ADD A PHOTOGRAPH**) → `CaptureOverlay` over
+   the same page. Opened from a day's record, the shutter files into that day; opened
+   from the dock, it files into today. Under the frame it says which:
+   `THIS GOES ON TODAY, 27 NOV`, or `THIS GOES ON 24 NOV`.
+2. **LIBRARY** instead of the plate → the system picker, the desktop's file dialog, or
+   the browser's file chooser → `importPhotos()` → filed on the same day, no sheet.
+3. Tap the plate → `capturePhoto()` → the saved photograph appears in the sheet over the
    same page.
-3. **KEEP FOR LATER** is the primary action; **OPEN THE FULL EDITOR** is secondary.
+4. **KEEP FOR LATER** is the primary action; **OPEN THE FULL EDITOR** is secondary.
    The amount is not required on the post-capture path. OCR remains unconfirmed until
    Close Day.
 
@@ -280,6 +293,7 @@ Privacy and terms are in-app drafts that need review before publication.
 | --- | --- |
 | `route`, `history`, `canGoBack` | the shell |
 | `shutterOpen`, `sheetCaptureId` | the shell (overlays) |
+| `shutterDay` | the shutter's day line and day sheet; `capturePhoto`, `importPhotos` |
 | `theme`, `displayName` | `AriadneApp` → `AriadneTheme`; More, Settings |
 | `trip` | every page |
 | `today` | Home, Record, CloseDay, Preferences, Search |
@@ -622,8 +636,9 @@ the same page composed twice. Nothing is a bitmap and nothing is cropped.
 | top-right | the trip's name, or `Ariadne`, under a 44dp hairline | — |
 | the frame | dark, 22dp corners, four crop marks 12dp in from its corners (20dp arms, 2dp); `contentDescription = "Viewfinder. Tap to keep the photograph."` | tap fires the camera |
 | hint | `Tap the frame to keep it` — or `No camera here — tap the frame for a plate` — on one line between two hairlines | — |
+| the day | under the hint, a 12dp calendar mark and `This goes on today, 27 Nov`, or `This goes on 24 Nov`, in tracked capitals with a rule under it; `No day to file into yet` when there is none | opens the day sheet |
 | glasses | a 38dp mark in the corner, right of the journey's name: rims in `inkSoft`, or in `blue` on a `blueWash` disc once paired; `contentDescription = "Meta AI glasses: <status>"` | opens the glasses panel |
-| left of the shutter | **LIBRARY**, shown only where a picker exists | `rememberPhotoImportMany` → `importPhotos` |
+| left of the shutter | **LIBRARY**, shown only where a picker exists — Android, desktop, and the browser; not on iOS | `rememberPhotoImportMany` → `importPhotos`, up to twelve at once |
 | the shutter | an 88dp paper ring holding a 68dp disc in `blue` with a camera mark in `onBlue`; `contentDescription = "Shutter"` | the glasses when they are paired, else the phone's camera, else a plate |
 | right of the shutter | `Nothing waiting` / `N waiting` | `closeShutter()`, then `openCloseDay(today)` |
 | the foot | `no figure here · the amount comes after`, in a `blueWash` capsule with the budget mark; a failed capture prints its own line above it | — |
@@ -652,6 +667,25 @@ closes it. A card in `paper.raised` with a hairline and 20dp corners:
 The mark itself appears only where the platform provides `LocalWearableCapture` — the
 Android target, through `AndroidWearableCapture`. Where there is none, the corner is
 the journey's name and nothing else.
+
+**The day sheet.** Opened by the day line, over the same 45 % scrim and in the same
+`paper.raised` card as the glasses panel:
+
+- `THE DAY` (8sp, `inkGhost`);
+- the serif headline — *"Which day is this for?"* (24sp);
+- one serif line — *"A photograph belongs to a day that has happened. Yesterday's receipt
+  can be filed on yesterday; tomorrow's cannot be filed at all."*;
+- the trip's days that have happened, newest first, four to a row and scrolling past
+  232dp: each a 10dp-cornered pip with the weekday in 7sp caps over the date in 10sp
+  (`TUE` / `24 NOV`, and `TODAY` where today would be the weekday). The shutter's day is
+  filled `blue` with `onBlue` text; `contentDescription = "File on 24 Nov"`;
+- **DONE** as a quiet action.
+
+Days that have not happened are **not in the list** — not disabled, absent — so the rule
+is visible rather than reported after the fact. Choosing a pip calls `chooseShutterDay`,
+which ignores anything later than today, and closes the sheet. A journey that has not
+started has no pips at all: *"None of this journey's days has happened yet, so there is
+nothing here to file into."*
 
 **No trip / closed trip.** Title — *"This trip is closed."* or *"No trip is open."*;
 body — *"Its photographs are still here, and its card is still yours."* or *"A photograph
@@ -820,8 +854,10 @@ this is the one action in the app you cannot take back."* Armed, the block becom
 **More.** **TRIPS**, **ADD MANUALLY**, and **SETTINGS & PROFILE**, followed by **PRIVACY
 POLICY** and **TERMS OF USE** under About Ariadne.
 
-**Manual entry.** A form for amount, currency, date within the open trip, optional
-merchant/place, category, and note. Saving creates a `CONFIRMED` entry with no photo
+**Manual entry.** A form for amount, currency, date within the open trip **and on or
+before today**, optional merchant/place, category, and note. A date later than today is
+refused inline — *"That day hasn't happened yet. Add it on the day, or choose today or
+an earlier day."* — before the out-of-trip message can apply. Saving creates a `CONFIRMED` entry with no photo
 (`photoPath = ""`); it is not queued for OCR. Invalid amount, currency, or out-of-trip
 date is shown inline. Home and Stats label manual records as entries rather than photos.
 
@@ -893,6 +929,14 @@ over-budget figure. Night paper is the same design on dark stock.
 **Rules.** 1dp hairlines are the structural device. No shadows. Corners are 1–2dp; only
 the FAB, the badges and the shutter's ring are round.
 
+**Days.** One edge, and every surface obeys it: a day may hold a record only if it has
+happened — today or earlier. `RecordDates` in `core/model` is the single definition, with
+tests: `isFiled`, `filingDay` (null before a journey starts, the last day after it ends),
+`openDays` (the day sheet's list), `chosenOrFiling` (a request for a future or outside day
+becomes today). The shutter (`openCapture`, `capturePhoto`, `importPhotos`), Close Day
+(`openCloseDay`, `closeDay`) and manual entry all ask it. Nothing refuses with a dialog:
+the shutter does not open and the notice bar says why, in one sentence.
+
 **Motion.** `Reveal` (Home's rows, staggered) and `animatedLong` (Stats' figure)
 respect reduced motion and settle on the first frame when it is on.
 
@@ -912,11 +956,12 @@ motion or 200%-font check has been done for any surface in this document. See §
 | --- | --- | --- | --- | --- | --- | --- |
 | **Android** | CameraX binding via `LocalCamera` | `PickMultipleVisualMedia(12)` | ML Kit on-device | `HttpURLConnection` → frankfurter.app, 5s timeouts | SQLDelight + private files | none |
 | **Desktop** | none — the engraved plate | system file dialog | Tess4J | none | SQLDelight (`~/.ariadne/ariadne.db`) | none |
-| **Wasm** | none | browser file input | optional `window.ariadneRecognize` hook, else a polite failure | none | in memory | none |
-| **iOS** | none | photo library | Vision | none | native SQLite | StoreKit |
+| **Wasm** | none | `BrowserPhotoPicker` — an `<input type="file" accept="image/*">` built by a `@JsFun`, read as data URLs, rescaled to 1600px on a canvas, up to twelve | optional `window.ariadneRecognize` hook, else a polite failure | none | in memory | none |
+| **iOS** | none | **none** — no picker is provided, so **LIBRARY** is not drawn | Vision | none | native SQLite (no photo file storage) | StoreKit |
 
 Visible consequences: where no camera is bound the plate reads **No camera here — tap the
-frame for a plate**; on Wasm nothing survives a reload; only Android can fetch a rate.
+frame for a plate**; where no picker is bound **LIBRARY** is absent (iOS); on Wasm nothing
+survives a reload; only Android can fetch a rate.
 
 ---
 

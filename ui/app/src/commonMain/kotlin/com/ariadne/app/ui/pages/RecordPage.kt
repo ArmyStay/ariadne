@@ -74,7 +74,8 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             eyebrow = state.trip?.name ?: "Record",
             title = "The record",
             paper = paper,
-            trailing = { PageAction("Capture", paper, { model.openCapture() }) },
+            // The shutter opened from this day files into this day.
+            trailing = { PageAction("Capture", paper, { model.openCapture(shown) }) },
         )
 
         Spacer(Modifier.height(18.dp))
@@ -108,7 +109,7 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
                 size = 17.sp,
             )
             Spacer(Modifier.height(22.dp))
-            Action("Add a photograph", paper, { model.openCapture() })
+            Action("Add a photograph", paper, { model.openCapture(shown) })
         } else {
             captures.forEachIndexed { i, capture ->
                 ReceiptLine(capture, model.titleOf(capture), i, paper) { model.openDetail(capture.id) }
