@@ -176,7 +176,6 @@ public fun IndexCard(
         paper = paper,
         modifier = modifier.tap(label) { onClick() },
         inset = 14.dp,
-        radius = 16.dp,
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             DiscBadge(paper, glyph = glyph)
