@@ -853,32 +853,39 @@ still yours."* + **SEE THE CARD** + **THE REGISTER**.
 "A quick look at this trip's spending, and what it went on.")`.
 **Rail:** `the trip` (its figure), `entries` (count), `finished only`.
 
-The page is four cards on the paper, each with a disc of `paper.blueWash`, a tracked
-label and one figure. A card is a container — `paper.raised`, a hairline, 18dp corners,
-an 8dp lift in daylight and none at night — never a material.
+The page is four leaves of paper, each cut by the same `Leaf` the More page uses:
+`paper.raised`, a `Bone.Hairline`, 20dp corners and a 6dp lift in daylight, no lift at
+night. Every head is one `CardHead` — the blue-wash disc, then a tracked label; on the
+three sections below the first the roman numeral lives *inside* that label
+(`II · daily spending`), because a head above a head is two titles for one card. The
+disc glyphs are `Trip`, `Stats`, `Record`, `Budget`.
 
 1. **The trip so far.** Disc (`Glyph.Trip`) + `the trip so far`, then the figure
-   (36sp phone / 48sp wide) with the currency symbol before it, animated to its value.
+   (36sp phone / 46sp wide, medium weight) with the currency symbol before it
+   (19sp / 24sp), both on one baseline, animated to its value.
    Right column: `finished entries only`, and when a budget exists `against a budget of`
    + `₹1,00,000.00 left` (or `over`) + the difference in `paper.blue`. No budget says
    `no budget set`. Under the rule, the note *"Only entries that were finished. Anything
    still waiting across this trip is not in this figure, and is not counted as zero."*
-2. **`II` daily spending.** Disc (`Glyph.Stats`) + `daily spending`, and a pill at the
-   right that reads `this trip` or `last 7 days` and swaps the range on a tap
-   (`"Draw the chart from the last seven days"` / `"… the whole trip"`). One bar per day
-   of the range, `paper.navy`, in a 132dp plot: four ruled intervals with the money on
-   the left in brief shorthand (`0`, `250`, `25k`, `1L`), and the largest day's figure
-   in a small bubble above its bar. Days with nothing finished have no bar. The note says
-   so: *"One bar per day of the trip, in the base currency. A day with nothing finished
-   is a day with no bar, not a day with a zero."*
-3. **`III` what it was.** A row per category — the label, `N entries`, the figure; the
+2. **`II · daily spending`.** Disc (`Glyph.Stats`), and a pill at the right that reads
+   `this trip` or `last 7 days` and swaps the range on a tap
+   (`"Draw the chart from the last seven days"` / `"… the whole trip"`). The pill's
+   `Chevron` is rotated 90°, because a range hands you the rest of the range. One bar per
+   day of the range, `paper.navy`, half the day's slot wide (6dp–22dp), in a 134dp plot
+   (118dp above fourteen days): a rule at every interval including the foot, the money
+   on the left in brief shorthand (`0`, `250`, `25k`, `1L`), each label level with its
+   own rule, and the largest day's figure in a small bubble above its bar, clamped
+   inside the plot. Days with nothing finished have no bar. The note says so: *"One bar
+   per day of the trip, in the base currency. A day with nothing finished is a day with
+   no bar, not a day with a zero."*
+3. **`III · what it was`.** Disc (`Glyph.Record`). A row per category — the label, `N entries`, the figure; the
    unclaimed column is `Uncategorised`, set in italic serif; an `of` row for the trip
    total; then *"Nothing here is sorted for you. A category is a claim you make on an
    entry, and most entries never need one."* Under the card, `PatternLine` prints its
    one sentence when a category holds at least 30% of the categorised money.
-4. **`IV` by currency, before conversion.** A row per currency: disc with the symbol
-   (`₹`, `€`), the code, the amount as paid, then *"These are the amounts as they were
-   paid, not converted."*
+4. **`IV · by currency`.** Disc (`Glyph.Budget`). A row per currency: a 32dp symbol
+   badge (`₹`, `€`), the code, the amount as paid, then *"These are the amounts as they
+   were paid, not converted."*
 5. If nothing is tallied: *"Nothing has been tallied yet. The figures appear here the
    first time you confirm an entry."*
 6. **CLOSE TODAY** (`openCloseDay(today)`, accent, 12dp corners; enabled only when the
@@ -995,8 +1002,31 @@ this is the one action in the app you cannot take back."* Armed, the block becom
 
 ### 5.17 More, manual entry, export, and legal pages
 
-**More.** **TRIPS**, **ADD MANUALLY**, and **SETTINGS & PROFILE**, followed by **PRIVACY
-POLICY** and **TERMS OF USE** under About Ariadne.
+**More.** `More` set as a 52sp serif display (68sp wide) with the line *"Trips, settings,
+and the things you can do with your record."* and one rule. Then three groups, each
+opened by a `SectionMark` — a 3×13dp navy bar and a tracked label — over `IndexCard`
+rows (a blue-wash disc, a 19sp serif name, the 11sp faint detail beneath it, a chevron;
+the whole card is one tap target at 44dp or better):
+
+- **the journeys** — **Trips** (`N on this device`) and **Add manually** (*"An expense
+  without a photograph"*);
+- **your copy** — **Settings & profile** (*"Name, currencies, appearance"*);
+- **about Ariadne** — **Privacy policy** and **Terms of use** (both marked drafts).
+
+The page closes on a **Have feedback?** leaf in `paper.blueWash`: a heart in outline, a
+hairline divider, the title, the line *"Copies a note you can paste into an email."* and
+an outlined pill **Share feedback** (`copyFeedbackNote()`). There is no server and no
+address this build may write to, so the button copies a note — *what I was doing*, *what
+happened*, the trip, its counts — and the card then says *"Copied. Paste it wherever you
+write to us."* A button labelled *send* that silently did nothing would be the one lie
+this page could tell.
+
+**The sky behind More.** `FlightSky(paper)` draws the page's ground: three arcs off the
+top-right corner at a 7% wash, a paper plane crossing them with a fold and a shadowed
+under-wing, a 8dp spark at the left margin level with the headline and a 4dp one out at
+the arcs. It is a `Canvas` in the page's `backdrop`, so it never scrolls, it is drawn in
+`paper.blue` so it prints at night too, and it carries no `contentDescription` and no
+control of any kind.
 
 **Manual entry.** A form for amount, currency, date within the open trip **and on or
 before today**, optional merchant/place, category, and note. A date later than today is

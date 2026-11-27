@@ -113,8 +113,9 @@ earning.
 
 ## 27 November — every press, made by hand
 
-The sweep started as a count and turned into a bug. The app had 24 tap targets and three
-ways of building one: `Modifier.rowTap` (a `clickable` with no ripple), `androidTap` (a
+The sweep started as a count and turned into a bug. A hand tally of the app's tap targets
+said 24 and the gate that replaced it says 39 — the tally was the wrong instrument, which
+is the first finding. There were three ways of building one: `Modifier.rowTap` (a `clickable` with no ripple), `androidTap` (a
 bare `pointerInput { detectTapGestures { … } }`), and, in seven places, the gesture
 inline. The last two produce what looks like a control and behaves like a picture: a
 screen reader can focus it and read its description out, and the one action it has is the

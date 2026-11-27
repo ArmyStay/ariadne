@@ -278,3 +278,13 @@ it themselves.
     day: not a photograph, not a spoken amount, not a typed one, not a Close Day. The
     list of days stops at today because tomorrow has nothing in it yet, and a refusal
     is a sentence in the margin, never a dialog.
+12. **Two containers, and no third.** A page opens on `Paper`. A group of rows sits on
+    a `Leaf` — `paper.raised`, a `Bone.Hairline`, 20dp corners, a 6dp lift by day and
+    none at night — and every leaf is cut by the same one, whether it holds a figure, a
+    row or a card. The only other surface is the `Framed` plate, which stays square
+    (§9.7). There is no sheet, no material, no third corner radius for a container.
+13. **A ground may be drawn, not cited.** A page that opens on a place may carry a
+    `backdrop`: arcs off a corner, a spark, a paper plane — drawn in code in
+    `paper.blue` at a wash, painted behind the scroll so it stays where it was drawn,
+    and carrying no description because there is nothing to describe. Decoration that
+    moves, or that any finger can press, is not decoration.
