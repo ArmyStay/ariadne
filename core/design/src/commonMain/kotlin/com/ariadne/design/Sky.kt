@@ -74,7 +74,7 @@ public fun FlightSky(paper: Paper, modifier: Modifier = Modifier) {
         // above, not a ring behind the text.
         for (ring in 1..3) {
             drawCircle(
-                color = ink.copy(alpha = 0.07f * weight),
+                color = ink.copy(alpha = 0.09f * weight),
                 radius = w * (0.46f + 0.22f * ring),
                 center = Offset(w * 1.06f, -w * 0.06f),
                 style = Stroke(width = 1.dp.toPx()),
