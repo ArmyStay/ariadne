@@ -147,7 +147,17 @@ The database lives at `~/.ariadne/ariadne.db`. Photos live beside it.
 
 The demo at [armystay.github.io/ariadne](https://armystay.github.io/ariadne/) is the
 `productionExecutable` directory from that second command, uploaded as a Pages artifact
-by `.github/workflows/pages.yml`.
+by `.github/workflows/pages.yml` — with three guards, because this is a *project* page
+served from `/ariadne/` and it was once published green while the root URL answered 404:
+
+1. the workflow **finds** `index.html` under `build/dist/wasmJs` instead of assuming the
+   directory name, and copies its folder to a site directory it builds itself;
+2. it **serves that directory under `/ariadne/`** (a static server on the runner) and
+   asserts every `src`/`href` in `index.html` resolves — an absolute `/asset` path works
+   on a laptop and 404s here;
+3. after deployment a `verify` job performs an **unauthenticated `curl` of the public
+   URL**, requiring HTTP 200 and `ariadne.js` in the HTML, so a README render or an
+   empty artifact fails the run instead of shipping.
 
 What the browser build does *not* have: a camera, OCR, persistent storage, or rate
 fetching. It has the shutter's plate, the file chooser (**Library**), manual entry, and

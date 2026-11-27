@@ -7,6 +7,14 @@ name: web demo
 # live demo pointing at a week-old build. It also has to be the *only* thing writing to
 # Pages — the repository's Pages source is "GitHub Actions", not a branch, so nothing
 # re-publishes the README as a web page.
+#
+# Two checks exist because of the way this went wrong once. The site is a *project*
+# page, served from /ariadne/, and it was published with a green tick while the root
+# URL answered 404: the upload path was assumed rather than found, and nothing ever
+# fetched the deployed URL. So the page is now located by looking for index.html,
+# served locally under the same prefix Pages uses before it is uploaded, and — after
+# deployment — fetched from its public URL by a job that has no credentials, which is
+# the same test a person opening the link in a browser makes.
 
 on:
   push:
@@ -34,16 +42,144 @@ jobs:
       - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
       - name: Build the wasm distribution
         run: ./gradlew :app:wasm:wasmJsBrowserDistribution --console=plain --stacktrace
+
+      - name: Assemble the site
+        # The artifact *is* the site: Pages serves whatever directory is uploaded at
+        # the project's path, so index.html has to sit at its root. The Gradle output
+        # directory has moved between Kotlin versions, and a stale path fails in the
+        # least visible way there is — a 404 at the root URL beside a green check. So
+        # the page is found rather than assumed, and copied into a directory this
+        # workflow builds, whose shape is then asserted.
+        run: |
+          set -euo pipefail
+          # Production first: a developer's tree can also hold a development build,
+          # and the demo is the production one.
+          index=$(find app/wasm/build/dist/wasmJs -path '*productionExecutable*' -name index.html -print -quit)
+          [ -n "$index" ] || index=$(find app/wasm/build/dist/wasmJs -name index.html -print -quit)
+          if [ -z "$index" ]; then
+            echo "::error::the wasm distribution has no index.html under app/wasm/build/dist/wasmJs"
+            find app/wasm/build/dist -maxdepth 4 -printf '%P%0A' | head -40
+            exit 1
+          fi
+          echo "page: $index"
+          site="$RUNNER_TEMP/site"
+          rm -rf "$site"
+          mkdir -p "$site"
+          cp -a "$(dirname "$index")"/. "$site"/
+          ls -la "$site" | head -30
+          # What the page is, in the two files that prove it is a wasm app rather than
+          # an empty directory.
+          compgen -G "$site/*.wasm" > /dev/null || { echo "::error::no .wasm file in the site"; exit 1; }
+          compgen -G "$site/ariadne.js" > /dev/null || { echo "::error::no ariadne.js in the site"; exit 1; }
+
+      - name: Prove it serves the page at the project's path
+        # Served the way Pages will serve it — from /ariadne/, not from / — and every
+        # reference in index.html has to resolve. A page whose assets begin with "/"
+        # works on a laptop and 404s here; this is the check that notices.
+        run: |
+          set -euo pipefail
+          site="$RUNNER_TEMP/site"
+          root="$RUNNER_TEMP/www"
+          rm -rf "$root"
+          mkdir -p "$root/ariadne"
+          cp -a "$site"/. "$root/ariadne"/
+          python3 -m http.server 8123 --bind 127.0.0.1 --directory "$root" >/dev/null 2>&1 &
+          server=$!
+          trap 'kill $server 2>/dev/null || true' EXIT
+          sleep 2
+          python3 - <<'PY'
+          import re
+          import sys
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          base = "http://127.0.0.1:8123/ariadne/"
+          html = None
+          for _ in range(20):
+              try:
+                  html = urllib.request.urlopen(base, timeout=5).read().decode("utf-8", "replace")
+                  break
+              except Exception:
+                  time.sleep(0.5)
+          if html is None:
+              print("::error::nothing answered at " + base)
+              sys.exit(1)
+
+          problems = []
+          refs = [r for r in re.findall(r'(?:src|href)="([^"]+)"', html) if r]
+          for ref in refs:
+              if re.match(r'^(?:[a-z]+:|//|#)', ref):
+                  continue
+              if ref.startswith("/"):
+                  problems.append("absolute path " + repr(ref) + " does not exist under /ariadne/")
+                  continue
+              url = urllib.parse.urljoin(base, ref)
+              try:
+                  code = urllib.request.urlopen(
+                      urllib.request.Request(url, method="HEAD"), timeout=10
+                  ).status
+              except urllib.error.HTTPError as failure:
+                  problems.append(ref + ": HTTP " + str(failure.code))
+                  continue
+              except Exception as failure:
+                  problems.append(ref + ": " + str(failure))
+                  continue
+              if code != 200:
+                  problems.append(ref + ": HTTP " + str(code))
+
+          if problems:
+              print("::error::" + "%0A".join(["the site does not serve at /ariadne/"] + problems))
+              sys.exit(1)
+          print("the page and its " + str(len(refs)) + " reference(s) all resolve under /ariadne/")
+          PY
+
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
-          path: app/wasm/build/dist/wasmJs/productionExecutable
+          path: ${{ runner.temp }}/site
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: The public URL serves the app, logged out
+        # The README's strongest claim is "open the app in your browser", and this is
+        # that claim, checked: an unauthenticated GET of the deployed URL. Two things
+        # are asserted, because one of them was already true while the site was wrong.
+        # A 200, and a page that is *this app* — the script tag the wasm build writes —
+        # rather than the repository's README rendered as a web page.
+        env:
+          URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          url="${URL:-https://armystay.github.io/ariadne/}"
+          code=000
+          for _ in $(seq 1 18); do
+            code=$(curl -sS -o "$RUNNER_TEMP/page.html" -w '%{http_code}' --max-time 20 "$url" || echo 000)
+            [ "$code" = "200" ] && break
+            sleep 5
+          done
+          if [ "$code" != "200" ]; then
+            echo "::error::$url answered HTTP $code after retrying"
+            exit 1
+          fi
+          if ! grep -q 'ariadne\.js' "$RUNNER_TEMP/page.html"; then
+            echo "::error::$url served a page that is not the app (no ariadne.js in the HTML)"
+            head -c 400 "$RUNNER_TEMP/page.html" | tr '\n' ' '
+            exit 1
+          fi
+          echo "$url serves the app (HTTP 200, ariadne.js present, unauthenticated)"

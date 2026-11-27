@@ -201,6 +201,12 @@ Same facts as a claim table, sorted by who checks them.
 Green on `main` means the app compiles for Android, iOS, desktop and the browser, and the
 shared test suites pass.
 
+**Proven by CI on every deploy** — the demo link is fetched by a job with no
+credentials: HTTP 200, and the page carries the wasm build's own script tag. The artifact
+is also served locally under `/ariadne/`, the prefix a project page actually uses, and
+every asset reference has to resolve there. A green deploy means the link opens; it does
+not mean an upload finished.
+
 **Proven on a phone** — capture on the device, the day's stack, the record, the date
 chips, and settings that survive a restart. The stills above are from that build.
 

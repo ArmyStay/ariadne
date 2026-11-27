@@ -87,6 +87,20 @@ best camera that is actually there — glasses, then phone, then a ruled plate.
   Gradle shipping path;
 - **this file**: eighteen documents into one, and the rest of the queue cleared.
 
+## 27 November — the demo, proved
+
+The deploy had been green while the root URL 404'd, which is the worst shape a broken
+link can take. `pages.yml` now finds `index.html` rather than assuming Gradle's output
+directory, serves the site under `/ariadne/` before uploading it, and a `verify` job
+fetches the public URL with no credentials afterwards. The same pass deleted what read as
+template rather than as this repository: the `:shared` boilerplate module
+(`com.example.shared`, `Platform.kt`, two example tests), the duplicate font tree under
+`core/design/src/commonMain/resources/fonts/` (six copies of the fonts `composeResources`
+already ships, plus an unused `InterTight-Variable.ttf`), and a second
+`eng.traineddata` that had been committed under `core/extract/bin/`. The two OFL licence
+files moved to `core/design/licenses/`, which is the only thing that tree was still
+earning.
+
 ## 27 November — the rules, and the other way in
 
 `#23`, still open, gained two things that change what the app allows rather than how it
