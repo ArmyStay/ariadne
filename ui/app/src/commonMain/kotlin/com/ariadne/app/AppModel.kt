@@ -60,6 +60,7 @@ public class AppModel(
         AppUiState(
             storageDisclosure = storageDisclosure,
             rateDisclosure = rateDisclosure,
+            canFetchRates = rateSource != null,
         ),
     )
 
@@ -130,41 +131,40 @@ public class AppModel(
 
     // -- rates -------------------------------------------------------------
 
-    /**
-     * Fetches the rates this trip needs, when they are worth fetching.
-     *
-     * Three rules, each of which used to be missing:
-     *
-     *  - one request covers every foreign currency the trip has used;
-     *  - a rate younger than [com.ariadne.fx.RatePolicy.MAX_AGE_DAYS] is not
-     *    re-fetched, so opening the app five times a day is not five requests;
-     *  - a failure changes nothing. The table keeps the last known rate, the
-     *    amounts keep converting at it, and the UI prints its date.
-     *
-     * [force] exists for the one deliberate case: the person taps "Update rates".
-     */
-    public fun refreshRates(force: Boolean = false) {
+    /** Fetch rates only after an explicit action in Preferences. */
+    public fun refreshRates() {
         val source = rateSource ?: return
-        val trip = _state.value.trip ?: return
+        val trip = _state.value.trip
+        if (trip == null) {
+            _state.value = _state.value.copy(rateError = "Open a trip before fetching rates.")
+            return
+        }
         val base = trip.baseCurrency
         val quotes = currenciesInUse().mapNotNull { CurrencyCode.parseOrNull(it) }
+        val url = com.ariadne.fx.Frankfurter.url(base, quotes)
+        if (url == null) {
+            _state.value = _state.value.copy(rateError = "There are no foreign currencies to fetch rates for.")
+            return
+        }
+        _state.value = _state.value.copy(rateError = "Fetching rates…")
         scope.launch {
-            val today = clock.today()
-            val known = runCatching { store.allRates() }.getOrDefault(emptyList())
-            val newest = known.filter { it.base == base }
-                .groupBy { it.quote }
-                .mapValues { (_, rows) -> rows.maxByOrNull { LocalDay.toEpochDay(it.date) }?.date }
-            if (!force && !com.ariadne.fx.RatePolicy.shouldFetch(newest, quotes, today)) return@launch
-            val url = com.ariadne.fx.Frankfurter.url(base, quotes) ?: return@launch
-            val body = runCatching { source.get(url) }.getOrNull() ?: return@launch
-            val parsed = com.ariadne.fx.Frankfurter.parse(body, base) ?: return@launch
-            runCatching {
+            val body = runCatching { source.get(url) }.getOrNull()
+            val parsed = com.ariadne.fx.Frankfurter.parse(body, base)
+            if (parsed == null) {
+                _state.value = _state.value.copy(rateError = "Rates could not be fetched; saved rates are unchanged.")
+                return@launch
+            }
+            val saved = runCatching {
                 parsed.rates.forEach { store.upsertRate(it) }
                 fxRates = store.allRates()
                 fx = FxTable(fxRates)
-            }.onFailure(::report)
-            // New rates change the figures on every page that converts, so the day
-            // and the whole trip are re-read rather than left stale behind them.
+            }
+            if (saved.isFailure) {
+                saved.exceptionOrNull()?.let(::report)
+                _state.value = _state.value.copy(rateError = "Rates could not be saved.")
+                return@launch
+            }
+            _state.value = _state.value.copy(rateError = "Rates updated.")
             _state.value.today?.let { refreshDay(it) }
             loadTripDays(trip)
         }
@@ -294,9 +294,6 @@ public class AppModel(
                 }
                 // Routes and the saved theme are now ready to appear together.
                 _state.value = _state.value.copy(isStartingUp = false)
-                // Rates last, and off the launch path: a slow or missing network
-                // cannot keep the startup page visible.
-                runCatching { refreshRates() }.onFailure(::report)
                 startReminderLoop()
                 offerReminderOnce()
                 onStartedAction?.invoke()
@@ -429,6 +426,7 @@ public class AppModel(
                 val trips = store.trips()
                 val days = trips.flatMap { store.dayCards(it.id) }
                 val captures = trips.flatMap { store.capturesForTrip(it.id) }
+                val travellers = trips.flatMap { store.travellers(it.id) }
                 val rates = store.allRates()
                 val photoEntries = mutableMapOf<String, String>()
                 val archiveFiles = mutableListOf<ArchiveFile>()
@@ -446,7 +444,7 @@ public class AppModel(
                 val exportSettings = store.settings()
                 archiveFiles += ArchiveFile(
                     "data/ariadne.json",
-                    DataArchiveZip.manifest(exportSettings, trips, days, captures, rates, photoEntries)
+                    DataArchiveZip.manifest(exportSettings, trips, days, captures, rates, photoEntries, travellers)
                         .encodeToByteArray(),
                 )
                 archiveFiles += ArchiveFile(
@@ -621,7 +619,6 @@ public class AppModel(
             // must not turn a zero-decision shutter into a wait screen.
             extraction.drain()
             refreshDay(day)
-            runCatching { refreshRates() }.onFailure(::report)
             if (openSheet) {
                 val saved = store.findById(capture.id)
                 _state.value = _state.value.copy(
@@ -746,7 +743,6 @@ public class AppModel(
             if (saved > 0) {
                 extraction.drain()
                 refreshDay(day)
-                runCatching { refreshRates() }.onFailure(::report)
             }
             _state.value = _state.value.copy(shutterOpen = false, captureError = null)
             // The day is named when it is not today: a photograph filed on Tuesday
@@ -1193,8 +1189,7 @@ public class AppModel(
             _state.value = _state.value.copy(trip = updated)
             _state.value.today?.let { refreshDay(it) }
             loadTripDays(updated)
-            // A new base currency means the cached rates are for the wrong base.
-            refreshRates(force = true)
+            // Rates for the new base can be fetched explicitly from Preferences.
         }
     }
 

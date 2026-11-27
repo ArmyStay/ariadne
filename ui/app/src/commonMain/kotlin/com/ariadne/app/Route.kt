@@ -347,8 +347,9 @@ public data class AppUiState(
     public val rateError: String? = null,
     /** Platform-specific explanation of where trip and photograph data is kept. */
     public val storageDisclosure: String = "This preview keeps data in memory for this session only.",
-    /** How rates reach this target, including whether automatic fetching is available. */
+    /** How rates reach this target. */
     public val rateDisclosure: String = "Rates are entered manually and kept in the current preview session.",
+    public val canFetchRates: Boolean = false,
 
     /**
      * The last error the app caught, as one line, for the diagnostic on

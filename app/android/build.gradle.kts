@@ -23,6 +23,23 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // CI supplies these only for a signed release; never fall back to the debug key.
+    val releaseKeystore = System.getenv("ARIADNE_KEYSTORE_PATH")
+    val releaseStorePassword = System.getenv("ARIADNE_STORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("ARIADNE_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("ARIADNE_KEY_PASSWORD")
+    if (listOf(releaseKeystore, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { !it.isNullOrBlank() }) {
+        signingConfigs {
+            create("production") {
+                storeFile = file(releaseKeystore!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+        buildTypes.getByName("release").signingConfig = signingConfigs.getByName("production")
+    }
+
     // `MainActivity` reads BuildConfig.DEBUG to decide the logger's verbosity; AGP 8+
     // stopped generating the class unless it is asked for.
     buildFeatures {

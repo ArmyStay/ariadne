@@ -1128,6 +1128,16 @@ public fun PreferencesPage(
             size = 14.sp,
             lineHeight = 21.sp,
         )
+        if (state.canFetchRates) {
+            Spacer(Modifier.height(12.dp))
+            IconAction(Glyph.Ledger, "Fetch exchange rates now", paper) {
+                model.refreshRates()
+            }
+            state.rateError?.let { message ->
+                Spacer(Modifier.height(8.dp))
+                Body(message, paper, color = paper.inkMid, size = 12.sp)
+            }
+        }
         Spacer(Modifier.height(16.dp))
         IconAction(Glyph.Ledger, "Export all data as a ZIP archive", paper) {
             model.go(Route.DataExport)

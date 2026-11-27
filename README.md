@@ -47,7 +47,7 @@ key — [on the human list](docs/HUMAN-TASKS.md).
 | Retries survive a dead zone | retry/backoff by outbox + extraction service, resumed on start |
 | A button never silently does nothing | `commitDraft` reports a failed write on the page; `failureNote` in Preferences |
 | An old install keeps its data | `openOrMigrate`: decides from the columns present, not from `PRAGMA user_version` alone |
-| Only one outbound call, and it is optional | one GET to a public rate feed (`AndroidRateSource`); no trip data is sent, and every failure falls back to the last known rate |
+| Rates have an offline fallback | Android requests rates from a public feed (`AndroidRateSource`), disclosing currency pairs and IP address; failures fall back to the last known rate |
 | Startup cannot be blocked by background work | every step in `AppModel.start()` is guarded on its own |
 | The trip card holds the trip | `Trip`, `TripCard` — the product screen and where it ends |
 | A spoken amount is parsed by a pure function, not by a service | `SpokenExpense` over word and digit tokens — `core/model`, with tests |
@@ -73,8 +73,7 @@ figures back — quoted beside your total, never merged into it. Nothing syncs. 
 
 The record is per trip and per day. Home shows today's spend and what is waiting;
 Timeline shows the trip and its days; Stats breaks it down; the record lists what you
-kept. Everything is local — no account, no sync, nothing leaves the device except a rate
-lookup that the app works without.
+kept. Records are stored locally, with no account or sync. Android rate requests disclose currency pairs and IP address, and its external voice recognizer may process audio remotely.
 
 One thing reaches out of the app, and only as far as your own phone: the **evening
 reminder**. Turn it on once (a single popup after the first trip, or Settings → *the
@@ -119,8 +118,8 @@ Five things the app will not do, because a record that bends is not a record:
   typed date is refused with a sentence, not an error dialog, and a trip that starts
   next month has no shutter at all until it starts.
 - **No red.** Failure is a sentence in the same ink as everything else.
-- **Nothing leaves the device** except the one optional rate lookup, which carries no
-  trip data.
+- **Local records, no sync.** Android rate requests disclose currency pairs and IP address;
+  its external voice recognizer may send audio to its provider. Exports can leave the device.
 - **A photograph needs a journey.** With no open trip the shutter explains itself
   instead of filing into nowhere.
 - **Money is never a float**, and an amount you cannot convert is named in its own
@@ -148,7 +147,7 @@ already been kept instead. No install, no account; the browser build keeps its d
 the tab, so a reload starts again.
 
 **On a phone:** the [releases](https://github.com/ArmyStay/ariadne/releases) carry
-`ariadne.apk`, a debug build signed with the debug key. It is large — around 120 MB —
+`ariadne.apk`. Existing release candidates may be debug builds; new releases require production signing secrets and produce a non-debuggable APK. It is large — around 120 MB —
 because five on-device OCR models are bundled rather than downloaded, which is also why
 recognition works in a shop with no signal:
 
@@ -156,7 +155,12 @@ recognition works in a shop with no signal:
 adb install -r ariadne.apk
 ```
 
-Debug builds are the ones that can drive the glasses path without glasses:
+New release builds require the GitHub Actions secrets `ARIADNE_KEYSTORE_BASE64`,
+`ARIADNE_STORE_PASSWORD`, `ARIADNE_KEY_ALIAS`, and `ARIADNE_KEY_PASSWORD`.
+Use a securely held production keystore; do not put it in this repository. An APK signed
+with a different key cannot update an existing debug-signed installation in place.
+
+Locally built debug APKs can drive the glasses path without glasses:
 
 ```bash
 adb shell am start -n com.ariadne.app/com.ariadne.android.MainActivity --ez mock_glasses true
@@ -179,6 +183,10 @@ that happened to get here, is in [`docs/TIMELINE.md`](docs/TIMELINE.md).
 ./gradlew jvmTest
 ./gradlew :app:wasm:wasmJsBrowserDevelopmentRun   # or the local web demo
 ```
+
+**Release and recovery:** see [Release and recovery](docs/RELEASE-AND-RECOVERY.md).
+Existing debug-signed installations cannot be updated in place by a production-signed APK;
+do not uninstall them while there is no restore path.
 
 Every version those targets need — the JDK, the Android SDK path, `minSdk 29`, the
 glasses artifacts, Xcode — is in [`docs/SDK-SETUP.md`](docs/SDK-SETUP.md).

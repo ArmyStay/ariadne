@@ -1,14 +1,8 @@
 name: release
 
-# A judge should not have to install JDK 21 and Android SDK 37 to look at a spending app.
-#
-# Two assets ride on every release:
-#   ariadne.apk     — a debug build, signed with the debug key, installable with adb
-#                     (and the only kind of build that can drive the mock-glasses path)
-#   ariadne-web.zip — the browser distribution, for serving locally
-#
-# Triggered by a tag, or by hand with a tag name — the hand-triggered route exists so a
-# release candidate can be cut from a branch before it is merged.
+# Publishes a production-signed, non-debuggable APK and a browser distribution.
+# Requires ARIADNE_KEYSTORE_BASE64, ARIADNE_STORE_PASSWORD, ARIADNE_KEY_ALIAS,
+# and ARIADNE_KEY_PASSWORD repository/environment secrets.
 
 on:
   push:
@@ -38,13 +32,30 @@ jobs:
           java-version: '21'
       - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
 
-      - name: Build the APK
-        run: ./gradlew :app:android:assembleDebug --console=plain --stacktrace
+      - name: Build the signed release APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ARIADNE_KEYSTORE_BASE64 }}
+          ARIADNE_STORE_PASSWORD: ${{ secrets.ARIADNE_STORE_PASSWORD }}
+          ARIADNE_KEY_ALIAS: ${{ secrets.ARIADNE_KEY_ALIAS }}
+          ARIADNE_KEY_PASSWORD: ${{ secrets.ARIADNE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for key in KEYSTORE_BASE64 ARIADNE_STORE_PASSWORD ARIADNE_KEY_ALIAS ARIADNE_KEY_PASSWORD; do
+            if [ -z "${!key}" ]; then echo "::error::Missing release signing configuration: $key"; exit 1; fi
+          done
+          export ARIADNE_KEYSTORE_PATH="$RUNNER_TEMP/ariadne-release.keystore"
+          trap 'rm -f "$ARIADNE_KEYSTORE_PATH"' EXIT
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$ARIADNE_KEYSTORE_PATH"
+          ./gradlew :app:android:assembleRelease --console=plain --stacktrace
 
       - name: Name the APK
         run: |
           mkdir -p dist
-          find app/android/build/outputs/apk/debug -name '*.apk' -print -exec cp {} dist/ariadne.apk \;
+          shopt -s nullglob
+          apks=(app/android/build/outputs/apk/release/*.apk)
+          [ "${#apks[@]}" -eq 1 ] || { echo "Expected exactly one signed APK" >&2; exit 1; }
+          cp "${apks[0]}" dist/ariadne.apk
           ls -l dist/ariadne.apk
 
       - name: Build the browser distribution
@@ -58,28 +69,24 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
-          TAG="${{ inputs.tag || github.ref_name }}"
+          TAG="$RELEASE_TAG"
+          [[ "$TAG" =~ ^v[0-9][a-zA-Z0-9._-]*$ ]] || { echo "Invalid release tag" >&2; exit 1; }
           PRE=""
           case "$TAG" in
             *-rc*|*-beta*|*-alpha*) PRE="--prerelease" ;;
           esac
           NOTES=$(cat <<'EOF'
-          `ariadne.apk` is a **debug** build, signed with the debug key. Install it with
-          `adb install -r ariadne.apk`, or from your file manager after allowing installs
-          from that source. Debug builds are also the only ones that can drive the glasses
-          path without glasses:
-
-          ```
-          adb shell am start -n com.ariadne.app/com.ariadne.android.MainActivity --ez mock_glasses true
-          ```
+          `ariadne.apk` is a production-signed, non-debuggable release build.
+          It does not include the debug-only mock glasses integration.
 
           `ariadne-web.zip` is the browser distribution — unzip it and serve the folder, or
           use the published demo at https://armystay.github.io/ariadne/ .
 
-          Nothing in either artefact talks to a server: the only outbound request in the
-          product is the optional exchange-rate lookup.
+          Android rate requests disclose currency pairs and IP address to frankfurter.app.
+          Android voice input uses a separate recognizer that may process audio remotely.
           EOF
           )
           if gh release view "$TAG" >/dev/null 2>&1; then
