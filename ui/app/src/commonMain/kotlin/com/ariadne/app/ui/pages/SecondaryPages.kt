@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -67,7 +68,22 @@ public fun MorePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         },
         // The sky stays where it was drawn: arcs off the corner, a plane crossing
         // them, two sparks. It is the page's ground, not a picture that scrolls.
-        backdrop = { FlightSky(paper) },
+        // The sky keeps to the measure rather than the window. Anchored to a
+        // 1080dp band — the widest this book ever prints — the arcs open from the
+        // corner the reference opens from, on a phone and on a laptop alike; full
+        // bleed, they would open from the monitor's corner and sweep through the
+        // headline on their way across.
+        backdrop = {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                FlightSky(
+                    paper,
+                    Modifier
+                        .widthIn(max = 1080.dp)
+                        .fillMaxWidth()
+                        .fillMaxSize(),
+                )
+            }
+        },
     ) {
         Column(
             Modifier.verticalScroll(rememberScrollState()).padding(bottom = 48.dp),

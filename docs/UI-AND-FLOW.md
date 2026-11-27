@@ -1024,11 +1024,13 @@ write to us."* A button labelled *send* that silently did nothing would be the o
 this page could tell.
 
 **The sky behind More.** `FlightSky(paper)` draws the page's ground: three arcs off the
-top-right corner at a 7% wash, a paper plane crossing them with a fold and a shadowed
-under-wing, a 8dp spark at the left margin level with the headline and a 4dp one out at
+top-right corner at a 9% wash, a paper plane crossing them with a fold and a shadowed
+under-wing, an 8dp spark at the left margin level with the headline and a 4dp one out at
 the arcs. It is a `Canvas` in the page's `backdrop`, so it never scrolls, it is drawn in
 `paper.blue` so it prints at night too, and it carries no `contentDescription` and no
-control of any kind.
+control of any kind. The canvas is anchored to a centred 1080dp band rather than the
+window: on a wide screen a full-bleed arc opens from the monitor's corner and sweeps
+through the headline, which is a different drawing.
 
 **Manual entry.** A form for amount, currency, date within the open trip **and on or
 before today**, optional merchant/place, category, and note. A date later than today is
