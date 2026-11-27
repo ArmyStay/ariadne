@@ -571,9 +571,13 @@ the same page composed twice. Nothing is a bitmap and nothing is cropped.
 | right of the shutter | `nothing waiting across this trip` / `N waiting across this trip` | `closeShutter()`, then `openCloseDay(today)` |
 | the foot | `no figure here · the amount comes after`, in a `blueWash` capsule with the budget mark; a failed capture prints its own line above it | — |
 
-Under 720dp the frame takes the height and the controls stack beneath it; a wide
-window puts the frame on the left and the hint, glasses, shutter row and foot in a
-column on the right, so the plate is never a letterbox.
+The arrangement follows the window, not a flag. Anything wider than it is tall — a
+desktop window, a tablet, or a phone turned on its side — takes the two-column page:
+the frame on the left, the hint, glasses, shutter row and foot in a column on the
+right. Only a taller-than-wide window stacks them, with the frame taking the height
+and the controls beneath it. (`MainActivity` passes `wide = false` for every phone, so
+the rotation case is decided inside the overlay from the window's own measurements,
+not from that flag.)
 
 **No trip / closed trip.** Title — *"This trip is closed."* or *"No trip is open."*;
 body — *"Its photographs are still here, and its card is still yours."* or *"A photograph

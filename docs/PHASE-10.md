@@ -49,9 +49,12 @@ surfaces are one design.
 - **The foot** — `no figure here · the amount comes after` in a `blueWash` capsule; a
   failed capture prints its line above it, as before.
 
-Under 720 dp the frame takes the height and the controls stack under it. A wide window
-puts the frame on the left and the controls in a column on the right, so the plate is
-never a letterbox.
+The arrangement follows the window rather than the `wide` flag: `MainActivity` reports
+`wide = false` for every phone, so a phone on its side would have got the tall layout in
+390 dp of height and a frame two fingers wide. Anything wider than it is tall now takes
+the two-column page — frame on the left, controls on the right — which is what the wash
+and the arcs were drawn for. Only a taller-than-wide window stacks, with the frame
+taking the height and the controls beneath it.
 
 ## The shutter itself
 

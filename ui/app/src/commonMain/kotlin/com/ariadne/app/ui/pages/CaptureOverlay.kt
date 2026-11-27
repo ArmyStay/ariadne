@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -101,7 +102,13 @@ public fun CaptureOverlay(
     }
     val onWaiting: () -> Unit = { model.closeShutter(); model.openCloseDay(state.today) }
 
-    Box(Modifier.fillMaxSize().background(paper.bg)) {
+    // The arrangement follows the window, not a flag: `MainActivity` reports `wide =
+    // false` for every phone, so a phone turned on its side would otherwise get the
+    // tall layout in 390dp of height and a frame two fingers wide. Anything wider than
+    // it is tall takes the two-column page — the frame on the left, the controls on the
+    // right — which is also what the wash and the arcs were drawn for.
+    BoxWithConstraints(Modifier.fillMaxSize().background(paper.bg)) {
+        val across = wide || maxWidth > maxHeight
         ScannerBackdrop(paper, Modifier.fillMaxSize())
 
         Column(
@@ -112,7 +119,7 @@ public fun CaptureOverlay(
             OverlayHead(state.trip?.name ?: "Ariadne", paper, { model.closeShutter() })
             Spacer(Modifier.height(12.dp))
 
-            if (wide) {
+            if (across) {
                 Row(
                     Modifier.fillMaxWidth().weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(40.dp),
