@@ -48,8 +48,14 @@ jobs:
         run: |
           set -o pipefail
           if [ -f "$RUNNER_TEMP/build.log" ]; then
-            grep -E "^(e|w): file:///" "$RUNNER_TEMP/build.log" | head -60 | while IFS= read -r line; do
+            # Compiler diagnostics first, then the lines a failed test prints —
+            # the two things that explain a red run without the log.
+            grep -E "^(e|w): file:///" "$RUNNER_TEMP/build.log" | head -40 | while IFS= read -r line; do
               echo "::error::$(printf '%s' "$line" | sed 's|file:///home/runner/work/ariadne/ariadne/||')"
+            done
+            grep -E "FAILED|AssertionError|Expected|tests completed" "$RUNNER_TEMP/build.log" \
+              | head -20 | while IFS= read -r line; do
+              echo "::error::$(printf '%s' "$line")"
             done
           fi
 

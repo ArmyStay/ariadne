@@ -46,14 +46,27 @@ class ShareCodeTest {
     @Test
     fun a_code_avoids_the_four_confusable_characters() {
         // Every trip in a decade of dates, so this is not one lucky code.
+        //
+        // The prefix is exempt and deliberately so: `AR1` and `AR2` are version
+        // numerals, printed as such and never mistyped for anything else. The
+        // payload — the part that is read aloud and typed back — uses none of them.
         var day = LocalDay.of(2020, 1, 1)
         repeat(400) {
             val code = ShareCodes.encodeTrip(
                 ShareCodes.Plan(day, day.plusDays(it % 30), CurrencyCode.of("THB"), null),
             )
-            check(code.none { it == '0' || it == '1' || it == 'I' || it == 'O' }) { code }
+            check(code.startsWith("AR1-")) { code }
+            val payload = code.removePrefix("AR1").filter { it.isLetterOrDigit() }
+            check(payload.none { it == '0' || it == '1' || it == 'I' || it == 'O' }) { code }
             day = day.plusDays(9)
         }
+    }
+
+    @Test
+    fun a_ledger_avoids_the_same_four_characters_in_its_payload() {
+        val code = ShareCodes.encodeLedger(ledger())
+        val payload = code.removePrefix("AR2").filter { it.isLetterOrDigit() }
+        check(payload.none { it == '0' || it == '1' || it == 'I' || it == 'O' }) { code }
     }
 
     @Test
