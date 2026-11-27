@@ -49,6 +49,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -283,23 +285,43 @@ public fun AriadneApp(
 @Composable
 private fun StartupPage(paper: Paper) {
     Box(Modifier.fillMaxSize().background(paper.bg)) {
-        TravelGlobeArtwork(
-            contentScale = ContentScale.Crop,
-            alignment = Alignment.Center,
-            modifier = Modifier
+        // The artwork is full width and hangs off the bottom edge, so it has no visible
+        // side to give it away; a vertical wash over its top third finishes the join
+        // with the paper, because the wallpaper's sky is pale but not this pale.
+        Box(
+            Modifier
                 .align(Alignment.BottomEnd)
-                .fillMaxWidth(0.94f)
+                .fillMaxWidth()
                 .aspectRatio(0.5333f)
-                .offset(x = 30.dp, y = 70.dp),
-            opacity = if (paper.isNight) 0.22f else 0.94f,
-        )
+                .offset(y = 120.dp),
+        ) {
+            TravelGlobeArtwork(
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.Center,
+                modifier = Modifier.fillMaxSize(),
+                opacity = if (paper.isNight) 0.22f else 0.94f,
+            )
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to paper.bg,
+                            0.34f to paper.bg.copy(alpha = 0.55f),
+                            0.55f to Color.Transparent,
+                        ),
+                    ),
+            )
+        }
         Column(
             Modifier
                 .fillMaxSize()
                 .padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.weight(1f))
+            // The cover sits at a third of the height: above it is sky, below it the
+            // globe — and the aeroplane, at about 56 %, is below both.
+            Spacer(Modifier.weight(1.3f))
             Title("Ariadne", paper, size = 62.sp, lineHeight = 66.sp)
             Spacer(Modifier.height(20.dp))
             Box(Modifier.width(62.dp).height(2.dp).background(paper.blue))

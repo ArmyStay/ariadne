@@ -227,14 +227,19 @@ private fun SparkGlyph(ink: Color, hole: Color) {
     Canvas(Modifier.size(26.dp)) {
         val w = size.width
         val c = Offset(w / 2f, w / 2f)
-        val r = w * 0.33f
-        val k = r * 0.19f
+        // The canvas is 26dp inside a 56dp circle, so the tips reach 42 % of the
+        // circle's radius. `a` is what makes the arms needle-thin: both of each arm's
+        // control points sit at a tenth of the tip radius, so the sides bow almost to
+        // the centre and the four arms meet at a small waist — the supplied dock's
+        // shape, rather than the fat diamond a shallower curve gives.
+        val r = w * 0.45f
+        val a = r * 0.10f
         val spark = Path().apply {
             moveTo(c.x, c.y - r)
-            quadraticBezierTo(c.x + k, c.y - k, c.x + r, c.y)
-            quadraticBezierTo(c.x + k, c.y + k, c.x, c.y + r)
-            quadraticBezierTo(c.x - k, c.y + k, c.x - r, c.y)
-            quadraticBezierTo(c.x - k, c.y - k, c.x, c.y - r)
+            cubicTo(c.x + a, c.y - a, c.x + a, c.y - a, c.x + r, c.y)
+            cubicTo(c.x + a, c.y + a, c.x + a, c.y + a, c.x, c.y + r)
+            cubicTo(c.x - a, c.y + a, c.x - a, c.y + a, c.x - r, c.y)
+            cubicTo(c.x - a, c.y - a, c.x - a, c.y - a, c.x, c.y - r)
             close()
         }
         drawPath(spark, ink)
