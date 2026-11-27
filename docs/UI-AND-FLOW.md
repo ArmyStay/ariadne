@@ -363,6 +363,11 @@ exists. There is no demo-roll or demo-prefill action in this flow.
 
 ### 5.3 Home — `HomePage` in `TabPages.kt`, Today tab
 
+A trip whose dates are all in the future is a real state — every day of it has a card —
+and Home says which one it is in: the balance panel's status reads **NOT BEGUN YET**
+instead of `Finished today` / `N waiting today`, and the rail's date is labelled
+**STARTS** rather than `today`.
+
 **Header.** `HomeHero`: the `01 — ARIADNE` plate, the current trip name in the large
 Instrument Serif italic, and `PLAN · TRACK · SPEND`, with the shared globe-and-flight
 artwork (`home_globe.png`, `TravelGlobeArtwork`) behind the title: **310 dp wide

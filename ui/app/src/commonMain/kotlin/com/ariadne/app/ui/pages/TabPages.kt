@@ -202,7 +202,14 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         },
         rail = {
             if (trip != null) {
-                RailFigure("today", state.today?.iso ?: "—", paper, 13.sp)
+                // A trip that has not begun has no "today" inside it: the date in
+                // the rail is the day it starts, and it says so.
+                RailFigure(
+                    if (model.hasHappened(state.today)) "today" else "starts",
+                    state.today?.iso ?: "—",
+                    paper,
+                    13.sp,
+                )
                 Spacer(Modifier.height(22.dp))
 
                 RailFigure("days", "${dayRange(trip.startDate, trip.endDate).size}", paper, 26.sp)
@@ -268,7 +275,11 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         HomeBalancePanel(
             amount = Money.ofMinor(state.dayTotalMinor)
                 .formatWithSymbol(CurrencyCode.of(state.dayCurrency)),
-            status = if (state.stack.isEmpty()) "Finished today" else "${state.stack.size} waiting today",
+            status = when {
+                !model.hasHappened(state.today) -> "Not begun yet"
+                state.stack.isEmpty() -> "Finished today"
+                else -> "${state.stack.size} waiting today"
+            },
             paper = paper,
             wide = wide,
             onSettle = { model.openCloseDay(state.today) },
