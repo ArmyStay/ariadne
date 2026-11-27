@@ -255,6 +255,12 @@ public fun Action(
      * a blue block was doing the least interesting possible version of that.
      */
     icon: Glyph? = null,
+    /**
+     * The corner radius. Two dp by default — a block, not a card. A page whose
+     * reference draws a rounded button (the photograph sheet) passes 14 dp, and
+     * that is the only place in the book where a control is round.
+     */
+    corner: Dp = 2.dp,
 ) {
     // A blue action claims its surface's one blue. Disabled actions are drawn on
     // sunk paper, so they do not claim it: an inert bar is not the thing to do.
@@ -275,7 +281,7 @@ public fun Action(
             // A 2dp square radius: enough that it does not look like a broken
             // corner on a renderer without antialiasing, too little to read as a
             // card. The reference's blocks are rectangles.
-            .background(bg, shape(2.dp))
+            .background(bg, shape(corner))
             .semantics {
                 contentDescription = text
                 role = Role.Button

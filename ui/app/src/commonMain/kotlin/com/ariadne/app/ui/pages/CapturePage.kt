@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -69,10 +70,11 @@ public fun CapturePage(
     // With a camera, the shutter fires the sensor and the bytes come back through
     // onFrame. Without one, the caller's placeholder path runs instead.
     val fire: () -> Unit = if (cameraAvailable()) ({ shoot() }) else onShutter
+    Box(Modifier.fillMaxSize().background(paper.bg)) {
+        ScannerBackdrop(paper, Modifier.fillMaxSize())
     Column(
         Modifier
             .fillMaxSize()
-            .background(paper.bg)
             .padding(horizontal = if (wide) 56.dp else Bone.Margin, vertical = 22.dp),
     ) {
         Row(
@@ -209,6 +211,7 @@ public fun CapturePage(
             Label("no figure here · settle it later", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.3.sp)
         }
     }
+    }
 }
 
 /**
@@ -217,15 +220,24 @@ public fun CapturePage(
  */
 @Composable
 internal fun Shutter(paper: Paper, onClick: () -> Unit) {
+    // The one blue thing on the page, and the only control that is a disc: a lens,
+    // not a button. The ring around it is paper, so the disc floats on the wash.
     Box(
         Modifier
-            .size(66.dp)
+            .size(88.dp)
+            .clip(CircleShape)
+            .background(paper.raised)
+            .border(Bone.Hairline, paper.blueEdge, CircleShape)
             .semantics { contentDescription = "Shutter" }
-            .pointerInput(Unit) { detectTapGestures(onTap = { onClick() }) },
+            .rowTap(onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.size(66.dp).border(Bone.Hairline, paper.edge, CircleShape))
-        Box(Modifier.size(46.dp).background(paper.ink, CircleShape))
+        Box(
+            Modifier.size(68.dp).background(paper.blue, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Glyph.Camera, paper, size = 24.dp, color = paper.onBlue)
+        }
     }
 }
 
