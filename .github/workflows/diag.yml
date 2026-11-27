@@ -19,7 +19,7 @@ jobs:
       - name: wasm compile, errors as annotations
         run: |
           set +e
-          ./gradlew :app:wasm:compileKotlinWasmJs --console=plain > out.log 2>&1
+          ./gradlew :app:wasm:wasmJsBrowserDistribution --console=plain > out.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
             grep -E "^e: |^w: .*error|error:|FAILURE:|What went wrong" out.log | head -40 | while IFS= read -r line; do
@@ -31,3 +31,8 @@ jobs:
             done
           fi
           exit "$status"
+      - uses: actions/upload-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          name: wasm-dist
+          path: app/wasm/build/dist/wasmJs/productionExecutable
+          retention-days: 1
