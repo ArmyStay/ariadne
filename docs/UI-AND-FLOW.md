@@ -486,7 +486,9 @@ rule fill whatever height the date block takes.
 
 ### 5.5 Record — `RecordPage.kt`, stacked over Days
 
-**Header.** `Masthead("", eyebrow = trip name \| "Record", title = "The record", trailing = PageAction("Capture") → openCapture())`.
+**Header.** `Masthead("", eyebrow = trip name \| "Record", title = "The record", trailing = PageAction("Capture") → openCapture(shown))`.
+The capture is carried into the shutter: opened from Tuesday's record, it files into
+Tuesday.
 
 1. the day being read as a serif `Title` at 24sp: `2026-11-27` or **No day yet**;
 2. a horizontally scrolling strip of day tabs (day number + month; closed days on
@@ -494,7 +496,11 @@ rule fill whatever height the date block takes.
 3. the day's receipt lines: index, photograph thumbnail, title, state label
    (`Needs an amount`, `Confirmed`, …), the figure or `—`; each → `Detail(id)`;
 4. if the day is empty: *"Nothing kept on this day. An empty day is still part of the
-   trip — it is the one you spent walking."* + **ADD A PHOTOGRAPH** (`openCapture()`);
+   trip — it is the one you spent walking."* + **ADD A PHOTOGRAPH** (`openCapture(shown)`);
+   if the day has not happened yet — every day of the trip has a tab from the moment the
+   trip exists — the page says *"This day hasn't happened yet. There is nothing on it —
+   it is the part of the journey still ahead."* with **GO TO TODAY** (`openRecord(today)`),
+   the header's **CAPTURE** is not drawn, and **CLOSE DAY** is disabled;
 5. a rule, then the day's per-currency rows (`THB ฿2,555.00`), then **Tallied** with the
    day total, prefixed `≈` when anything was converted;
 6. `ConversionNote`: `≈ converted at the rate for 20 Nov` (one rate) or

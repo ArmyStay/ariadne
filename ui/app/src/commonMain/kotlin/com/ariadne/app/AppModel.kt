@@ -1962,6 +1962,13 @@ public class AppModel(
     }
 
     /**
+     * Whether a day has happened, for a page that has to know before it offers a
+     * control. The record's one rule, in one line, so no page re-implements it.
+     */
+    public fun hasHappened(day: LocalDay?): Boolean =
+        day != null && RecordDates.isFiled(day, clock.today())
+
+    /**
      * The days the shutter may file into, newest first.
      *
      * The day sheet is this list and nothing else, which is why a future day is not

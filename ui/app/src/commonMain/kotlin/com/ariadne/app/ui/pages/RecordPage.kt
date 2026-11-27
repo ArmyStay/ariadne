@@ -64,6 +64,10 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
     val shown = state.route.let { (it as? Route.Record)?.day } ?: state.today
     val shownCard = days.firstOrNull { it.localDate == shown }
     val dayIsClosed = shownCard?.isClosed == true
+    // Every day of the trip has a card from the moment the trip exists, so a record
+    // for next Tuesday is reachable. It is a page about a day with nothing on it yet,
+    // and it must not offer to put something there.
+    val recordable = model.hasHappened(shown)
     // A closed trip is a finished record: even a day that was never filed is not
     // something the ritual can be opened for any more.
     val tripClosed = state.trip?.isClosed == true
@@ -75,7 +79,11 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             title = "The record",
             paper = paper,
             // The shutter opened from this day files into this day.
-            trailing = { PageAction("Capture", paper, { model.openCapture(shown) }) },
+            trailing = if (recordable) {
+                { PageAction("Capture", paper, { model.openCapture(shown) }) }
+            } else {
+                null
+            },
         )
 
         Spacer(Modifier.height(18.dp))
@@ -100,7 +108,21 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
         Spacer(Modifier.height(26.dp))
 
         val captures = state.dayCaptures
-        if (captures.isEmpty()) {
+        if (captures.isEmpty() && !recordable) {
+            // The one place the app says the rule to your face rather than by
+            // leaving a control out: the shutter is not offered above, and this
+            // page explains why before you go looking for it.
+            Body(
+                "This day hasn't happened yet. There is nothing on it — it is the part of " +
+                    "the journey still ahead.",
+                paper,
+                serif = true,
+                color = paper.inkSoft,
+                size = 17.sp,
+            )
+            Spacer(Modifier.height(22.dp))
+            Action("Go to today", paper, { model.openRecord(state.today) })
+        } else if (captures.isEmpty()) {
             Body(
                 "Nothing kept on this day. An empty day is still part of the trip — it is the one you spent walking.",
                 paper,
@@ -168,7 +190,7 @@ public fun RecordPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
             paper,
             { model.openCloseDay(shown) },
             accent = true,
-            enabled = !dayIsClosed && !tripClosed,
+            enabled = recordable && !dayIsClosed && !tripClosed,
         )
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
