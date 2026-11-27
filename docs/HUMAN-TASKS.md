@@ -17,8 +17,8 @@ guides), and the page is now committed rather than left to the toolchain —
 `app/wasm/src/wasmJsMain/resources/index.html` is the site's front door. `pages.yml`
 finds it, serves the site locally under `/ariadne/` before uploading it, and then a
 `verify` job fetches the public URL with no credentials and asserts a 200 whose HTML
-carries `ariadne.js`. A green deploy now means the link works, not that an upload
-finished.
+carries `ariadne.js`. That job has passed on `main` (run `46045980294`), so a green deploy
+now means the link answers, not that an upload finished.
 
 **Why you and not CI:** a job proves the bytes are served; it cannot see the first frame.
 
