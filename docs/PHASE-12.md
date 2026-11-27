@@ -53,8 +53,11 @@ Two more frames, both from the same design sheet.
 
 **The shutter is navy.** The dock's circle was `paper.blue` (`#2563EB`) with the
 aperture glyph — a scanner, not the app's own mark. It is now `paper.navy` (`#1C3155`,
-sampled from the supplied dock artwork) with `SparkGlyph`: a four-point spark with
-concave sides and a small diamond cut out of its centre in the circle's own colour. The
+sampled from the supplied dock artwork: 28,49,85 there, 29,54,97 at the rim) with
+`SparkGlyph`: a four-point spark whose arms are cubic curves with both control points at
+a tenth of the tip radius — needles meeting at a small waist, which is what the sheet
+shows, rather than the fat diamond a shallow quadratic produces — with a diamond cut out
+of its centre in the circle's own colour. The tips reach 42 % of the circle's radius. The
 closed-trip state still falls back to `paper.edge`. `ApertureGlyph` is gone with it.
 
 **The loading page is a cover.** `StartupPage` was three lines centred on blank paper
@@ -63,8 +66,11 @@ composition:
 
 - `Ariadne` at 62sp, a 62×2dp blue rule, **OPENING YOUR RECORD** at 9sp/2.6sp tracking;
 - the serif italic line *“Every journey / leaves a trace”*;
-- the globe-and-flight artwork bleeding off the bottom-right (94 % width, offset
-  `+30dp / +70dp`, 94 % opacity);
+- the globe-and-flight artwork hanging off the bottom edge at full width (offset
+  `+120dp`, 94 % opacity), its top third dissolved into the paper by a vertical wash so
+  there is no seam where the wallpaper starts;
+- the cover block at a third of the frame, which leaves the aeroplane at about 56 % and
+  the verse clear of it;
 - at the foot a 150×3dp track with a navy segment sweeping along it, and
   **PREPARING YOUR JOURNEY** beneath it. The bar sweeps rather than filling, because
   the app cannot measure that wait and will not pretend to.

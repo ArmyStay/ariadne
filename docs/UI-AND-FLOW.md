@@ -98,9 +98,11 @@ destinations around the central shutter's reserved slot:
 - The **shutter** is a `FloatingActionButton`: 56dp, `CircleShape`, **`paper.navy`**
   (`#1C3155`, sampled from the supplied dock artwork; `paper.edge` when a trip is
   closed), aligned top-centre and offset up 20dp. Its mark is `SparkGlyph` — a
-  four-point spark with concave sides, filled in `paper.onBlue`, with a small diamond
-  cut out of its centre in the circle's own colour, so the mark reads as a cut in the
-  navy rather than a shape laid on it.
+  four-point spark whose arms are cubic curves with both control points at a tenth of
+  the tip radius, so they taper to needles and meet at a small waist; filled in
+  `paper.onBlue`, with a diamond cut out of its centre in the circle's own colour, so
+  the mark reads as a cut in the navy rather than a shape laid on it. The tips reach
+  42 % of the circle's radius.
 - **Badge** on Timeline only: a `paper.blue` circle containing the trip-wide waiting count, positioned
   `x = 8dp, y = -6dp` from the icon's top end — a numeral, not a dot.
 - **Content descriptions**: a stacked Trips or Preferences dock includes its actual
@@ -142,9 +144,12 @@ It is set like a cover, not like a spinner:
 - `Ariadne` in Instrument Serif at 62sp, centred, then a 62×2dp rule in `paper.blue`;
 - **OPENING YOUR RECORD** — a `Label` at 9sp, tracking 2.6sp, `paper.inkSoft`;
 - a serif italic line, centred, 17sp: *“Every journey / leaves a trace”*;
-- the globe-and-flight artwork bleeding off the bottom-right corner —
-  `TravelGlobeArtwork` at 94 % of the width, `ContentScale.Crop`, offset `x = +30dp,
-  y = +70dp`, at 94 % opacity (22 % on night stock);
+- the globe-and-flight artwork hanging off the bottom edge — `TravelGlobeArtwork` at
+  full width, `aspectRatio 0.5333`, `ContentScale.Crop`, offset `y = +120dp` from the
+  bottom end, at 94 % opacity (22 % on night stock). Its top edge is dissolved by a
+  `verticalGradient` in `paper.bg` (`0 → 1`, `0.34 → 0.55`, `0.55 → transparent`), so
+  the wallpaper joins the paper without a seam. The aeroplane lands at about 56 % of
+  the frame;
 - at the foot, `StartupBar`: a 150×3dp hairline track in `paper.edgeStrong` with a
   34 %-wide `paper.navy` segment sweeping along it (`infiniteRepeatable`,
   1300 ms, `RepeatMode.Reverse`) — a sweep, not a percentage, because nothing here can
