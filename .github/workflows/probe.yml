@@ -1,0 +1,35 @@
+name: probe
+# TEMPORARY — this sandbox cannot reach Maven Central, so CI is used to read the
+# published coordinates of Meta's Wearable DAT. Deleted before the branch is final.
+
+on:
+  push:
+    branches: [arena/3398d70f-ariadne]
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: read maven metadata
+        run: |
+          for path in \
+            com/meta/wearable/mwdat-core \
+            com/meta/wearable/mwdat-camera \
+            com/meta/wearable/mwdat-mockdevice \
+            com/meta/wearable/mwdat-display \
+            com/meta/wearable/mwdat/mwdat ; do
+            url="https://repo1.maven.org/maven2/$path/maven-metadata.xml"
+            code=$(curl -s -o /tmp/m.xml -w '%{http_code}' "$url")
+            if [ "$code" = "200" ]; then
+              versions=$(grep -o '<version>[^<]*</version>' /tmp/m.xml | sed 's/<[^>]*>//g' | tail -8 | tr '\n' ' ')
+              echo "::warning::200 $path :: $versions"
+            else
+              echo "::warning::$code $path"
+            fi
+          done
+          echo "--- also: is the mock device in a separate group?"
+          for g in com/meta/wearable/mwdat-mockdevice com/meta/wearable/mwdat/mockdevicekit ; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://repo1.maven.org/maven2/$g/maven-metadata.xml")
+            echo "::warning::$code $g"
+          done
