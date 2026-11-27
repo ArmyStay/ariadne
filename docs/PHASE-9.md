@@ -42,8 +42,8 @@ Two, and both are exceptions the rest of the book does not get:
   `fill = false` for an ink block. The blue rule in `DESIGN.md` ("blue appears once per
   surface, on the action that finishes the page") is not broken — nothing here is blue.
 - the entry's state is a **round** pill in the corner, where the rest of the app prints
-  state as a square `Pill`. It is a status, not a control: it carries the same word in a
-  `contentDescription` and does not respond to a tap.
+  state as a square `Pill`. It is a status, not a control: it is a `Label` and a
+  hairline, it does not respond to a tap, and a screen reader reads the word once.
 
 ## What went with the old layout
 
