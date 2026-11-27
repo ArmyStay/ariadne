@@ -75,19 +75,21 @@ jobs:
           set -o pipefail
           ./gradlew :app:desktop:compileKotlinJvm --console=plain --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
 
-      - name: compiler errors, as annotations
-        # The run log is not always reachable (proxies, corporate networks, a reviewer
-        # on a phone). Kotlin's compiler errors are the one thing worth reading in it,
-        # so they are lifted out and posted as check-run annotations, which the API and
-        # the PR page both serve.
+      - name: what failed, in one annotation
+        # Same reason as the shared job: the log is not always reachable, and a single
+        # annotation with encoded newlines cannot be crowded out by warnings.
         if: failure()
         run: |
           set -o pipefail
-          if [ -f "$RUNNER_TEMP/build.log" ]; then
-            grep -E "^(e|w): file:///" "$RUNNER_TEMP/build.log" | head -60 | while IFS= read -r line; do
-              echo "::error::$(printf '%s' "$line" | sed 's|file:///home/runner/work/ariadne/ariadne/||')"
-            done
+          [ -f "$RUNNER_TEMP/build.log" ] || exit 0
+          summary=$(sed 's|file:///home/runner/work/ariadne/ariadne/||' "$RUNNER_TEMP/build.log" \
+            | grep -E "^e: |FAILED|AssertionError|expected:|Caused by:|What went wrong|> Task .*FAILED" \
+            | head -30 | paste -sd '\n' -)
+          if [ -z "$summary" ]; then
+            summary=$(tail -n 20 "$RUNNER_TEMP/build.log")
           fi
+          encoded=$(printf '%s\n' "$summary" | awk '{printf "%s%%0A", $0}')
+          echo "::error::$encoded"
 
   ios:
     name: ios
@@ -104,16 +106,18 @@ jobs:
           set -o pipefail
           ./gradlew :app:ios:compileKotlinIosSimulatorArm64 :app:ios:compileKotlinIosArm64 --console=plain --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
 
-      - name: compiler errors, as annotations
-        # The run log is not always reachable (proxies, corporate networks, a reviewer
-        # on a phone). Kotlin's compiler errors are the one thing worth reading in it,
-        # so they are lifted out and posted as check-run annotations, which the API and
-        # the PR page both serve.
+      - name: what failed, in one annotation
+        # Same reason as the shared job: the log is not always reachable, and a single
+        # annotation with encoded newlines cannot be crowded out by warnings.
         if: failure()
         run: |
           set -o pipefail
-          if [ -f "$RUNNER_TEMP/build.log" ]; then
-            grep -E "^(e|w): file:///" "$RUNNER_TEMP/build.log" | head -60 | while IFS= read -r line; do
-              echo "::error::$(printf '%s' "$line" | sed 's|file:///home/runner/work/ariadne/ariadne/||')"
-            done
+          [ -f "$RUNNER_TEMP/build.log" ] || exit 0
+          summary=$(sed 's|file:///home/runner/work/ariadne/ariadne/||' "$RUNNER_TEMP/build.log" \
+            | grep -E "^e: |FAILED|AssertionError|expected:|Caused by:|What went wrong|> Task .*FAILED" \
+            | head -30 | paste -sd '\n' -)
+          if [ -z "$summary" ]; then
+            summary=$(tail -n 20 "$RUNNER_TEMP/build.log")
           fi
+          encoded=$(printf '%s\n' "$summary" | awk '{printf "%s%%0A", $0}')
+          echo "::error::$encoded"
