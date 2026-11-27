@@ -1,0 +1,29 @@
+name: probe
+# TEMPORARY - reads the ios compiler errors into check-run annotations, because this
+# sandbox cannot download Actions logs. Deleted before the branch is final.
+
+on:
+  push:
+    branches: [arena/3398d70f-ariadne]
+  workflow_dispatch:
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: the two ios compiles, with the errors surfaced
+        run: |
+          set +e
+          ./gradlew :app:ios:compileKotlinIosSimulatorArm64 :app:ios:compileKotlinIosArm64 --console=plain > /tmp/i.log 2>&1
+          echo "::warning::IOS exit=$?"
+          grep -E "^e: |What went wrong|FAILURE:|Could not|Caused by|error:" /tmp/i.log | head -20 | while IFS= read -r l; do
+            echo "::error::I $l"
+          done
+          tail -12 /tmp/i.log | while IFS= read -r l; do echo "::warning::T $l"; done
+          exit 0
