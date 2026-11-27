@@ -16,14 +16,19 @@ import com.ariadne.extract.OcrResult
 import com.ariadne.extract.TextRecognizer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.usePinned
-import platform.Foundation.NSData
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
 import platform.StoreKit.SKStoreReviewController
 import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIViewController
+import platform.CoreGraphics.CGRectGetMidX
+import platform.CoreGraphics.CGRectGetMidY
 import platform.CoreGraphics.CGRectMake
+import platform.posix.fclose
+import platform.posix.fopen
+import platform.posix.fwrite
 import platform.Vision.VNImageRequestHandler
 import platform.Vision.VNRecognizeTextRequest
 import platform.Vision.VNRecognizedTextObservation
@@ -71,29 +76,47 @@ private class IosServices : PlatformServices {
     override fun close() = Unit
 }
 
+/**
+ * Write [bytes] where [path] says.
+ *
+ * POSIX rather than `NSData` + `writeToFile`: the Foundation factory names do not
+ * resolve in this module's interop, and a file is a file. Two calls, no bridging.
+ */
+@OptIn(ExperimentalForeignApi::class)
+private fun writeBytes(path: String, bytes: ByteArray): Boolean = memScoped {
+    val file = fopen(path, "wb") ?: return@memScoped false
+    try {
+        if (bytes.isEmpty()) return@memScoped true
+        bytes.usePinned { pinned ->
+            fwrite(pinned.addressOf(0), 1u, bytes.size.toULong(), file) == bytes.size.toULong()
+        }
+    } finally {
+        fclose(file)
+    }
+}
+
 @OptIn(ExperimentalForeignApi::class)
 private class IosTripCardImageExporter(
     private val hostController: () -> UIViewController,
 ) : TripCardImageExporter {
     override suspend fun savePng(fileName: String, bytes: ByteArray): Boolean {
         val path = NSTemporaryDirectory() + fileName
-        val data = bytes.usePinned { pinned ->
-            NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
-        }
-        check(data.writeToFile(path, atomically = true)) {
+        check(writeBytes(path, bytes)) {
             "The Trip Card PNG could not be written to temporary storage."
         }
         val url = NSURL.fileURLWithPath(path)
-        val activity = UIActivityViewController(listOf(url), null)
+        val activity = UIActivityViewController(activityItems = listOf(url), applicationActivities = null)
         val host = hostController()
-        activity.popoverPresentationController?.apply {
-            sourceView = host.view
-            sourceRect = CGRectMake(
-                host.view.bounds.size.width / 2.0,
-                host.view.bounds.size.height / 2.0,
-                0.0,
-                0.0,
-            )
+        host.view?.let { view ->
+            activity.popoverPresentationController?.apply {
+                sourceView = view
+                sourceRect = CGRectMake(
+                    CGRectGetMidX(view.bounds),
+                    CGRectGetMidY(view.bounds),
+                    0.0,
+                    0.0,
+                )
+            }
         }
         return suspendCoroutine { continuation ->
             activity.completionWithItemsHandler = { _, completed, _, error ->
@@ -116,22 +139,24 @@ private class IosDataArchiveExporter(
 ) : DataArchiveExporter {
     override suspend fun saveZip(fileName: String, bytes: ByteArray): Boolean {
         val path = NSTemporaryDirectory() + fileName
-        val data = bytes.usePinned { pinned ->
-            NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
-        }
-        check(data.writeToFile(path, atomically = true)) {
+        check(writeBytes(path, bytes)) {
             "The Ariadne archive could not be written to temporary storage."
         }
-        val activity = UIActivityViewController(listOf(NSURL.fileURLWithPath(path)), null)
+        val activity = UIActivityViewController(
+            activityItems = listOf(NSURL.fileURLWithPath(path)),
+            applicationActivities = null,
+        )
         val host = hostController()
-        activity.popoverPresentationController?.apply {
-            sourceView = host.view
-            sourceRect = CGRectMake(
-                host.view.bounds.size.width / 2.0,
-                host.view.bounds.size.height / 2.0,
-                0.0,
-                0.0,
-            )
+        host.view?.let { view ->
+            activity.popoverPresentationController?.apply {
+                sourceView = view
+                sourceRect = CGRectMake(
+                    CGRectGetMidX(view.bounds),
+                    CGRectGetMidY(view.bounds),
+                    0.0,
+                    0.0,
+                )
+            }
         }
         return suspendCoroutine { continuation ->
             activity.completionWithItemsHandler = { _, completed, _, error ->
