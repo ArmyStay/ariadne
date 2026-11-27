@@ -2,12 +2,19 @@ package com.ariadne.app.ui
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -16,11 +23,14 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
 import com.ariadne.design.Bone
+import com.ariadne.design.Body
 import com.ariadne.design.Label
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
 import com.ariadne.design.Title
+import com.ariadne.design.TravelGlobeArtwork
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
@@ -35,6 +45,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -254,19 +270,113 @@ public fun AriadneApp(
     }
 }
 
+/**
+ * The page between the splash and the record.
+ *
+ * It is the only screen in the app with nothing to do, so it is the one place the book
+ * can be shown as a cover: the wordmark set large, its blue rule, the promise in tracked
+ * caps, a line of serif italic underneath — and the globe-and-flight artwork bleeding off
+ * the bottom-right corner, where the eye already is.
+ *
+ * The bar at the foot is honest about itself: nothing in this app knows how much of the
+ * record has loaded, so it sweeps rather than filling to a percentage it made up, and the
+ * line underneath says what is actually happening.
+ */
 @Composable
 private fun StartupPage(paper: Paper) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Title("Ariadne", paper, size = 34.sp)
-            Spacer(Modifier.height(12.dp))
-            Rule(paper, Modifier.width(28.dp).height(Bone.Hairline), color = paper.blue)
-            Spacer(Modifier.height(14.dp))
-            Label("Opening your record", paper, color = paper.inkSoft, size = 9.sp)
+    Box(Modifier.fillMaxSize().background(paper.bg)) {
+        // The artwork is full width and hangs off the bottom edge, so it has no visible
+        // side to give it away; a vertical wash over its top third finishes the join
+        // with the paper, because the wallpaper's sky is pale but not this pale.
+        Box(
+            Modifier
+                .align(Alignment.BottomEnd)
+                .fillMaxWidth()
+                .aspectRatio(0.5333f)
+                .offset(y = 120.dp),
+        ) {
+            TravelGlobeArtwork(
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.Center,
+                modifier = Modifier.fillMaxSize(),
+                opacity = if (paper.isNight) 0.22f else 0.94f,
+            )
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to paper.bg,
+                            0.34f to paper.bg.copy(alpha = 0.55f),
+                            0.55f to Color.Transparent,
+                        ),
+                    ),
+            )
         }
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // The cover sits at a third of the height: above it is sky, below it the
+            // globe — and the aeroplane, at about 56 %, is below both.
+            Spacer(Modifier.weight(1.3f))
+            Title("Ariadne", paper, size = 62.sp, lineHeight = 66.sp)
+            Spacer(Modifier.height(20.dp))
+            Box(Modifier.width(62.dp).height(2.dp).background(paper.blue))
+            Spacer(Modifier.height(22.dp))
+            Label("Opening your record", paper, color = paper.inkSoft, size = 9.sp, tracking = 2.6.sp)
+            Spacer(Modifier.height(34.dp))
+            Body(
+                "Every journey\nleaves a trace",
+                paper,
+                serif = true,
+                italic = true,
+                align = TextAlign.Center,
+                color = paper.inkSoft,
+                size = 17.sp,
+                lineHeight = 25.sp,
+            )
+            Spacer(Modifier.weight(1.7f))
+            StartupBar(paper)
+            Spacer(Modifier.height(16.dp))
+            Label("Preparing your journey", paper, color = paper.inkSoft, size = 8.sp, tracking = 2.6.sp)
+            Spacer(Modifier.height(44.dp))
+        }
+    }
+}
+
+/**
+ * A segment of navy sweeping along a hairline track.
+ *
+ * Not a percentage: the app has already opened its database by the time this is on
+ * screen, and the wait is the platform's, not a figure anyone here can measure.
+ */
+@Composable
+private fun StartupBar(paper: Paper) {
+    val sweep = rememberInfiniteTransition(label = "startup")
+    val phase by sweep.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1300, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "phase",
+    )
+    Canvas(Modifier.width(150.dp).height(3.dp)) {
+        val w = size.width
+        val h = size.height
+        val round = CornerRadius(h / 2f, h / 2f)
+        drawRoundRect(paper.edgeStrong.copy(alpha = 0.6f), cornerRadius = round)
+        val segment = w * 0.34f
+        drawRoundRect(
+            color = paper.navy,
+            topLeft = Offset((w - segment) * phase, 0f),
+            size = Size(segment, h),
+            cornerRadius = round,
+        )
     }
 }
 

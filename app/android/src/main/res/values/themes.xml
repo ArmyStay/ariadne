@@ -8,7 +8,7 @@
          installSplashScreen() runs first in MainActivity. -->
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/windowBackgroundColor</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ariadne_mark</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/AppTheme</item>
     </style>
 </resources>

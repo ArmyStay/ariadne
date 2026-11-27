@@ -76,6 +76,14 @@ public object Bone {
 
     /** The one chromatic value. A button, a selected tab, a figure you acted on. */
     public val Blue: Color = Color(0xFF2563EB)
+
+    /**
+     * The book's second dark: the daily-spend panel and the shutter's seat.
+     *
+     * Sampled from the supplied icon and dock artwork, so the one control that is a
+     * circle is the same weight as the panel it sits under.
+     */
+    public val Navy: Color = Color(0xFF1C3155)
     public val BluePressed: Color = Color(0xFF1D4ED8)
     public val BlueWash: Color = Color(0xFFEFF4FE)
     public val BlueEdge: Color = Color(0xFFBFD3FB)
@@ -225,6 +233,9 @@ public data class Paper(
 
     /** The pressed state of blue. Exposed so a control can ring itself in it. */
     public val bluePressed: Color get() = if (isNight) Bone.NightBlueEdge else Bone.BluePressed
+
+    /** The night weight of the shutter's seat; the same navy, on darker paper. */
+    public val navy: Color get() = Bone.Navy
 
     /** Ink for text that sits *on* blue. */
     public val onBlue: Color get() = if (isNight) Bone.Night else Bone.PaperRaised

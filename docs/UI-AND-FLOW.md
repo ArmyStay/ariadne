@@ -95,9 +95,14 @@ destinations around the central shutter's reserved slot:
 - Item labels are 11sp, sentence case, tracking 0.2sp: `Home`, `Timeline`, `Stats`,
   `More`. Settings is reached from More rather than occupying its own tab.
 - Selected item: `paper.ink` icon and text on a `paper.sunk` indicator.
-- The **shutter** is a `FloatingActionButton`: 56dp, `CircleShape`, `paper.blue`
-  (`paper.edge` when a trip is closed), aligned top-centre and offset up 20dp, drawn
-  aperture glyph (circle, inner ring, six blades).
+- The **shutter** is a `FloatingActionButton`: 56dp, `CircleShape`, **`paper.navy`**
+  (`#1C3155`, sampled from the supplied dock artwork; `paper.edge` when a trip is
+  closed), aligned top-centre and offset up 20dp. Its mark is `SparkGlyph` — a
+  four-point spark whose arms are cubic curves with both control points at a tenth of
+  the tip radius, so they taper to needles and meet at a small waist; filled in
+  `paper.onBlue`, with a diamond cut out of its centre in the circle's own colour, so
+  the mark reads as a cut in the navy rather than a shape laid on it. The tips reach
+  42 % of the circle's radius.
 - **Badge** on Timeline only: a `paper.blue` circle containing the trip-wide waiting count, positioned
   `x = 8dp, y = -6dp` from the icon's top end — a numeral, not a dot.
 - **Content descriptions**: a stacked Trips or Preferences dock includes its actual
@@ -130,9 +135,26 @@ obstruct the capture decision.
 
 ### 1.4 Where the app opens
 
-The app holds on a quiet startup page while settings and trips are read, so a
-returning person never sees the first-run welcome page flash before their saved
-destination appears.
+The app holds on a quiet startup page (`StartupPage` in `AriadneApp.kt`) while settings
+and trips are read, so a returning person never sees the first-run welcome page flash
+before their saved destination appears.
+
+It is set like a cover, not like a spinner:
+
+- `Ariadne` in Instrument Serif at 62sp, centred, then a 62×2dp rule in `paper.blue`;
+- **OPENING YOUR RECORD** — a `Label` at 9sp, tracking 2.6sp, `paper.inkSoft`;
+- a serif italic line, centred, 17sp: *“Every journey / leaves a trace”*;
+- the globe-and-flight artwork hanging off the bottom edge — `TravelGlobeArtwork` at
+  full width, `aspectRatio 0.5333`, `ContentScale.Crop`, offset `y = +120dp` from the
+  bottom end, at 94 % opacity (22 % on night stock). Its top edge is dissolved by a
+  `verticalGradient` in `paper.bg` (`0 → 1`, `0.34 → 0.55`, `0.55 → transparent`), so
+  the wallpaper joins the paper without a seam. The aeroplane lands at about 56 % of
+  the frame;
+- at the foot, `StartupBar`: a 150×3dp hairline track in `paper.edgeStrong` with a
+  34 %-wide `paper.navy` segment sweeping along it (`infiniteRepeatable`,
+  1300 ms, `RepeatMode.Reverse`) — a sweep, not a percentage, because nothing here can
+  measure the wait;
+- under it, **PREPARING YOUR JOURNEY** — 8sp, tracking 2.6sp.
 
 `startRoute(hasAnyTrip, hasOpenTrip)`:
 
@@ -329,13 +351,16 @@ exists. There is no demo-roll or demo-prefill action in this flow.
 
 **Header.** `HomeHero`: the `01 — ARIADNE` plate, the current trip name in the large
 Instrument Serif italic, and `PLAN · TRACK · SPEND`, with the shared globe-and-flight
-artwork (`home_globe.png`, `TravelGlobeArtwork`) behind the title: 350 dp wide (380 dp
-wide layout), `ContentScale.Crop`, pinned `TopEnd` and offset **up 96 dp (100 dp on
-wide)** so the aeroplane and its spark sit above the trip name — the top of the
-wallpaper is *not* cropped away, because that is where the picture's subject is. A
-paper wash is drawn over the left two-thirds (`0 → 0.99`, `0.45 → 0.94`,
-`0.66 → 0.28`, `0.84 → transparent`) so the name reads on white and the aeroplane is
-left alone.
+artwork (`home_globe.png`, `TravelGlobeArtwork`) behind the title: **310 dp wide
+(350 dp on the wide layout)**, `ContentScale.Crop`, pinned `TopEnd`, and offset **up
+56 dp (64 dp on wide)** — down from 96/100 dp, and smaller than it was, because at the
+old size only a 190 dp sliver of a 640 dp-tall wallpaper was ever visible and the
+aeroplane fell outside it. At this size the whole subject — spark at a third of the
+artwork's height, aeroplane just below it, the globe's limb under both — fits inside
+the band, and the offset puts all three in the band's lower half. A paper wash is
+drawn over the left two-thirds (`0 → 0.99`, `0.45 → 0.94`, `0.66 → 0.28`,
+`0.84 → transparent`) so the trip's name reads on white and the aeroplane is left
+alone.
 
 **Rail (wide).** `today` = today's ISO or `—`; `days` = the trip's length; `closed N`;
 `waiting today` = `stack.size`; `on this day`.

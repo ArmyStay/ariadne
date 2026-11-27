@@ -29,9 +29,6 @@ import com.ariadne.app.Route
 import com.ariadne.design.Bone
 import com.ariadne.design.Label
 import com.ariadne.design.Paper
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 /**
  * The bottom dock: four primary destinations with the shutter in its own seat.
@@ -107,11 +104,14 @@ public fun AriadneBar(
                     }
                 },
             shape = CircleShape,
-            containerColor = if (captureEnabled) paper.blue else paper.edge,
+            containerColor = if (captureEnabled) paper.navy else paper.edge,
             contentColor = if (captureEnabled) paper.onBlue else paper.inkFaint,
             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp),
         ) {
-            ApertureGlyph(if (captureEnabled) paper.onBlue else paper.inkFaint)
+            SparkGlyph(
+                ink = if (captureEnabled) paper.onBlue else paper.inkFaint,
+                hole = if (captureEnabled) paper.navy else paper.edge,
+            )
         }
     }
 }
@@ -215,25 +215,46 @@ private fun TabGlyph(tab: Tab, color: Color) {
 }
 
 /** A camera aperture, drawn: circle, inner ring, six blades. */
+/**
+ * The shutter's mark: a four-point spark, drawn rather than lettered.
+ *
+ * Four points on the axes with concave sides, and the small hole the reference keeps at
+ * its centre — the hole is the circle's own colour, so the mark is a cut in the navy
+ * rather than a shape laid on top of it.
+ */
 @Composable
-private fun ApertureGlyph(color: Color) {
+private fun SparkGlyph(ink: Color, hole: Color) {
     Canvas(Modifier.size(26.dp)) {
         val w = size.width
         val c = Offset(w / 2f, w / 2f)
-        val s = Stroke(width = 1.5.dp.toPx())
-        drawCircle(color, radius = w * 0.40f, center = c, style = s)
-        drawCircle(color, radius = w * 0.17f, center = c, style = s)
-        for (i in 0 until 6) {
-            val a = PI * i / 3 + 0.4
-            drawLine(
-                color,
-                Offset(c.x + (cos(a) * w * 0.18f).toFloat(), c.y + (sin(a) * w * 0.18f).toFloat()),
-                Offset(c.x + (cos(a) * w * 0.40f).toFloat(), c.y + (sin(a) * w * 0.40f).toFloat()),
-                strokeWidth = s.width * 0.85f,
-            )
+        // The canvas is 26dp inside a 56dp circle, so the tips reach 42 % of the
+        // circle's radius. `a` is what makes the arms needle-thin: both of each arm's
+        // control points sit at a tenth of the tip radius, so the sides bow almost to
+        // the centre and the four arms meet at a small waist — the supplied dock's
+        // shape, rather than the fat diamond a shallower curve gives.
+        val r = w * 0.45f
+        val a = r * 0.10f
+        val spark = Path().apply {
+            moveTo(c.x, c.y - r)
+            cubicTo(c.x + a, c.y - a, c.x + a, c.y - a, c.x + r, c.y)
+            cubicTo(c.x + a, c.y + a, c.x + a, c.y + a, c.x, c.y + r)
+            cubicTo(c.x - a, c.y + a, c.x - a, c.y + a, c.x - r, c.y)
+            cubicTo(c.x - a, c.y - a, c.x - a, c.y - a, c.x, c.y - r)
+            close()
         }
+        drawPath(spark, ink)
+        val h = r * 0.17f
+        val cut = Path().apply {
+            moveTo(c.x, c.y - h)
+            lineTo(c.x + h, c.y)
+            lineTo(c.x, c.y + h)
+            lineTo(c.x - h, c.y)
+            close()
+        }
+        drawPath(cut, hole)
     }
 }
+
 
 /** Which destination a route belongs to, or none for a page stacked over all. */
 public fun Route.tab(): Tab? = when (this) {

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher's shape is Android's to choose; the art is the app's. A cream
+     ground, and the icon's own square inset to the 72dp safe circle so that no
+     mask — circle, squircle, teardrop — crops the wordmark or the aeroplane. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/iconBackground" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>
