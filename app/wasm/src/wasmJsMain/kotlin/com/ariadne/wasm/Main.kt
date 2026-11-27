@@ -6,6 +6,7 @@ import com.ariadne.app.AppGraph
 import com.ariadne.app.DataArchiveExporter
 import com.ariadne.app.PlatformServices
 import com.ariadne.app.ui.AriadneApp
+import com.ariadne.app.ui.pages.LocalPhotoImageRenderer
 import com.ariadne.app.ui.pages.LocalPhotoPicker
 import com.ariadne.app.ui.pages.LocalTripCardImageExporter
 import com.ariadne.app.ui.pages.LocalDataArchiveExporter
@@ -35,6 +36,9 @@ fun main() {
             // The shutter is one way to put a receipt in; this is the other. Below it
             // the page offers "Library", which opens the browser's own file dialog.
             LocalPhotoPicker provides BrowserPhotoPicker,
+            // And the photograph comes back out: the bytes live in a map for the
+            // session, and the record draws them like any other photograph.
+            LocalPhotoImageRenderer provides BrowserPhotoImageRenderer,
         ) {
             AriadneApp(
                 model = graph.model,
@@ -48,7 +52,7 @@ fun main() {
 private class WasmServices : PlatformServices {
 
     override val storageDisclosure: String =
-        "This browser build keeps trips and rates in memory; reloading the page clears them. Receipt photos are not persisted. Trip Card PNGs download to your device."
+        "This browser build keeps trips, rates and receipt photos in memory; reloading the page clears them. Trip Card PNGs download to your device."
 
     override val rateDisclosure: String =
         "This build does not fetch rates online. Rates you enter last only for this page session; the date shown is the saved rate's effective date."
@@ -59,6 +63,11 @@ private class WasmServices : PlatformServices {
         com.ariadne.store.InMemoryStore()
 
     override fun recognizer(): TextRecognizer = WasmBrowserRecognizer()
+
+    /**
+     * A photograph kept in the tab, not on a disk. The disclosure above says so.
+     */
+    override fun files(): com.ariadne.app.PhotoFiles = BrowserPhotoFiles
 
     override fun close() = Unit
 }

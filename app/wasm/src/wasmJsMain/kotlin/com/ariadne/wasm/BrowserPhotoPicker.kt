@@ -151,6 +151,9 @@ private fun decodeBase64(text: String): ByteArray? {
         if (bits >= 8) {
             bits -= 8
             out.add(((buffer shr bits) and 0xFF).toByte())
+            // Drop the byte that was just emitted, so the accumulator never grows
+            // past the two digits still in flight.
+            buffer = buffer and ((1 shl bits) - 1)
         }
     }
     return if (out.isEmpty()) null else out.toByteArray()
