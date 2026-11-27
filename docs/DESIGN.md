@@ -177,7 +177,7 @@ make it feel like an errand.
 | 5 | `Stats` | Stats | What it came to: by what it was, then by currency. Finished photographs only. |
 | 6 | `Trip` | Trip | Dates, progress, the card. The tab the register used to leave unreachable. |
 | 7 | `Capture` | — | The shutter. Full bleed, no chrome, no fields. |
-| 8 | `Nightfall` | — | The ritual. Plate, merchant, amount, two taps. |
+| 8 | `CloseDay` | — | Close Day. The ritual. Plate, merchant, amount, two taps. |
 | 9 | `Record` | Timeline | A day, as it happened. No table, ever. |
 | 10 | `TripCard` | — | The thing you keep. |
 | 11 | `Detail` | Timeline | One photograph in the hand: amount, currency, category, a line to keep it by. |
@@ -228,7 +228,7 @@ basic flow.
 | "Re-extract from photo" as a primary button | **left out** | Extraction is best-effort and already automatic; a button would imply a promise the app cannot keep. |
 | Trip day counters ("Day 66 of 14") | **left out** | Contradictory arithmetic in the reference; dates are already on every surface. |
 
-## 7. The ritual (Nightfall)
+## 7. The ritual (Close Day)
 
 The most important layout in the app, and the one with the tightest constraint:
 **two taps finish a card.** So on a phone the plate, merchant and amount are
@@ -267,3 +267,7 @@ it themselves.
    leave) and `selected` is null; the bar announces where it is stacked from.
 10. **Grow, never shrink.** At 200% text things stack, wrap and reflow; nothing
     drops below the specified rung in §2, and no action may be pushed off-screen.
+11. **A day that has not happened is not a record.** Nothing is filed into a future
+    day: not a photograph, not a spoken amount, not a typed one, not a Close Day. The
+    list of days stops at today because tomorrow has nothing in it yet, and a refusal
+    is a sentence in the margin, never a dialog.

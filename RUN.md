@@ -1,7 +1,7 @@
 # Running Ariadne on your own machine
 
 Two routes: the **Gradle-free** one (works today, nothing to install but a JDK or
-nothing at all) and the **Gradle** one (the four real targets).
+nothing at all) and the **Gradle** one (the five real targets).
 
 Start with the Gradle-free route if you just want to see it running — it takes
 about 40 seconds and needs no Android SDK, no Xcode, no IDE.
@@ -20,7 +20,7 @@ cd ariadne
 ## 1. Gradle-free: run the real UI (recommended first)
 
 This compiles the shared Compose UI directly with `kotlinc` and opens it in a
-desktop window. It is the same `AriadneApp` composable that all four targets
+desktop window. It is the same `AriadneApp` composable that all five targets
 call — not a separate build.
 
 It needs a **JDK 21** and, the first time, it downloads nothing: the scripts look
@@ -124,9 +124,10 @@ JVM-only Gradle project, so it needs no Android SDK and only about 700 MB.
 
 ---
 
-## 2. Gradle: the four real targets
+## 2. Gradle: the five real targets
 
-**Requires:** JDK 21, and for Android an SDK with **compileSdk 36**.
+**Requires:** JDK 21, and for Android an SDK with **compileSdk 37** (`minSdk 29`,
+`targetSdk 36`). Every version, and the SDK path, is in [`docs/SDK-SETUP.md`](docs/SDK-SETUP.md).
 Gradle wrapper 9.9.2 is included, so no Gradle install needed.
 
 ```bash
@@ -158,28 +159,27 @@ sdk.dir=/path/to/Android/sdk
 
 ### One honest warning
 
-The four-target Gradle build **has not been run end to end** — it was written in a
-sandbox with 2 GB of RAM, where AGP 9's configuration phase is OOM-killed. The
-first `./gradlew build` on your machine may surface dependency-resolution errors
-that no amount of headless compiling would have caught. `gradle.properties`
-already asks for `-Xmx3g`; if you hit an OOM, raise it.
+The four-target Gradle build runs on every push in CI, so if it is broken, main is
+red — check the checks on the commit before blaming your machine. It also runs in a
+sandbox with 2 GB of RAM, where AGP 9's configuration phase can be OOM-killed;
+`gradle.properties` already asks for `-Xmx3g`, so if you hit an OOM, raise it.
 
-`BUILD-STATUS.md` says exactly what has and hasn't been executed. Nothing in it
-is aspirational.
+What CI has and has not executed is in the check list on the pull request, and the
+history of it is in [`docs/TIMELINE.md`](docs/TIMELINE.md).
 
 ---
 
 ## 3. What to try once it's running
 
 1. **Begin with the demo roll** → Home, with five photographs waiting.
-2. **Finish 5 photographs** (the blue block) → Nightfall. Type over the amount,
+2. **Finish 5 photographs** (the blue block) → Close Day. Type over the amount,
    press **Confirm**. Both decisions are above the keypad, so nothing scrolls.
 3. **No amount** on the next card — the record keeps things you didn't price.
 4. Keep going; the last card's second button becomes **Close the day**.
 5. **Timeline → a day** opens the record: the figures match what you confirmed.
 6. **Prefs → Close the trip into a card.**
 
-Keyboard, at Nightfall only: `0–9` and `.` type, `Backspace` deletes, `Enter`
+Keyboard, at Close Day only: `0–9` and `.` type, `Backspace` deletes, `Enter`
 confirms, `J`/`K` move through the stack, `Esc` leaves.
 
 ---

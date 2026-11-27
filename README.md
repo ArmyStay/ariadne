@@ -1,180 +1,193 @@
 <p align="center">
-  <img src="docs/brand/ariadne-icon.png" width="120" alt="Ariadne — a paper square with the wordmark, a spark, and an aeroplane crossing a globe">
+  <img src="docs/brand/ariadne-icon.png" width="112" alt="Ariadne — a paper square with the wordmark, a spark, and an aeroplane crossing a globe">
 </p>
 
 # Ariadne
 
-Kotlin Multiplatform project — **Android** (Jetpack Compose), **iOS** (KMP Compose UI),
-**Desktop** (Compose for Desktop) and **Web** (Kotlin/Wasm Compose UI). No account, no
-server, no sync. The record never leaves the device; the only outbound request in the
-product is for exchange rates, and the app works without it.
+**A trip's spending, remembered as photographs — one shutter press in the shop, the figures settled at the end of the day.**
 
-## Platforms
+### ▶ [**Open the app in your browser**](https://armystay.github.io/ariadne/)
 
-Android, iOS, Desktop, Web — and where we are headed (next up: iOS simulator, macOS,
-WebP2P app, Additional Chromium?).
+No install, no account, no server. The link runs the same shared Compose UI that ships to
+Android, iOS and desktop — built by [`pages.yml`](.github/workflows/pages.yml) and
+published as an artifact.
 
-## What it is — the shape of the product
+<p align="center">
+  <img src="docs/shots/demo-stills.gif" width="300" alt="The home screen, then one day's record: date chips and receipt rows with amounts">
+</p>
 
-You spend a rupee here, something at night — a chai, a book, an extra train. So you don't. Ariadne is the record you would otherwise lose between a market stall and a hotel room, on the day you spend, and the day you don't.
+<p align="center"><em>Two stills from a phone, 27 November 2026 — the home screen and one day's record.
+A screen recording replaces this as soon as the next build is on the device.</em></p>
 
-- **One tab. One stack.** Each day is a small stack of cards; tapping a card (or rejecting the one auto-taken) builds the ledger. The whole state is your screenshot-and-export, nothing else.
-- **Photo, not form.** The shutter fires one thumb, under two seconds, away from Nightfall — camera viewfinder inside the app, the plate takes the photo, money lives in the card stack.
+**Four targets, one codebase, checked on every push:**
 
-> **Always a self-timer, on trip start and end. Not a budget, not a travel app — Ariadne is yours, and the only thing it leaves with you is a share link when you choose to share one.**
-
-A quick tour of the four Pillars:
-
-1. **Match the income** — pick which of your box totals to keep against this trip. The strings and totals are yours to choose.
-2. **Plan trip month-end** — set a trip-end date and let your month land, one day at a time. Or plan your own trips on the side and keep both running.
-3. **Track live** — image + text captured, cards of the day, the trips you manage (should the same value appear on two trips, tell me what happened), public share links.
-4. **Everywhere, offline** — you are the source; nothing uploads; same trip on all platforms.
-
-## A photograph is the note
-
-The reason a spending app gets abandoned is that it asks for the receipt to be
-re-typed. Nobody keeps a chai by opening a form. So Ariadne asks for the one thing
-that takes a second and is already true — the picture — and lets the figure arrive
-later, at Close Day, or never, because *no amount* is a legal entry here.
-
-That gives three ways in, in order of how far the phone can stay in your pocket:
-
-1. **Glasses.** Pair Meta AI glasses once (one panel, one trip to Meta AI, never
-   again) and the shutter takes the picture the glasses see. You are in the shop, you
-   look at the thing, and the day has the photograph before you have the phone out.
-   The mark in the corner of the shutter says whether they are paired; the shutter then
-   reads from the glasses instead of the phone's own sensor.
-2. **Voice.** There is a microphone in two places. On Home it sits beside **Add an
-   expense manually**; on the kept photograph it is the `Say the amount` row under the
-   two answers. Say it — `twelve fifty`, `five euros fifty`, `coffee twelve fifty` — and
-   the figure and the merchant are filed. On Home the sentence is filed the moment it
-   parses, because the point of a microphone is that the thumb never finds the keyboard.
-   A spoken amount is a decision, so it lands confirmed. The parser is a pure function
-   with tests (`SpokenExpense` in `core/model`); a sentence it cannot read is simply not
-   a figure, the sheet says what it heard, and the entry stays open.
-3. **The phone's camera**, exactly as before.
-
-Nothing about the rest changes: the photograph still lands on the day it was taken, the
-day's figure still moves, and Close Day is still the ritual that settles what is left.
+| Target | Checked by |
+| --- | --- |
+| Shared domain + UI | `./gradlew jvmTest` (JVM test suites across the shared modules) |
+| Android | `:app:android:assembleDebug` |
+| Desktop | `:app:desktop:compileKotlinJvm` |
+| iOS | `:app:ios:compileKotlinIosArm64` + `compileKotlinIosSimulatorArm64` |
+| WebAssembly | `:app:wasm:compileKotlinWasmJs` |
 
 ## The promise this repo keeps in code, not in slides
-
-You'll see the same words a few times — that's because Ariadne is a place, not a
-bucket of features.
 
 | Claim | Where it lives |
 |---|---|
 | Money is never a float | `Money` over `Long` minor units — `core/model` |
 | A capture cannot be lost | photo → row → shutter returns — `CaptureCommitter`, `Outbox` |
-| Extraction failure is editable, not fatal | `ExtractionOutcome.Failed`/blank results leave the capture queued for Nightfall |
+| Extraction failure is editable, not fatal | `ExtractionOutcome.Failed`/blank results leave the capture queued for Close Day |
 | Every state transition is legal or refused | `QueueState.next`, a total function |
 | No red, ever | `AriadneColors` has no red; Material's `error` is mapped to indigo |
 | Retries survive a dead zone | retry/backoff by outbox + extraction service, resumed on start |
-| A button never silently does nothing | `commitDraft` reports a failed write on the page; `failureNote` in Prefs |
+| A button never silently does nothing | `commitDraft` reports a failed write on the page; `failureNote` in Preferences |
 | An old install keeps its data | `openOrMigrate`: decides from the columns present, not from `PRAGMA user_version` alone |
-| Only one outbound call, and it is optional | `app/android/src/main/AndroidManifest.xml` declares `INTERNET` for one GET to a public rate feed (`AndroidRateSource`); no trip data is sent, and every failure falls back to the last known rate |
+| Only one outbound call, and it is optional | one GET to a public rate feed (`AndroidRateSource`); no trip data is sent, and every failure falls back to the last known rate |
 | Startup cannot be blocked by background work | every step in `AppModel.start()` is guarded on its own |
-| The trip card holds the trip | `Trip`, `TripCard`, `TripShare` — the product screen and where it ends |
-| Cards stack only where they are due | the four tabs are Home/Timeline/Trip/Stats, and the card settles in Nightfall |
+| The trip card holds the trip | `Trip`, `TripCard` — the product screen and where it ends |
 | A spoken amount is parsed by a pure function, not by a service | `SpokenExpense` over word and digit tokens — `core/model`, with tests |
 | The glasses are the camera when they are paired | `LocalWearableCapture` → `AndroidWearableCapture` over Meta's Wearables Device Access Toolkit |
 | A missing recogniser or a missing pair is a sentence, not a crash | `VoiceEntry.listen` may answer null; every DAT call is wrapped and reported as `status` |
 
+---
+
+## What it is
+
+You buy something small — a chai, a book, an extra train — and the receipt is in your
+pocket until it isn't. Ariadne's capture gesture is one photograph, under two seconds,
+with the phone already in your hand. **No amount is a legal entry**: the figure can
+arrive while the card is on screen, later at Close Day, or never.
+
+The record is per trip and per day. Home shows today's spend and what is waiting;
+Timeline shows the trip and its days; Stats breaks it down; the record lists what you
+kept. Everything is local — no account, no sync, nothing leaves the device except a rate
+lookup that the app works without.
+
+## A photograph is the note
+
+The reason a spending app gets abandoned is that it asks for the receipt to be re-typed.
+So Ariadne asks for the picture first and lets the figure wait. Four ways in, cheapest
+to rarest:
+
+1. **The phone's camera** — the shutter in the dock. Nothing to enable, no hardware.
+2. **The library** — a receipt you already photographed. **Library** on the shutter
+   opens the system photo picker (up to twelve at once), the desktop's file dialog, or,
+   in the browser demo, the page's own file chooser, which rescales to 1600px before the
+   image is kept. It is the same record either way: an imported photograph meets the
+   same two taps at Close Day as one taken at the counter.
+3. **Your voice** — a microphone on Home, next to **Add an expense manually**, and a
+   `Say the amount` row on the kept photograph. Say `twelve fifty`, `five euros fifty`,
+   `coffee twelve fifty`; the figure and the merchant are filed. A spoken amount is a
+   decision, so it lands confirmed. The parser is a pure function with tests
+   (`SpokenExpense` in `core/model`); a sentence it cannot read is simply not a figure.
+4. **Meta AI glasses** — optional, and **no hardware is needed to try this app**. If you
+   own a pair, pair once (one panel, one trip to Meta AI), and the shutter takes the
+   picture the glasses see instead of the phone's. The wiring is written against Meta's
+   published SDK and compiles on every target; it has not been run against glasses from
+   the machine it was written on, and a build needs your own app id to pair (see
+   [What is proven where](#what-is-proven-where)).
+
+## The rules
+
+Five things the app will not do, because a record that bends is not a record:
+
+- **A day that hasn't happened yet is not a record.** The shutter files into today, or
+  into an earlier day of the trip if you say so — tap the day under the frame to change
+  it, and the list of days it offers stops at today. Tomorrow is not on the list. A
+  typed date is refused with a sentence, not an error dialog, and a trip that starts
+  next month has no shutter at all until it starts.
+- **No red.** Failure is a sentence in the same ink as everything else.
+- **Nothing leaves the device** except the one optional rate lookup, which carries no
+  trip data.
+- **A photograph needs a journey.** With no open trip the shutter explains itself
+  instead of filing into nowhere.
+- **Money is never a float**, and an amount you cannot convert is named in its own
+  currency rather than added to the total.
+
 ## The screens
 
-Real frames, rendered from the shared Compose UI by `tools/run-preview.sh --shots` — not mockups.
-
-> **These four frames are pre-third-review.** They were rendered from the build
-> before the register bar, the closed-trip matrix, the square plate and the 44dp
-> targets, so they show a design that no longer exists. They live in
-> [`docs/shots/archive-2026-11-26-pre-third-review/`](docs/shots/archive-2026-11-26-pre-third-review/)
-> with a note saying exactly what they predate. `docs/shots/` has no current
-> render until the harness is run against this build; until then no screenshot in
-> this repository is offered as evidence for a change.
-
 <p align="center">
-  <img src="docs/shots/archive-2026-11-26-pre-third-review/02-home.png" width="220" alt="Home, tab bar Home/Timeline/Trip/Stats (pre-review)" />
-  <img src="docs/shots/archive-2026-11-26-pre-third-review/04-capture.png" width="220" alt="Shutter — capture page (pre-review)" />
-  <img src="docs/shots/archive-2026-11-26-pre-third-review/05-nightfall.png" width="220" alt="Nightfall — card stack, confirm with one tap (pre-review)" />
-  <img src="docs/shots/archive-2026-11-26-pre-third-review/07-trip-card.png" width="220" alt="The trip card — copy-text, share link (pre-review)" />
+  <img src="docs/shots/current/01-home-phone.png" width="240" alt="Home: trip name in serif italic, today's spend panel, the trip rows, the dock" />
+  <img src="docs/shots/current/02-record-phone.png" width="240" alt="The record: a day's date chips and the receipt rows with amounts" />
 </p>
 
-The shot list is now **44 frames**, fifteen of them at 200% system text and two in
-landscape, plus the two closed-trip states. `./tools/run-preview.sh --shots docs/shots`
-renders them; the harness fails the run if any surface claims the blue twice.
+Stills from a phone running the 27 November build. The design language is one file —
+[`docs/DESIGN.md`](docs/DESIGN.md) — and every screen is described, screen by screen,
+with the words it actually prints, in [`docs/UI-AND-FLOW.md`](docs/UI-AND-FLOW.md).
 
-## How to run it — and a way to try ideas fast
+## How to run it
 
-Open the app in a window — a desktop window, that is:
-
-```bash
-./tools/run-preview.sh                  # the app in a desktop window
-```
-
-Or render every page to PNG — your eyes should remember this, and then search and see:
+The web build is the fastest way to see it: [armystay.github.io/ariadne](https://armystay.github.io/ariadne/).
+How that demo is published, and everything else that happened to get here, is in
+[`docs/TIMELINE.md`](docs/TIMELINE.md).
 
 ```bash
-./tools/run-preview.sh --shots          # all 44 frames, into docs/shots/
-```
+# The app, in a desktop window, from the shared UI
+./tools/run-preview.sh
 
-New page? `./tools/run-preview.sh --shots --open Settings` — and then, right there, the page you chose, in real Compose UI with real state, debugger or screenshot tool on hand. Bigger reads: `./tools/test-domain.sh` is the 70. `./tools/store-check.sh` is the migration story, so you find out where it broke before someone else does.
+# Render every page to PNG — no emulator, no device
+./tools/run-preview.sh --shots docs/shots
 
-```bash
-./tools/run-preview.sh                  # compile + open the real shared UI in a window
-./tools/run-preview.sh --shots docs/shots  # render every page to PNG, headless
-./tools/test-domain.sh                  # 70 domain tests (Rounds the money, Export logic, AppModel)
-./tools/flow-check.sh                   # 54 end-to-end state checks on your machine
-./tools/store-check.sh                  # the store on real SQLite, plus the migration
-./tools/entry-check.sh                  # all four entry points, signature-checked
-```
-
-Real targets (need a JDK + an Android SDK/Xcode):
-
-```bash
-./gradlew :app:desktop:run              # the comfortable triage surface
-./gradlew :app:wasm:wasmJsBrowserDevelopmentRun   # the browser build
+# Real targets (need a JDK and, for Android/iOS, an SDK or Xcode)
 ./gradlew :app:android:assembleDebug
-./gradlew jvmTest                       # the shared suites
+./gradlew :app:desktop:run
+./gradlew jvmTest
+./gradlew :app:wasm:wasmJsBrowserDevelopmentRun   # or the local web demo
 ```
 
-**Testing without hardware (Meta AI glasses):**
-Debug builds support MockDeviceKit for testing glasses capture without physical hardware:
+Every version those targets need — the JDK, the Android SDK path, `minSdk 29`, the
+glasses artifacts, Xcode — is in [`docs/SDK-SETUP.md`](docs/SDK-SETUP.md).
+
+The gates are plain shell scripts, so they run without a full toolchain; **the Gradle
+build is the shipping path** and is what CI runs.
+
+```bash
+./tools/test-domain.sh      # the domain suites
+./tools/flow-check.sh       # end-to-end state checks
+./tools/store-check.sh      # the store on real SQLite, including the migration
+./tools/entry-check.sh      # all four entry points, signature-checked
+```
+
+Testing glasses capture without glasses — debug builds only:
 ```bash
 adb shell am start -n com.ariadne.app/com.ariadne.android.MainActivity --ez mock_glasses true
 ```
-*(Note: Android wearables capture via Meta DAT is an experimental surface. Analytics are opted out and the app's own manifest remains free of `INTERNET`.)*
 
-A quick way to start playing with new ideas: run `./tools/run-preview.sh --shots --open Settings` and step the pages around with a debugger — real Compose, real state, no emulator needed. Or `./tools/run-preview.sh --night` for the dark variant — which is also a real preference in the app now: **Preferences → Paper → Night**.
+## What is proven where
 
-## Status, honestly
+Same facts as a claim table, sorted by who checks them.
 
-Implemented here: shared model/queue/parser/FX/search/store, schema migration path, design system, motion vocabulary, tabbed navigation and stacked pages, CameraX capture on Android, ML Kit text recognition on Android, extraction and confirmation, Nightfall, the trip card, Settings diagnostics.
+**Proven by CI on every push** — the five targets above, plus the dependency review.
+Green on `main` means the app compiles for Android, iOS, desktop and the browser, and the
+shared test suites pass.
 
-Left for your machine and a bit of you:
+**Proven on a phone** — capture on the device, the day's stack, the record, the date
+chips, and settings that survive a restart. The stills above are from that build.
 
-- **A real phone:** capture and OCR — time on device until you say so.
-- **A pair of Meta AI glasses:** the DAT wiring is written against the published SDK
+**Not proven yet, and stated as such:**
+
+- **A screen recording.** The GIF above is two stills, not a recording.
+- **Meta AI glasses against real hardware.** The DAT code compiles
   (`com.meta.wearable:mwdat-core` / `:mwdat-camera` / `:mwdat-mockdevice`, 1.1.0) and
-  compiles on every target, and pairing uses the documented flow — `Wearables.initialize`
-  at launch, `startRegistration(activity)` to hand over to Meta AI, then a session with
-  `AutoDeviceSelector`, `addCamera`, and `stream.capturePhoto()`. It has **not** been run
-  against glasses from the machine this was written on. The mock device
-  (`mock_glasses` intent extra, debug builds) is the way to exercise the path without
-  hardware.
-- **Developer mode:** with an unregistered build the glasses only pair while Meta AI's
-  Developer Mode switch is on, and the app id / client token in
-  `app/android/build.gradle.kts` are `0`/`0` for exactly that reason. A release build
-  overrides both from the Wearables Developer Center.
-- **A note on Android versions:** the DAT SDK declares `minSdk 29`, so Ariadne's Android
-  floor moved from 26 to 29 with it. That is the price of the glasses, and it was the
-  reason the android build had been failing for several commits before this one.
-- **Speech:** both microphones (Home, and `Say the amount` on the kept photograph) open
-  the platform recogniser (`RecognizerIntent`) and parse what comes back with
-  `SpokenExpense`; they need a device with a recogniser app, and where there is none the
-  control says `No microphone in this build` and **Type it instead** stays available.
-- **Public share links (the `onShare` path) — broken or stripped:** there is a `Route.TripShare` entry in the router, but the share link is not complete yet.
-- **Screenshots-from-your-machine / reality checks** of my claims on your build; mine are reasoned, yours are observed.
+  follows the documented flow — `Wearables.initialize` at launch,
+  `startRegistration(activity)`, then a session with `AutoDeviceSelector`, `addCamera`
+  and `stream.capturePhoto()` — but it has never run against a pair of glasses. The mock
+  device is how the path is exercised without hardware, and a build only pairs once the
+  app id / client token are set from the Wearables Developer Center (they are `0`/`0`
+  here, which is why Developer Mode is required).
+- **The Android floor.** `minSdk 29`, moved up from 26 for the glasses SDK — that is the
+  whole reason, and it is the only feature in the app that costs a device generation.
+- **Speech** needs a device with a recogniser app; where there is none, the control says
+  `No microphone in this build` and **Type it instead** stays available.
+- **The browser's file dialog.** It compiles, and the photograph it returns is kept in
+  the tab's memory and drawn in the record like any other (`app/wasm`: `BrowserPhotoPicker`,
+  `BrowserPhotoFiles`, `BrowserPhotoImageRenderer`). It has not been driven from a
+  browser in this build, so "open the chooser, keep the photo, see it in the record" is
+  not among the things tested on a device.
+- **iOS imports and capture.** The iOS target has no camera, no photo picker and no
+  photo file store, so the Library control is not offered there and the shutter keeps a
+  ruled plate. Text recognition (Vision) and the database do work.
+- **Public share links.** The `TripShare` route exists in the router but the share path is
+  not finished, so it is not claimed anywhere above.
 
-Everything is gradle-free for now: `BUILD-STATUS.md`, `TESTING.md`, `RUN.md` have the exact commands and outcomes on your machines.
-
-Apache-2.0. Kotlin Multiplatform Contest 2027 entry.
+Apache-2.0. Kotlin Multiplatform Contest 2027 entry. The entry essay is
+[`ESSAY.md`](ESSAY.md); the history is [`docs/TIMELINE.md`](docs/TIMELINE.md).

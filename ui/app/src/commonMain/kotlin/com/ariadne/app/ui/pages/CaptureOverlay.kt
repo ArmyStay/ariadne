@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -43,6 +44,9 @@ import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
 import com.ariadne.design.Title
+import com.ariadne.model.LocalDay
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import kotlinx.coroutines.launch
 
 /**
@@ -116,6 +120,7 @@ public fun CaptureOverlay(
     val onWaiting: () -> Unit = { model.closeShutter(); model.openCloseDay(state.today) }
 
     var showGlasses by remember { mutableStateOf(false) }
+    var showDays by remember { mutableStateOf(false) }
 
     // The arrangement follows the window, not a flag: `MainActivity` reports `wide =
     // false` for every phone, so a phone turned on its side would otherwise get the
@@ -149,7 +154,9 @@ public fun CaptureOverlay(
                     FrameBox(paper, Modifier.weight(1.25f).fillMaxHeight(), fire, onFrame)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                         HintLine(hint, paper)
-                        Spacer(Modifier.height(26.dp))
+                        Spacer(Modifier.height(12.dp))
+                        DayLine(state.shutterDay, state.today, paper) { showDays = true }
+                        Spacer(Modifier.height(22.dp))
                         ShutterRow(
                             paper = paper,
                             fire = fire,
@@ -164,9 +171,11 @@ public fun CaptureOverlay(
                 }
             } else {
                 FrameBox(paper, Modifier.fillMaxWidth().weight(1f), fire, onFrame)
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(14.dp))
                 HintLine(hint, paper)
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(8.dp))
+                DayLine(state.shutterDay, state.today, paper) { showDays = true }
+                Spacer(Modifier.height(14.dp))
                 ShutterRow(
                     paper = paper,
                     fire = fire,
@@ -183,6 +192,19 @@ public fun CaptureOverlay(
 
         if (showGlasses) {
             GlassesPanel(paper = paper, wearable = glasses, onClose = { showGlasses = false })
+        }
+        if (showDays) {
+            DaySheet(
+                days = model.daysOpenForFiling(),
+                selected = state.shutterDay,
+                today = state.today,
+                paper = paper,
+                onChoose = { day ->
+                    model.chooseShutterDay(day)
+                    showDays = false
+                },
+                onClose = { showDays = false },
+            )
         }
     }
 }
@@ -354,6 +376,148 @@ private fun HintLine(text: String, paper: Paper) {
             modifier = Modifier.padding(horizontal = 10.dp),
         )
         Hairline(paper, Modifier.weight(0.32f))
+    }
+}
+
+/**
+ * Which day this photograph will belong to, said out loud.
+ *
+ * The shutter used to file everything into today without ever saying so, which is
+ * fine until the receipt in your hand is yesterday's. It prints the day it will use
+ * and it is the way to change it: a tap opens [DaySheet], which lists the trip's days
+ * that have happened and nothing else. Today is named rather than dated, because
+ * "today" is how a person thinks about the receipt in front of them.
+ */
+@Composable
+private fun DayLine(day: LocalDay?, today: LocalDay?, paper: Paper, onChange: () -> Unit) {
+    val text = when {
+        day == null -> "No day to file into yet"
+        today != null && day == today -> "This goes on today, ${spokenDay(day.iso)}"
+        else -> "This goes on ${spokenDay(day.iso)}"
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Glyph.Date, paper, size = 12.dp, color = paper.inkFaint)
+        Spacer(Modifier.width(7.dp))
+        QuietAction(text, paper, onChange, color = paper.inkSoft)
+    }
+}
+
+/**
+ * The choice of day, as a page of the calendar rather than a wheel.
+ *
+ * Only days that have happened are here — not disabled, absent — so the rule is
+ * something you can see rather than something you are told after trying. The sheet
+ * says the rule once, in a sentence, and then gets out of the way.
+ */
+@Composable
+private fun DaySheet(
+    days: List<LocalDay>,
+    selected: LocalDay?,
+    today: LocalDay?,
+    paper: Paper,
+    onChoose: (LocalDay) -> Unit,
+    onClose: () -> Unit,
+) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(paper.scrim.copy(alpha = 0.45f))
+                .rowTap(onClose),
+        )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 22.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(paper.raised)
+                .border(Bone.Hairline, paper.edge, RoundedCornerShape(20.dp))
+                .padding(22.dp),
+        ) {
+            Label("the day", paper, color = paper.inkGhost, size = 8.sp, tracking = 1.4.sp)
+            Spacer(Modifier.height(10.dp))
+            Title("Which day is this for?", paper, size = 24.sp, lineHeight = 30.sp)
+            Spacer(Modifier.height(8.dp))
+            Body(
+                "A photograph belongs to a day that has happened. Yesterday's receipt " +
+                    "can be filed on yesterday; tomorrow's cannot be filed at all.",
+                paper,
+                serif = true,
+                color = paper.inkSoft,
+                size = 15.sp,
+                lineHeight = 21.sp,
+            )
+            Spacer(Modifier.height(16.dp))
+            if (days.isEmpty()) {
+                Body(
+                    "None of this journey's days has happened yet, so there is nothing here to file into.",
+                    paper,
+                    color = paper.inkFaint,
+                    size = 13.sp,
+                    lineHeight = 19.sp,
+                )
+            } else {
+                Column(Modifier.heightIn(max = 232.dp).verticalScroll(rememberScrollState())) {
+                    days.chunked(4).forEach { row ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            row.forEach { day ->
+                                DayPip(
+                                    day = day,
+                                    selected = day == selected,
+                                    isToday = today != null && day == today,
+                                    paper = paper,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { onChoose(day) },
+                                )
+                            }
+                            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Rule(paper, color = paper.edgeStrong)
+            Spacer(Modifier.height(12.dp))
+            QuietAction("Done", paper, onClose, color = paper.inkSoft)
+        }
+    }
+}
+
+/** One day in the sheet: the weekday in small caps, the date under it. */
+@Composable
+private fun DayPip(
+    day: LocalDay,
+    selected: Boolean,
+    isToday: Boolean,
+    paper: Paper,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val ink = if (selected) paper.onBlue else paper.inkMid
+    Column(
+        modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) paper.blue else Color.Transparent)
+            .border(
+                Bone.Hairline,
+                if (selected) paper.blueEdge else paper.edge,
+                RoundedCornerShape(10.dp),
+            )
+            .semantics { contentDescription = "File on ${spokenDay(day.iso)}" }
+            .rowTap(onClick)
+            .padding(vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Label(
+            if (isToday) "today" else weekdayName(day),
+            paper,
+            color = if (selected) ink else paper.inkFaint,
+            size = 7.sp,
+            tracking = 1.sp,
+        )
+        Spacer(Modifier.height(3.dp))
+        Label(spokenDay(day.iso), paper, color = ink, size = 10.sp, tracking = 0.6.sp)
     }
 }
 

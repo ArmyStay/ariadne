@@ -327,6 +327,17 @@ public data class AppUiState(
 
     /** The photograph whose sheet is open over the page, if one is. */
     public val sheetCaptureId: String? = null,
+
+    /**
+     * The day the open shutter will file into.
+     *
+     * Normally today, but a person who opens the record on Tuesday and presses the
+     * shutter is filing Tuesday's receipt, and the app should take them at their
+     * word. Set by [AppModel.openCapture] and [AppModel.chooseShutterDay], and it can
+     * never be a day that has not happened: a future day is not one of the choices,
+     * so the value here is always a day the record may hold.
+     */
+    public val shutterDay: LocalDay? = null,
 ) {
     public val current: Capture? get() = stack.getOrNull(stackIndex)
     public val remaining: Int get() = (stack.size - stackIndex).coerceAtLeast(0)

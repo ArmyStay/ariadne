@@ -117,7 +117,7 @@ If you want samples shown in docs/README, copy **redacted** images to `docs/` (o
 .\gradlew.bat :app:android:installDebug
 adb shell monkey -p com.ariadne.app 1
 ```
-If Ariadne disappears after `connectedDebugAndroidTest`, that is test-task cleanup rather than an app crash; run `installDebug` again after the test. Then open Ariadne, capture/import a real receipt, confirm extraction completes or fails gracefully, and that Nightfall/edit flows remain usable.
+If Ariadne disappears after `connectedDebugAndroidTest`, that is test-task cleanup rather than an app crash; run `installDebug` again after the test. Then open Ariadne, capture/import a real receipt, confirm extraction completes or fails gracefully, and that Close Day/edit flows remain usable.
 
 ---
 
@@ -163,7 +163,7 @@ If Ariadne disappears after `connectedDebugAndroidTest`, that is test-task clean
 1. Add **real Android** receipt photos + expected files (phone is easiest) and run `connectedDebugAndroidTest` on phone or Play-Services-less emulator.
 2. Add **real desktop** fixtures and run desktop JVM tests on a machine with Tesseract natives.
 3. Prepare **iOS/Wasm** fixture images/expected files now; run iOS on Mac when available; enable/validate Wasm OCR only if needed.
-4. Update `README.md`, `BUILD-STATUS.md`, and `TESTING.md` with exact commands run, devices/emulators used, results, and any known script/OCR gaps.
+4. Update `README.md` and `TESTING.md` with exact commands run, devices/emulators used, results, and any known script/OCR gaps.
 
 ## 7) Assertion/alignment checklist per fixture
 - [ ] Real photo (redacted), not synthetic placeholder
