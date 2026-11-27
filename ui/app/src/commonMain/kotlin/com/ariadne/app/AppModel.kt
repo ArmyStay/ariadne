@@ -2159,7 +2159,10 @@ public class AppModel(
     private fun offerReminderOnce() {
         val state = _state.value
         if (state.reminderAsked || state.reminder.enabled) return
-        if (state.trip == null) return
+        // A reminder needs a trip that is still happening. Offering one while the
+        // person is reading a finished trip's card would be asking them to set a
+        // nightly alarm for a journey that is over.
+        if (state.trip == null || state.trip.isClosed) return
         _state.value = _state.value.copy(
             reminderSheetOpen = true,
             reminderIsOffer = true,
@@ -2317,7 +2320,7 @@ public class AppModel(
         val state = _state.value
         val reminder = state.reminder
         if (!reminder.enabled) return
-        if (state.trip == null) return
+        if (state.trip == null || state.trip.isClosed) return
         // Nothing to remind about on a trip that has not begun.
         val today = clock.today()
         if (today < state.trip.startDate) return

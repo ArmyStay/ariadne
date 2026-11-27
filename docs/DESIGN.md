@@ -182,7 +182,7 @@ make it feel like an errand.
 | 10 | `TripCard` | — | The thing you keep. |
 | 11 | `Detail` | Timeline | One photograph in the hand: amount, currency, category, a line to keep it by. |
 | 12 | `Search` | — | Remember a thing by shop, price, currency or day. |
-| 13 | `Settings` | — | Currency, paper, and plainly what leaves the device. Reachable from Home; it is a corner, not a destination. |
+| 13 | `Settings` | — | Currency, paper, the evening reminder, and plainly what leaves the device. Reachable from Home; it is a corner, not a destination. |
 
 `Settings` survives in the sealed route type so an older persisted route still
 resolves, but it renders the register behind it. `Trips` is the register the
