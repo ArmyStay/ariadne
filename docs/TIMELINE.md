@@ -100,7 +100,9 @@ to serve at `/`. The page is now a committed resource,
 inline favicon and a WebAssembly build of the app, in that order. `pages.yml` finds it
 wherever the build put it, serves the site under `/ariadne/` with `tools/demo-check.sh`
 before uploading (`ci.yml` runs the same gate on every pull request), and a `verify` job
-fetches the public URL with no credentials afterwards. The same pass deleted what read as
+fetches the public URL with no credentials afterwards. The first deploy from `main` after
+that fix (run `46045980294`) was green in all three jobs, `verify` included — the link
+works, and the next deploy that breaks it will say so in red. The same pass deleted what read as
 template rather than as this repository: the `:shared` boilerplate module
 (`com.example.shared`, `Platform.kt`, two example tests), the duplicate font tree under
 `core/design/src/commonMain/resources/fonts/` (six copies of the fonts `composeResources`
@@ -108,6 +110,30 @@ already ships, plus an unused `InterTight-Variable.ttf`), and a second
 `eng.traineddata` that had been committed under `core/extract/bin/`. The two OFL licence
 files moved to `core/design/licenses/`, which is the only thing that tree was still
 earning.
+
+## 27 November — every press, made by hand
+
+The sweep started as a count and turned into a bug. The app had 24 tap targets and three
+ways of building one: `Modifier.rowTap` (a `clickable` with no ripple), `androidTap` (a
+bare `pointerInput { detectTapGestures { … } }`), and, in seven places, the gesture
+inline. The last two produce what looks like a control and behaves like a picture: a
+screen reader can focus it and read its description out, and the one action it has is the
+one thing assistive technology cannot do. The shutter, the day sheet's scrim, the delete
+mark, the category and currency chips, every register row, the search results and the
+microphone were all unpressable that way.
+
+There is one way now. `Modifier.tap` (`ui/app/.../ui/Tap.kt`) is `clickable` with no
+ripple, a role and — the part that was missing — the words for what the action performs:
+*"Keep the photograph"*, *"Open this photograph"*, *"Delete it now"* once the mark is
+armed, *"Close the microphone"*. `rowTap` and `androidTap` are gone, with their callers
+moved to it. `tools/a11y-check.sh` refuses a raw gesture anywhere but the two dimmed
+scrims that close a sheet (a scrim is not a control, and the sheet behind it has a
+labelled one), refuses a press with no label, and refuses a one-word one, because
+*"Select"* names the gesture rather than the consequence. `ci.yml` runs it beside
+`claim-check.sh`, in a second, without a JDK.
+
+What it cannot say: that TalkBack makes the press. That is the device pass, and
+`UI-AND-FLOW.md` §11 now lists it as *not yet* instead of implying otherwise.
 
 ## 27 November — the rules, and the other way in
 

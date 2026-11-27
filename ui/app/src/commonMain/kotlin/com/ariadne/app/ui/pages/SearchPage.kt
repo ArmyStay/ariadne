@@ -54,6 +54,7 @@ import com.ariadne.design.Subject
 import com.ariadne.design.Title
 import com.ariadne.model.Capture
 import com.ariadne.model.Money
+import com.ariadne.app.ui.tap
 
 /**
  * Page 8 — Search.
@@ -175,7 +176,7 @@ public fun SearchPage(state: AppUiState, model: AppModel, paper: Paper, wide: Bo
 @Composable
 private fun SearchRow(capture: Capture, model: AppModel, paper: Paper, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().androidTap(onClick).padding(vertical = 12.dp),
+        Modifier.fillMaxWidth().tap("Open this result", onClick = onClick).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(58.dp).aspectRatio(1f).border(Bone.Hairline, paper.edge)) {

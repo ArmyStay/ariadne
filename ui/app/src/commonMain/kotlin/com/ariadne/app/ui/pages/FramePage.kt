@@ -49,6 +49,7 @@ import com.ariadne.model.EntryStatus
 import com.ariadne.model.Money
 import com.ariadne.model.SpokenExpense
 import com.ariadne.model.entryStatus
+import com.ariadne.app.ui.tap
 
 /**
  * The photograph you have just kept.
@@ -350,7 +351,7 @@ private fun SheetBack(paper: Paper, onClick: () -> Unit) {
         Modifier
             .size(44.dp)
             .semantics { contentDescription = "Back" }
-            .rowTap(onClick),
+            .tap("Go back one page") { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(15.dp)) {

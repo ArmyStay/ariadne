@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -56,7 +55,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -107,6 +105,7 @@ import com.ariadne.model.Money
 import com.ariadne.model.Settings
 import com.ariadne.model.dayRange
 import com.ariadne.model.symbol
+import com.ariadne.app.ui.tap
 
 /**
  * Wraps every tab view in the same page furniture.
@@ -380,12 +379,9 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .pointerInput(capture.id) {
-                            detectTapGestures(onTap = { model.openDetail(capture.id) })
-                        }
+                        .tap("Open this photograph") { model.openDetail(capture.id) }
                         .semantics {
                             contentDescription = "Open ${model.titleOf(capture)}, ${capture.localDate.iso}"
-                            role = Role.Button
                         }
                         .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -937,7 +933,7 @@ private fun TimelineDayRow(
         Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
-            .rowTap(onClick)
+            .tap("Open this day") { onClick() }
             .semantics(mergeDescendants = true) { contentDescription = spoken },
         verticalAlignment = Alignment.Top,
     ) {
@@ -1536,7 +1532,7 @@ private fun PrefPaper(
                     Modifier
                         .heightIn(min = 44.dp)
                         .border(Bone.Hairline, if (chosen) paper.blue else paper.edge)
-                        .androidTap { onChoose(value) }
+                        .tap("Choose $text") { onChoose(value) }
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -1720,7 +1716,7 @@ private fun IconAction(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 10.dp)
-            .androidTap(onClick),
+            .tap(text, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(glyph, paper, size = 16.dp, color = color ?: paper.inkSoft)

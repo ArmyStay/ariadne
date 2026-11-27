@@ -50,6 +50,7 @@ import com.ariadne.model.CurrencyCode
 import com.ariadne.model.Money
 import com.ariadne.model.SpokenAmount
 import com.ariadne.model.SpokenExpense
+import com.ariadne.app.ui.tap
 
 /**
  * The microphone, drawn.
@@ -111,7 +112,7 @@ internal fun MicDisc(
             .background(if (listening) paper.blueWash else paper.raised)
             .border(Bone.Hairline, if (listening) paper.blue.copy(alpha = 0.55f) else paper.edgeStrong, CircleShape)
             .semantics { contentDescription = description }
-            .rowTap { if (enabled) onClick() },
+            .tap("Say the amount", enabled = enabled) { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         MicMark(
@@ -157,7 +158,7 @@ internal fun MicAction(
                     else -> "Say the amount"
                 }
             }
-            .rowTap { if (enabled) onClick() }
+            .tap("Say the amount", enabled = enabled) { onClick() }
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
@@ -261,7 +262,7 @@ internal fun HomeVoicePanel(
                 .fillMaxSize()
                 .background(paper.scrim.copy(alpha = 0.45f))
                 .semantics { contentDescription = "Close the microphone" }
-                .rowTap(onClose),
+                .tap("Close the microphone") { onClose() },
         )
         Column(
             Modifier

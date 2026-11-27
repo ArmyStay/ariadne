@@ -1,7 +1,5 @@
 package com.ariadne.app.ui.pages
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -17,7 +15,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.ariadne.design.Page
 import com.ariadne.design.Paper
@@ -76,22 +73,3 @@ internal fun AriadneBarSpacer() {
     Spacer(Modifier.height(104.dp))
 }
 
-/**
- * A whole row as one tap target.
- *
- * The rows in this app are hand-built (a title, a figure, a hairline) rather than
- * `ListItem`s, so tap handling is hand-built too — and a `pointerInput` alone gives
- * TalkBack nothing to press and no role to announce. This is the same idea as a
- * clickable list item: one action, one role, no ripple, because nothing in this
- * book ripples.
- */
-@Composable
-internal fun Modifier.rowTap(onClick: () -> Unit): Modifier {
-    val source = remember { MutableInteractionSource() }
-    return clickable(
-        interactionSource = source,
-        indication = null,
-        role = Role.Button,
-        onClick = onClick,
-    )
-}

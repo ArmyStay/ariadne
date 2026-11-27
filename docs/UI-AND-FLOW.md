@@ -573,7 +573,7 @@ day, empty ones included — each opening `openRecord(day)`:
   `paper.inkMid`);
 - a chevron at the row's centre in `paper.inkFaint`, and a hairline under the content
   only (not under the date);
-- the whole row is one tap target (`Modifier.rowTap`) and one TalkBack node, described as
+- the whole row is one tap target (`Modifier.tap`) and one TalkBack node, described as
   `2026-11-27, in the record, nothing kept`.
 
 The row's minimum height is 84 dp and it grows with the text: the spine and the column
@@ -656,7 +656,9 @@ file."* and **BACK TO THE DAY** alone.
 **Header.** `Masthead("", eyebrow = the capture's ISO date \| "Photograph", title = "The photograph", trailing = the delete mark)`.
 
 The mark is a drawn × in a hairline ring, 30 dp inside a 44 dp target, described to a
-screen reader as `Delete this photograph` (`armEntryDeletion()`). Tapped once it fills
+screen reader as `Delete this photograph` (`armEntryDeletion()`) and carrying the press
+label `Delete this photograph` — or `Delete it now` once armed, so the second tap
+announces what it is about to do. Tapped once it fills
 `paper.blue`, grows to 38 dp, and the page prints *"Tap the mark once more to delete this
 photograph and its figures. This cannot be undone, and there is no copy anywhere else."*
 with **KEEP IT** (`armEntryDeletion()`); a second tap on the mark is `deleteEntryNow()`.
@@ -1056,9 +1058,17 @@ still the record.`
 *"Your trip could not be opened. …"* · *"That trip could not be opened. …"* · `not a
 number` (rate field) · `no rate on file — this currency is not being converted`.
 
+**Press labels as well as descriptions.** Every control in the app is a press through
+`Modifier.tap` (`ui/Tap.kt`): `clickable` with no ripple, a role, and the words for what
+the action will perform — `"Keep the photograph"`, `"Open this photograph"`,
+`"Delete this photograph"`, `"Close the microphone"`. A raw gesture is refused by
+`tools/a11y-check.sh`, which runs in CI and also refuses a press with no label or a
+one-word one (`"Select"`); the only exceptions are the two dimmed scrims that close a
+sheet, where the sheet itself carries the labelled control.
+
 **Accessibility descriptions written in source.** `"Take a photograph"` (and
 `"Take a photograph. N waiting across this trip"`, `"A closed trip takes no photographs"`) ·
-`"Viewfinder. Tap to keep the photograph."` · `"Back"` (the sheet's chevron) ·
+`"Viewfinder. Tap to keep the photograph."` · `"Back"` (the sheet's chevron, whose press label is `"Go back one page"`) ·
 `"Search the record"` · `"Search currencies"` · `"Camera viewfinder"` ·
 `"Backspace"` and every keypad digit · the currency chips' three variants
 (`"Currency SGD"`, `"Currency SGD, the one on this photograph"`,
@@ -1174,6 +1184,8 @@ device with a recogniser app, which is the only reason it is ever absent.
 | the browser app is deployed | published as a Pages artifact on every push to `main` | `pages.yml` |
 | the codec (trip plan and ledger, both directions) | passing on every push since 27 Nov 2026, `main` + this branch | `:core:model:jvmTest` → `ShareCodeTest` |
 | `FlowCheck` (stack, overlays, undo, the sheet's pair) | written, runnable offline; **not part of CI** | `tools/flow-check.sh` |
+| every press is one a screen reader can make | yes, in source: `Modifier.tap` everywhere but two scrims | `tools/a11y-check.sh` in `ci.yml` |
+| TalkBack actually makes that press | **not yet** | human, on a device |
 | the page drawn on a real screen | yes: two stills from a phone in `docs/shots/current/` | human |
 | measured — spacing, contrast, 200% text | **not yet** | `tools/verify-ui.sh` + `tools/shoot.sh` |
 

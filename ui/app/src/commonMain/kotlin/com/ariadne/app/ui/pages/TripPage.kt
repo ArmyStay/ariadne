@@ -39,6 +39,7 @@ import com.ariadne.design.Glyph
 import com.ariadne.model.BudgetPlan
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.Money
+import com.ariadne.app.ui.tap
 
 /**
  * Trip — the journey as an object, in the bar rather than behind a link.
@@ -311,7 +312,7 @@ private fun OtherTripRow(name: String, dates: String, paper: Paper, onClick: () 
     Row(
         Modifier
             .fillMaxWidth()
-            .rowTap(onClick)
+            .tap("Open this trip") { onClick() }
             .heightIn(min = 48.dp)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

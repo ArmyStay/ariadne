@@ -37,7 +37,6 @@ import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.PageAction
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -51,6 +50,7 @@ import com.ariadne.design.Title
 import com.ariadne.design.motionSpec
 import com.ariadne.model.Money
 import com.ariadne.model.Trip
+import com.ariadne.app.ui.tap
 
 /**
  * The register.
@@ -207,10 +207,9 @@ private fun TripEntry(
         Row(
             Modifier
                 .fillMaxWidth()
-                .androidTap { onOpen() }
+                .tap("Open this trip") { onOpen() }
                 .semantics {
                     contentDescription = "${trip.name}, ${trip.dates()}, $state"
-                    role = Role.Button
                 }
                 .padding(vertical = 16.dp),
             verticalAlignment = Alignment.Top,

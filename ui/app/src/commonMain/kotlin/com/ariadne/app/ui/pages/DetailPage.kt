@@ -3,7 +3,6 @@ package com.ariadne.app.ui.pages
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -55,6 +53,7 @@ import com.ariadne.model.Category
 import com.ariadne.model.CurrencyCatalog
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.symbol
+import com.ariadne.app.ui.tap
 
 /**
  * Page — one capture, open in the hand.
@@ -279,14 +278,14 @@ private fun DeleteMark(paper: Paper, armed: Boolean, onClick: () -> Unit) {
         Modifier
             // The target is a finger's width even though the mark is not.
             .size(44.dp)
+            .tap(if (armed) "Delete it now" else "Delete this photograph") { onClick() }
             .semantics {
                 contentDescription = if (armed) {
                     "Delete this photograph. Tap once more to confirm"
                 } else {
                     "Delete this photograph"
                 }
-            }
-            .pointerInput(armed) { detectTapGestures(onTap = { onClick() }) },
+            },
         contentAlignment = Alignment.Center,
     ) {
         Box(
@@ -576,9 +575,7 @@ internal fun CategoryChips(
                     Box(
                         Modifier
                             .heightIn(min = 48.dp)
-                            .pointerInput(category, enabled) {
-                                if (enabled) detectTapGestures(onTap = { onSelect(category) })
-                            },
+                            .tap("Choose ${category.label}", enabled = enabled) { onSelect(category) },
                         contentAlignment = Alignment.Center,
                     ) {
                         Box(
@@ -623,9 +620,7 @@ internal fun CurrencyChip(
     Box(
         Modifier
             .heightIn(min = 48.dp)
-            .pointerInput(code, enabled) {
-                if (enabled) detectTapGestures(onTap = { if (!selected) onClick() })
-            }
+            .tap("Choose currency $code", enabled = enabled && !selected) { onClick() }
             .semantics {
                 contentDescription = when {
                     selected -> "Currency $code, the one on this photograph"

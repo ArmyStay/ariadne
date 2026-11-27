@@ -17,8 +17,8 @@ guides), and the page is now committed rather than left to the toolchain —
 `app/wasm/src/wasmJsMain/resources/index.html` is the site's front door. `pages.yml`
 finds it, serves the site locally under `/ariadne/` before uploading it, and then a
 `verify` job fetches the public URL with no credentials and asserts a 200 whose HTML
-carries `ariadne.js`. A green deploy now means the link works, not that an upload
-finished.
+carries `ariadne.js`. That job has passed on `main` (run `46045980294`), so a green deploy
+now means the link answers, not that an upload finished.
 
 **Why you and not CI:** a job proves the bytes are served; it cannot see the first frame.
 
@@ -128,13 +128,23 @@ network between them.
 
 ---
 
-## 7. Accessibility at 200% (20 minutes)
+## 7. Accessibility: 200% and a screen reader (20 minutes)
 
-**What:** set the system font size to 200% and open, in order: Home, the record for a day,
-the shutter, the codes page. Photograph anything that clips, overlaps or scrolls sideways.
+**What (text):** set the system font size to 200% and open, in order: Home, the record for
+a day, the shutter, the codes page. Photograph anything that clips, overlaps or scrolls
+sideways.
 
-**Why:** the design claims a reading typography and no measured proof exists. Three stills
-at 200% would be the proof.
+**What (speech):** turn TalkBack on and make four presses — the shutter, a row in the
+register, the delete mark twice (once to arm, once to delete), and **Say the amount**.
+Write down what was said before each press. What should happen: the control announces
+what it *is* and what the press will *do* ("Delete this photograph… double tap to delete
+it now"), and the press works. Every control in the source is now a labelled click
+action (`tools/a11y-check.sh`, in CI), but only a device can say that a screen reader
+reaches it, and only you can say whether the sentence it reads is the right sentence.
+
+**Why:** the design claims a reading typography and no measured proof exists; three stills
+at 200% would be the proof. The screen reader half is the one claim the source can only
+half keep — `UI-AND-FLOW.md` §11 lists it as *not yet*.
 
 ---
 

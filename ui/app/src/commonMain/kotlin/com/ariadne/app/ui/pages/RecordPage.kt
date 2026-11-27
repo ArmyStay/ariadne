@@ -2,7 +2,6 @@ package com.ariadne.app.ui.pages
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,7 +19,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
@@ -46,6 +44,7 @@ import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
 import com.ariadne.model.DaySummary
 import com.ariadne.model.entryStatus
+import com.ariadne.app.ui.tap
 
 /**
  * Page 6 — Record.
@@ -268,7 +267,7 @@ private fun DayTab(card: DayCard, selected: Boolean, paper: Paper, onClick: () -
             .width(64.dp)
             .border(if (selected) 1.dp else Bone.Hairline, border)
             .background(if (card.isClosed) paper.sunk else paper.bg)
-            .androidTap(onClick)
+            .tap("Open this day", onClick = onClick)
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -297,7 +296,7 @@ private fun ReceiptLine(
     onClick: () -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().androidTap(onClick).padding(vertical = 13.dp),
+        Modifier.fillMaxWidth().tap("Open this photograph", onClick = onClick).padding(vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -351,7 +350,3 @@ private fun monthAbbrev(day: LocalDay): String = when (day.month) {
     1 -> "Jan"; 2 -> "Feb"; 3 -> "Mar"; 4 -> "Apr"; 5 -> "May"; 6 -> "Jun"
     7 -> "Jul"; 8 -> "Aug"; 9 -> "Sep"; 10 -> "Oct"; 11 -> "Nov"; else -> "Dec"
 }
-
-/** Shared tap modifier for pages that need a plain press on a whole row. */
-internal fun Modifier.androidTap(onClick: () -> Unit): Modifier =
-    this.pointerInput(onClick) { detectTapGestures(onTap = { onClick() }) }
