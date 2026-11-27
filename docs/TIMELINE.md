@@ -212,6 +212,32 @@ opening the file dialog where there is no camera, the rail counting the same lis
 dock's badge counts, and `docs/HUMAN-TASKS.md` — the things that need a device, a browser
 or a decision rather than a commit.
 
+## 27 November — the second door
+
+`#28`, `#29`, `#30`. Two pages that read as grey boxes became two pages that look drawn —
+the Stats page lost the head above the head, the chart's floating money and the rupee
+balanced on the descender; the More page became a page with a ground, `FlightSky` drawing
+arcs, a paper plane and two sparks behind a page that never scrolls. The design rules that
+came out of it are in `DESIGN.md` §9: two kinds of container and no third, and a ground may
+be drawn, not cited.
+
+Then the submission's edges, which are cheaper than they look and worth more than they look:
+
+- **The demo is the first door, the APK the second.** The README's headline link now
+  carries `?seed=demo`, so the first frame is a trip with photographs in it and the
+  introduction is something a reader can back into; the APK gets a "no toolchain needed"
+  sentence and a tap-to-install route before `adb install` appears at all, and the release
+  notes say the same. `docs/brand/demo-qr.png` — generated, then decoded again to prove it
+  carries the same link — is for a phone held over a printed page.
+- **`v1.0.0`, not another `rc`.** Two release candidates and no final tag on the sixth of
+  December reads as a project that ran out of runway, and the release workflow already
+  marks anything with `-rc` as a pre-release, so the plain tag is the one that shows up as
+  *Latest* with the APK and the web zip attached.
+- **The browser build persists nothing, and says so.** There is no IndexedDB in it: the
+  wasm target binds `InMemoryStore`, the disclosure in Preferences names the reload, and
+  the README now says to look at it and not to type a trip you care about into it. A
+  private window behaves identically, because there is no storage to be refused.
+
 ## Where it stands
 
 **Built**: the shared domain (money, queue, FX, search, store with `openOrMigrate`), the

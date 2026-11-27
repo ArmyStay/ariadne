@@ -79,11 +79,26 @@ jobs:
             *-rc*|*-beta*|*-alpha*) PRE="--prerelease" ;;
           esac
           NOTES=$(cat <<'EOF'
-          `ariadne.apk` is a production-signed, non-debuggable release build.
-          It does not include the debug-only mock glasses integration.
+          **You do not need this file to try Ariadne.** Open
+          <https://armystay.github.io/ariadne/?seed=demo> in any browser — no install, no
+          account, no toolchain — and it opens on a trip that has already been kept. The
+          APK is the second door, and the only one that can show the camera, the photo
+          library, the microphone and the glasses path.
 
-          `ariadne-web.zip` is the browser distribution — unzip it and serve the folder, or
-          use the published demo at https://armystay.github.io/ariadne/ .
+          `ariadne.apk` is a **debug** build, signed with the debug key, about 120 MB
+          (five OCR models are bundled so recognition works with no signal). On a phone:
+          download it and tap it, after allowing your files app to install — there is no
+          Play listing, so Android will say the signature is unknown once and then install.
+          From a machine with `adb`: `adb install -r ariadne.apk`. Debug builds are also the only ones that can drive the glasses
+          path without glasses:
+
+          ```
+          adb shell am start -n com.ariadne.app/com.ariadne.android.MainActivity --ez mock_glasses true
+          ```
+
+          `ariadne-web.zip` is the browser distribution — unzip it, serve the folder, add
+          `?seed=demo` to open on a kept trip. It keeps its record in the tab only: no
+          IndexedDB, so a reload starts again.
 
           Android rate requests disclose currency pairs and IP address to frankfurter.app.
           Android voice input uses a separate recognizer that may process audio remotely.

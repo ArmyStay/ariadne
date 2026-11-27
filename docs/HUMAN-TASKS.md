@@ -83,9 +83,17 @@ deleted rather than repeated.
 
 ## 5. Install the APK and tell me what breaks (15 minutes)
 
-**Where:** <https://github.com/ArmyStay/ariadne/releases> — `ariadne.apk` on
-`v1.0.0-rc1`. It is a debug build, signed with the debug key, about 120 MB (five bundled
-OCR models):
+**Where:** <https://github.com/ArmyStay/ariadne/releases/tag/v1.0.0> — `ariadne.apk`,
+about 120 MB (five bundled OCR models), a debug build signed with the debug key.
+
+This is the *second* door and the notes to a judge lead with the first one: the demo at
+<https://armystay.github.io/ariadne/?seed=demo> needs no install at all, and the QR in the
+README (`docs/brand/demo-qr.png`) is there for a phone held over a printed page. Everything
+below is what the browser cannot show — the sensor, the library, the recogniser, the
+reminder.
+
+On the phone: download it and tap it, after allowing your files app to install. With a
+machine that has `adb`:
 
 ```bash
 adb install -r ariadne.apk
