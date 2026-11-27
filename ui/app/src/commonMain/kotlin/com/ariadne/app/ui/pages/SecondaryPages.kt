@@ -1,18 +1,23 @@
 package com.ariadne.app.ui.pages
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -23,16 +28,22 @@ import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
+import com.ariadne.design.FlightSky
 import com.ariadne.design.Glyph
+import com.ariadne.design.Icon
+import com.ariadne.design.IndexCard
 import com.ariadne.design.Label
+import com.ariadne.design.Leaf
 import com.ariadne.design.Masthead
-import com.ariadne.design.NavRow
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.Page
 import com.ariadne.design.Paper
+import com.ariadne.design.PillButton
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
 import com.ariadne.design.SectionHead
+import com.ariadne.design.SectionMark
+import com.ariadne.design.Title
 import com.ariadne.model.Category
 
 public val LocalDataArchiveExporter = staticCompositionLocalOf<DataArchiveExporter?> { null }
@@ -49,52 +60,123 @@ public fun MorePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             Spacer(Modifier.height(10.dp))
             Label("on this device", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
         },
+        // The sky stays where it was drawn: arcs off the corner, a plane crossing
+        // them, two sparks. It is the page's ground, not a picture that scrolls.
+        backdrop = { FlightSky(paper) },
     ) {
         Column(
             Modifier.verticalScroll(rememberScrollState()).padding(bottom = 48.dp),
         ) {
-            Masthead(
-                number = "04",
-                eyebrow = state.displayName.ifBlank { "Ariadne" },
-                title = "More",
-                paper = paper,
-                wide = wide,
-                lede = "Trips, settings, and the things you can do with your record.",
+            // No eyebrow and no plate number: this page is a door, not a chapter,
+            // and the title does the work of both.
+            Spacer(Modifier.height(if (wide) 14.dp else 18.dp))
+            Title(
+                "More",
+                paper,
+                size = if (wide) 68.sp else 52.sp,
+                lineHeight = if (wide) 70.sp else 54.sp,
+            )
+            Spacer(Modifier.height(10.dp))
+            Body(
+                "Trips, settings, and the things you can do with your record.",
+                paper,
+                color = paper.inkSoft,
+                size = if (wide) 16.sp else 14.sp,
+                lineHeight = if (wide) 24.sp else 21.sp,
             )
             Spacer(Modifier.height(20.dp))
-            SectionHead("I", "the journeys", paper)
-            NavRow(Glyph.Trip, "Trips", "${state.trips.size} on this device", paper) {
+            Rule(paper, color = paper.edge)
+
+            // ── the journeys ────────────────────────────────────────────────
+            Spacer(Modifier.height(26.dp))
+            SectionMark("the journeys", paper)
+            Spacer(Modifier.height(14.dp))
+            IndexCard(Glyph.Trip, "Trips", "${state.trips.size} on this device", paper) {
                 model.go(Route.Trips)
             }
-            Rule(paper)
-            NavRow(Glyph.Budget, "Add manually", "An expense without a photograph", paper) {
+            Spacer(Modifier.height(10.dp))
+            IndexCard(Glyph.Budget, "Add manually", "An expense without a photograph", paper) {
                 model.go(Route.ManualEntry)
             }
-            Rule(paper)
-            Spacer(Modifier.height(18.dp))
-            SectionHead("II", "your copy", paper)
-            NavRow(Glyph.Edit, "Settings & profile", "Name, currencies, appearance", paper) {
+
+            // ── your copy ───────────────────────────────────────────────────
+            Spacer(Modifier.height(28.dp))
+            SectionMark("your copy", paper)
+            Spacer(Modifier.height(14.dp))
+            IndexCard(Glyph.Edit, "Settings & profile", "Name, currencies, appearance", paper) {
                 model.go(Route.Preferences)
             }
-            Rule(paper)
-            Spacer(Modifier.height(18.dp))
-            SectionHead("III", "about Ariadne", paper)
-            NavRow(Glyph.Record, "Privacy policy", "How this build handles your data", paper) {
+
+            // ── about Ariadne ───────────────────────────────────────────────
+            Spacer(Modifier.height(28.dp))
+            SectionMark("about Ariadne", paper)
+            Spacer(Modifier.height(14.dp))
+            IndexCard(Glyph.Shield, "Privacy policy", "How this build handles your data", paper) {
                 model.go(Route.PrivacyPolicy)
             }
-            Rule(paper)
-            NavRow(Glyph.Date, "Terms of use", "Draft for review", paper) {
+            Spacer(Modifier.height(10.dp))
+            IndexCard(Glyph.Record, "Terms of use", "Draft for review", paper) {
                 model.go(Route.Terms)
             }
-            Rule(paper)
-            Spacer(Modifier.height(22.dp))
+
+            // ── the one ask ─────────────────────────────────────────────────
+            Spacer(Modifier.height(28.dp))
+            FeedbackCard(state, model, paper)
+
+            Spacer(Modifier.height(18.dp))
             Body(
                 "Ariadne keeps your record here. No account or sync is part of this build.",
                 paper,
                 color = paper.inkFaint,
-                size = 12.sp,
-                lineHeight = 19.sp,
+                size = 11.sp,
+                lineHeight = 17.sp,
             )
+            Spacer(Modifier.height(96.dp))
+        }
+    }
+}
+
+/**
+ * The one place the app asks for anything back.
+ *
+ * It asks for a *copy*, not a message: this build has no server and no address to
+ * write to, so a button labelled "send" would be a lie with a spinner on it. What
+ * it copies is the shape of a report — what were you doing, what happened — and the
+ * line under the title says so before the button is pressed.
+ */
+@Composable
+private fun FeedbackCard(state: AppUiState, model: AppModel, paper: Paper) {
+    Leaf(
+        paper = paper,
+        tint = paper.blueWash,
+        edge = paper.blueEdge.copy(alpha = 0.65f),
+        inset = 15.dp,
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Glyph.Heart, paper, size = 19.dp, color = paper.blue)
+            Spacer(Modifier.width(14.dp))
+            Box(Modifier.width(Bone.Hairline).height(34.dp).background(paper.blueEdge))
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Title("Have feedback?", paper, size = 17.sp)
+                Spacer(Modifier.height(3.dp))
+                Body(
+                    if (state.feedbackCopied) {
+                        "Copied. Paste it wherever you write to us."
+                    } else {
+                        "Copies a note you can paste into an email."
+                    },
+                    paper,
+                    color = paper.inkSoft,
+                    size = 11.sp,
+                    lineHeight = 15.sp,
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            PillButton(
+                if (state.feedbackCopied) "Copied" else "Share feedback",
+                paper,
+            ) { model.copyFeedbackNote() }
         }
     }
 }

@@ -13,12 +13,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -26,12 +25,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
@@ -40,16 +39,18 @@ import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Bone
 import com.ariadne.design.Body
+import com.ariadne.design.DiscBadge
 import com.ariadne.design.Glyph
 import com.ariadne.design.Icon
 import com.ariadne.design.Label
+import com.ariadne.design.Leaf
 import com.ariadne.design.LinkAction
 import com.ariadne.design.Masthead
+import com.ariadne.design.Note
 import com.ariadne.design.Numeral
 import com.ariadne.design.Paper
 import com.ariadne.design.RailFigure
 import com.ariadne.design.Rule
-import com.ariadne.design.SectionHead
 import com.ariadne.design.Title
 import com.ariadne.design.animatedLong
 import com.ariadne.design.tap
@@ -61,11 +62,11 @@ import com.ariadne.model.symbol
 import kotlin.math.abs
 
 /**
- * What the trip came to, on cards.
+ * What the trip came to, on four leaves of paper.
  *
  * Four readings of the same finished entries, in the order a person asks for them:
  * the total and its fence, how it arrived day by day, what it was for, and what it
- * was paid in. Each is a card with a disc, a tracked label and one figure — the
+ * was paid in. Each is a card with one disc, one tracked label and one figure — the
  * page a traveller photographs from across a table, not a dashboard to operate.
  *
  * Three rules the cards keep, because the page is a ledger and not a coach:
@@ -114,18 +115,16 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             lede = "A quick look at this trip's spending, and what it went on.",
         )
 
-        Spacer(Modifier.height(if (wide) 26.dp else 20.dp))
+        Spacer(Modifier.height(if (wide) 24.dp else 20.dp))
         TripTotalCard(state, base, tripTotal, paper, wide)
 
         if (state.dayFigures.isNotEmpty()) {
-            SectionHead("II", "daily spending", paper)
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(if (wide) 22.dp else 18.dp))
             SpendCard(state, base, paper, wide)
         }
 
         if (state.categoryTotals.isNotEmpty()) {
-            SectionHead("III", "what it was", paper)
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(if (wide) 22.dp else 18.dp))
             CategoryCard(state.categoryTotals, base, tripTotal, paper)
             PatternLine(state.categoryTotals, base, paper)
         }
@@ -133,8 +132,7 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         if (state.tripPerCurrency.isNotEmpty()) {
             // The same finished photographs, seen from the other side. The two
             // columns must always add to the same figure.
-            SectionHead("IV", "by currency, before conversion", paper)
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(if (wide) 22.dp else 18.dp))
             CurrencyCard(state.tripPerCurrency, paper)
         } else if (state.categoryTotals.isEmpty()) {
             Spacer(Modifier.height(20.dp))
@@ -161,7 +159,7 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
             corner = 12.dp,
         )
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
@@ -182,37 +180,61 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
     }
 }
 
+/**
+ * A card's head: the disc, then the words — and, for the three sections below the
+ * first, the numeral the rest of the book numbers its sections with, set in the
+ * same tracked label rather than as a separate element. One title per card, always.
+ */
+@Composable
+private fun CardHead(
+    paper: Paper,
+    glyph: Glyph,
+    label: String,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        DiscBadge(paper, glyph = glyph)
+        Spacer(Modifier.width(12.dp))
+        Label(label, paper, color = paper.inkMid, size = 9.sp, tracking = 1.5.sp)
+        if (trailing != null) {
+            Spacer(Modifier.weight(1f))
+            trailing()
+        }
+    }
+}
+
 // ── I. the trip so far ─────────────────────────────────────────────────────
 
 @Composable
 private fun TripTotalCard(state: AppUiState, base: CurrencyCode, total: Long, paper: Paper, wide: Boolean) {
-    StatCard(paper) {
+    Leaf(paper) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    DiscBadge(paper, glyph = Glyph.Trip)
-                    Spacer(Modifier.width(10.dp))
-                    Label("the trip so far", paper, color = paper.inkMid, size = 9.sp, tracking = 1.3.sp)
-                }
-                Spacer(Modifier.height(if (wide) 18.dp else 14.dp))
-                Row(verticalAlignment = Alignment.Bottom) {
+                CardHead(paper, Glyph.Trip, "the trip so far")
+                Spacer(Modifier.height(if (wide) 18.dp else 16.dp))
+                // Two type sizes, one baseline: the symbol is smaller than the figure,
+                // never lower than it. Bottom-aligning them put the rupee under the
+                // digits' descender and it read as a separate mark.
+                Row {
                     Numeral(
                         base.symbol(),
                         paper,
                         color = paper.inkFaint,
-                        size = if (wide) 24.sp else 18.sp,
+                        size = if (wide) 24.sp else 19.sp,
+                        modifier = Modifier.alignByBaseline(),
                     )
-                    Spacer(Modifier.width(4.dp))
-                    // Counts to the new total rather than snapping: this figure is
-                    // read against a fence, and seeing which way it moved is the point.
                     Numeral(
+                        // Counts to the new total rather than snapping: this figure is
+                        // read against a fence, and seeing which way it moved is the point.
                         Money.ofMinor(animatedLong(total)).format(base),
                         paper,
-                        size = if (wide) 48.sp else 36.sp,
+                        size = if (wide) 46.sp else 36.sp,
                         weight = FontWeight.Medium,
+                        modifier = Modifier.alignByBaseline().padding(start = 4.dp),
                     )
                 }
             }
+            Spacer(Modifier.width(12.dp))
             Column(horizontalAlignment = Alignment.End) {
                 Label("finished entries only", paper, color = paper.inkFaint, size = 8.sp, tracking = 1.1.sp)
                 val budget = state.trip?.budgetMinor
@@ -230,7 +252,7 @@ private fun TripTotalCard(state: AppUiState, base: CurrencyCode, total: Long, pa
                         size = 9.sp,
                         tracking = 1.0.sp,
                     )
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(7.dp))
                     Numeral(
                         Money.ofMinor(abs(remaining)).format(base),
                         paper,
@@ -246,8 +268,8 @@ private fun TripTotalCard(state: AppUiState, base: CurrencyCode, total: Long, pa
         }
         Spacer(Modifier.height(16.dp))
         Rule(paper, color = paper.edge)
-        Spacer(Modifier.height(12.dp))
-        InfoNote(
+        Spacer(Modifier.height(13.dp))
+        Note(
             "Only entries that were finished. Anything still waiting across this trip is not in " +
                 "this figure, and is not counted as zero.",
             paper,
@@ -267,20 +289,16 @@ private fun SpendCard(state: AppUiState, base: CurrencyCode, paper: Paper, wide:
     val shown = if (lastSeven.value) days.takeLast(7) else days
     val values = shown.map { day -> day to (state.dayFigures[day.iso] ?: 0L) }
 
-    StatCard(paper) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            DiscBadge(paper, glyph = Glyph.Stats)
-            Spacer(Modifier.width(10.dp))
-            Label("daily spending", paper, color = paper.inkMid, size = 9.sp, tracking = 1.3.sp)
-            Spacer(Modifier.weight(1f))
+    Leaf(paper) {
+        CardHead(paper, Glyph.Stats, "II · daily spending", trailing = {
             RangePill(paper, lastSeven.value) { lastSeven.value = !lastSeven.value }
-        }
+        })
         Spacer(Modifier.height(18.dp))
         SpendChart(values, base, paper)
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(16.dp))
         Rule(paper, color = paper.edge)
-        Spacer(Modifier.height(12.dp))
-        InfoNote(
+        Spacer(Modifier.height(13.dp))
+        Note(
             "One bar per day of the trip, in the base currency. A day with nothing finished " +
                 "is a day with no bar, not a day with a zero.",
             paper,
@@ -299,7 +317,8 @@ private fun RangePill(paper: Paper, lastSeven: Boolean, onToggle: () -> Unit) {
             }
             .clip(shape)
             .border(Bone.Hairline, paper.edgeStrong, shape)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
+            .heightIn(min = 44.dp)
+            .padding(start = 13.dp, end = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Label(
@@ -307,10 +326,12 @@ private fun RangePill(paper: Paper, lastSeven: Boolean, onToggle: () -> Unit) {
             paper,
             color = paper.inkMid,
             size = 9.sp,
-            tracking = 1.0.sp,
+            tracking = 1.1.sp,
         )
-        Spacer(Modifier.width(6.dp))
-        Icon(Glyph.Chevron, paper, size = 11.dp, color = paper.inkFaint)
+        Spacer(Modifier.width(7.dp))
+        // The glyph is a forward angle; a range hands you the rest of the range, so
+        // it points down. Rotated rather than drawn twice.
+        Icon(Glyph.Chevron, paper, size = 12.dp, color = paper.inkFaint, modifier = Modifier.rotate(90f))
     }
 }
 
@@ -322,24 +343,26 @@ private fun SpendChart(values: List<Pair<LocalDay, Long>>, base: CurrencyCode, p
     val top = step * 4
     val ticks = (0..4).map { it * step }
     val peak = values.maxByOrNull { it.second }?.takeIf { it.second > 0 }
-    val chartHeight = if (values.size > 14) 116.dp else 132.dp
+    val chartHeight = if (values.size > 14) 118.dp else 134.dp
 
     Row(Modifier.fillMaxWidth()) {
-        // The money, on the left, read top-down like every other figure in the app.
-        Column(
-            Modifier.width(40.dp).height(chartHeight),
-            verticalArrangement = Arrangement.SpaceBetween,
-            horizontalAlignment = Alignment.End,
-        ) {
-            ticks.reversed().forEach { tick ->
-                // Sans, not the tracked uppercase label: an axis reads "25k", not "25K".
-                Body(
-                    axisLabel(tick, base),
-                    paper,
-                    color = paper.inkFaint,
-                    size = 9.sp,
-                    lineHeight = 10.sp,
-                )
+        // The money, down the left, each label level with its own rule.
+        Box(Modifier.width(42.dp).height(chartHeight)) {
+            ticks.forEachIndexed { index, tick ->
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(y = chartHeight * (1f - index / 4f) - 5.dp),
+                ) {
+                    Body(
+                        axisLabel(tick, base),
+                        paper,
+                        color = paper.inkFaint,
+                        size = 9.sp,
+                        lineHeight = 10.sp,
+                        align = TextAlign.End,
+                    )
+                }
             }
         }
         Spacer(Modifier.width(10.dp))
@@ -353,17 +376,19 @@ private fun SpendChart(values: List<Pair<LocalDay, Long>>, base: CurrencyCode, p
                         val slot = maxWidth / values.size
                         val centre = slot * (values.indexOf(peak) + 0.5f)
                         val barTop = chartHeight * (1f - (peak.second.toDouble() / top).toFloat())
-                        val bubbleWidth = 104.dp
+                        val bubbleWidth = 92.dp
+                        val inset = 4.dp
                         Box(
                             Modifier
                                 .offset(
-                                    x = (centre - bubbleWidth / 2).coerceIn(0.dp, (maxWidth - bubbleWidth).coerceAtLeast(0.dp)),
-                                    y = (barTop - 32.dp).coerceIn(0.dp, chartHeight - 26.dp),
+                                    x = (centre - bubbleWidth / 2)
+                                        .coerceIn(inset, (maxWidth - bubbleWidth - inset).coerceAtLeast(inset)),
+                                    y = (barTop - 30.dp).coerceIn(0.dp, chartHeight - 26.dp),
                                 )
                                 .widthIn(min = bubbleWidth)
                                 .background(paper.raised, RoundedCornerShape(9.dp))
                                 .border(Bone.Hairline, paper.edge, RoundedCornerShape(9.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                .padding(horizontal = 8.dp, vertical = 5.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Numeral(
@@ -376,11 +401,17 @@ private fun SpendChart(values: List<Pair<LocalDay, Long>>, base: CurrencyCode, p
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(9.dp))
             Row(Modifier.fillMaxWidth()) {
                 values.forEach { (day, _) ->
                     Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        Label(day.iso.takeLast(2), paper, color = paper.inkFaint, size = 8.sp, tracking = 0.4.sp)
+                        Body(
+                            day.iso.takeLast(2),
+                            paper,
+                            color = paper.inkFaint,
+                            size = 9.sp,
+                            lineHeight = 10.sp,
+                        )
                     }
                 }
             }
@@ -396,25 +427,20 @@ private fun Plot(values: List<Pair<LocalDay, Long>>, top: Long, paper: Paper, mo
         val width = size.width
         if (values.isEmpty()) return@Canvas
 
-        // Four ruled intervals, the same four the labels name.
-        for (i in 1..3) {
-            val y = height * i / 4f
+        // A rule at every label, the foot of the chart included: a bar's height is
+        // only legible against the line it passes.
+        for (index in 0..4) {
+            val y = height * (1f - index / 4f)
             drawLine(
-                color = paper.edge.copy(alpha = 0.7f),
+                color = if (index == 0) paper.edgeStrong else paper.edge.copy(alpha = 0.75f),
                 start = Offset(0f, y),
                 end = Offset(width, y),
-                strokeWidth = 1.dp.toPx() * 0.75f,
+                strokeWidth = 1.dp.toPx() * 0.8f,
             )
         }
-        drawLine(
-            color = paper.edgeStrong,
-            start = Offset(0f, height),
-            end = Offset(width, height),
-            strokeWidth = 1.dp.toPx(),
-        )
 
         val slot = width / values.size
-        val barWidth = (slot * 0.42f).coerceIn(5.dp.toPx(), 18.dp.toPx())
+        val barWidth = (slot * 0.5f).coerceIn(6.dp.toPx(), 22.dp.toPx())
         values.forEachIndexed { index, (_, value) ->
             if (value <= 0L) return@forEachIndexed
             val barHeight = (value.toDouble() / top.toDouble()).toFloat() * height
@@ -422,7 +448,7 @@ private fun Plot(values: List<Pair<LocalDay, Long>>, top: Long, paper: Paper, mo
                 color = paper.navy,
                 topLeft = Offset(slot * index + (slot - barWidth) / 2f, height - barHeight),
                 size = Size(barWidth, barHeight),
-                cornerRadius = CornerRadius(2.5.dp.toPx(), 2.5.dp.toPx()),
+                cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()),
             )
         }
     }
@@ -466,7 +492,9 @@ private fun niceStep(raw: Long): Long {
 
 @Composable
 private fun CategoryCard(totals: List<CategoryTotal>, base: CurrencyCode, totalBaseMinor: Long, paper: Paper) {
-    StatCard(paper) {
+    Leaf(paper) {
+        CardHead(paper, Glyph.Record, "III · what it was")
+        Spacer(Modifier.height(6.dp))
         totals.forEach { row ->
             Row(
                 Modifier.fillMaxWidth().padding(vertical = 11.dp),
@@ -503,7 +531,7 @@ private fun CategoryCard(totals: List<CategoryTotal>, base: CurrencyCode, totalB
 
         if (totals.isNotEmpty() && totalBaseMinor > 0) {
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 11.dp),
+                Modifier.fillMaxWidth().padding(vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -518,8 +546,8 @@ private fun CategoryCard(totals: List<CategoryTotal>, base: CurrencyCode, totalB
             Rule(paper, color = paper.edge)
         }
 
-        Spacer(Modifier.height(12.dp))
-        InfoNote(
+        Spacer(Modifier.height(13.dp))
+        Note(
             "Nothing here is sorted for you. A category is a claim you make on an entry, " +
                 "and most entries never need one.",
             paper,
@@ -532,14 +560,16 @@ private fun CategoryCard(totals: List<CategoryTotal>, base: CurrencyCode, totalB
 @Composable
 private fun CurrencyCard(perCurrency: Map<String, Long>, paper: Paper) {
     val entries = perCurrency.entries.toList()
-    StatCard(paper) {
+    Leaf(paper) {
+        CardHead(paper, Glyph.Budget, "IV · by currency")
+        Spacer(Modifier.height(4.dp))
         entries.forEachIndexed { index, (code, minor) ->
             val currency = CurrencyCode.of(code)
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 11.dp),
+                Modifier.fillMaxWidth().padding(vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                DiscBadge(paper, text = currency.symbol())
+                DiscBadge(paper, text = currency.symbol(), size = 32.dp)
                 Spacer(Modifier.width(12.dp))
                 Title(code, paper, size = 17.sp)
                 Spacer(Modifier.weight(1f))
@@ -552,86 +582,7 @@ private fun CurrencyCard(perCurrency: Map<String, Long>, paper: Paper) {
             }
             if (index < entries.lastIndex) Rule(paper, color = paper.edge)
         }
-        Spacer(Modifier.height(12.dp))
-        InfoNote("These are the amounts as they were paid, not converted.", paper)
-    }
-}
-
-// ── the card itself ────────────────────────────────────────────────────────
-
-private val CardRadius: Dp = 18.dp
-
-/**
- * A white card on the paper: a hairline, a small lift, 18dp corners.
- *
- * The page before this drew its figures straight onto the paper, which was right
- * for a book of plates and wrong for a page read at arm's length. What has not
- * changed: the card is a *container*, not a material — no fill colour, no tonal
- * wash, no elevation that pretends to be a sheet of glass.
- */
-@Composable
-private fun StatCard(paper: Paper, content: @Composable ColumnScope.() -> Unit) {
-    val shape = RoundedCornerShape(CardRadius)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .then(
-                if (paper.isNight) {
-                    Modifier
-                } else {
-                    Modifier.shadow(
-                        elevation = 8.dp,
-                        shape = shape,
-                        clip = false,
-                        ambientColor = paper.ink.copy(alpha = 0.05f),
-                        spotColor = paper.ink.copy(alpha = 0.08f),
-                    )
-                }
-            )
-            .clip(shape)
-            .background(paper.raised)
-            .border(Bone.Hairline, paper.edge, shape)
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        content = content,
-    )
-}
-
-/** A disc of wash with a glyph or a code inside it: the card's one mark. */
-@Composable
-private fun DiscBadge(paper: Paper, glyph: Glyph? = null, text: String? = null) {
-    Box(
-        Modifier
-            .size(34.dp)
-            .background(paper.blueWash, CircleShape)
-            .border(Bone.Hairline, paper.blueEdge, CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (glyph != null) {
-            Icon(glyph, paper, size = 16.dp, color = paper.blue)
-        } else {
-            Numeral(text.orEmpty(), paper, color = paper.blue, size = if (text.orEmpty().length > 1) 11.sp else 14.sp, weight = FontWeight.Medium)
-        }
-    }
-}
-
-/** The card's footnote: an i in a ring, and a sentence that qualifies the figure. */
-@Composable
-private fun InfoNote(text: String, paper: Paper) {
-    Row(verticalAlignment = Alignment.Top) {
-        Box(
-            Modifier.size(16.dp).border(Bone.Hairline, paper.edgeStrong, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Numeral("i", paper, color = paper.inkFaint, size = 9.sp)
-        }
-        Spacer(Modifier.width(10.dp))
-        Body(
-            text,
-            paper,
-            color = paper.inkFaint,
-            size = 12.sp,
-            lineHeight = 18.sp,
-            modifier = Modifier.weight(1f),
-        )
+        Spacer(Modifier.height(13.dp))
+        Note("These are the amounts as they were paid, not converted.", paper)
     }
 }

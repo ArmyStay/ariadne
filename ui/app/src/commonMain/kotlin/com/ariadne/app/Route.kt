@@ -312,6 +312,16 @@ public data class AppUiState(
     public val cardCopied: Boolean = false,
 
     /**
+     * True once the feedback note reached the clipboard.
+     *
+     * There is no server to post to and no address this build may write to, so
+     * "share feedback" is a copy: the note has the shape of a report and the person
+     * pastes it wherever they already talk to us. The flag is what lets the card say
+     * *copied* instead of repeating the promise.
+     */
+    public val feedbackCopied: Boolean = false,
+
+    /**
      * Every trip this device holds, open and closed, newest first.
      *
      * The register. One trip is *active* at a time - the one captures land in -

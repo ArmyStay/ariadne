@@ -860,6 +860,31 @@ public class AppModel(
      * interface as the camera and the file system. With no implementation the
      * label simply never flips, which is honest: nothing was copied.
      */
+    /**
+     * Puts a feedback note on the clipboard.
+     *
+     * No request, no address, no account: this build has nowhere to send a report
+     * to, and a "send" that quietly does nothing is worse than a copy that says what
+     * it did. The note carries the shape of the answer we need — what were you
+     * doing, what happened — and the two facts that make a report actionable, the
+     * trip and the size of the record.
+     */
+    public fun copyFeedbackNote() {
+        val state = _state.value
+        val note = buildString {
+            appendLine("Ariadne — feedback")
+            appendLine()
+            appendLine("What I was doing:")
+            appendLine("What happened:")
+            appendLine()
+            appendLine("Trip: ${state.trip?.name ?: "none"}")
+            appendLine("Days: ${state.dayCards.size} · entries: ${state.categoryTotals.sumOf { it.captures }}")
+            appendLine("Base currency: ${state.trip?.baseCurrency?.code ?: state.dayCurrency}")
+        }
+        val copied = clipboard?.copy(note) == true
+        _state.value = _state.value.copy(feedbackCopied = copied)
+    }
+
     public fun copyCardToClipboard() {
         val text = tripCardText()
         if (text.isEmpty()) return

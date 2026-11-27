@@ -74,6 +74,10 @@ public enum class Glyph {
     Edit,
     /** A thin forward angle: the whole of it is behind this row. */
     Chevron,
+    /** A shield with a tick: what this build does with your data. */
+    Shield,
+    /** A heart, in outline: the one place the app asks for anything back. */
+    Heart,
 }
 
 @Composable
@@ -137,6 +141,27 @@ private fun DrawScope.drawGlyph(glyph: Glyph, color: Color, stroke: Float) {
     }
 
     when (glyph) {
+        Glyph.Shield -> {
+            // A shield, drawn as the outline a printer would rule: flat shoulders,
+            // a point at the foot, and one tick inside it.
+            path(true, 0.50f, 0.12f, 0.84f, 0.26f, 0.84f, 0.52f, 0.50f, 0.88f, 0.16f, 0.52f, 0.16f, 0.26f)
+            path(false, 0.36f, 0.50f, 0.46f, 0.60f, 0.66f, 0.38f)
+        }
+
+        Glyph.Heart -> {
+            // Two shoulders and a point, in stroke — a filled heart reads as an
+            // emoji at 18dp, and there are no emoji in this book.
+            val heart = Path().apply {
+                moveTo(w * 0.50f, h * 0.84f)
+                cubicTo(w * 0.10f, h * 0.56f, w * 0.16f, h * 0.20f, w * 0.36f, h * 0.20f)
+                cubicTo(w * 0.46f, h * 0.20f, w * 0.50f, h * 0.28f, w * 0.50f, h * 0.34f)
+                cubicTo(w * 0.50f, h * 0.28f, w * 0.54f, h * 0.20f, w * 0.64f, h * 0.20f)
+                cubicTo(w * 0.84f, h * 0.20f, w * 0.90f, h * 0.56f, w * 0.50f, h * 0.84f)
+                close()
+            }
+            drawPath(heart, color, style = s)
+        }
+
         Glyph.Chevron -> {
             // Two strokes, no head and no tail: an arrow would claim a direction
             // of travel, where this claims only that a row opens.
