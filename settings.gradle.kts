@@ -41,3 +41,4 @@ include(
 if (onMac) {
     include(":app:ios")
 }
+include(":shared")
