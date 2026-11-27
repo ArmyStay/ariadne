@@ -329,7 +329,13 @@ exists. There is no demo-roll or demo-prefill action in this flow.
 
 **Header.** `HomeHero`: the `01 — ARIADNE` plate, the current trip name in the large
 Instrument Serif italic, and `PLAN · TRACK · SPEND`, with the shared globe-and-flight
-artwork faded behind the title.
+artwork (`home_globe.png`, `TravelGlobeArtwork`) behind the title: 350 dp wide (380 dp
+wide layout), `ContentScale.Crop`, pinned `TopEnd` and offset **up 96 dp (100 dp on
+wide)** so the aeroplane and its spark sit above the trip name — the top of the
+wallpaper is *not* cropped away, because that is where the picture's subject is. A
+paper wash is drawn over the left two-thirds (`0 → 0.99`, `0.45 → 0.94`,
+`0.66 → 0.28`, `0.84 → transparent`) so the name reads on white and the aeroplane is
+left alone.
 
 **Rail (wide).** `today` = today's ISO or `—`; `days` = the trip's length; `closed N`;
 `waiting today` = `stack.size`; `on this day`.
@@ -340,7 +346,8 @@ artwork faded behind the title.
    `Finished today` or the current day's waiting count, and **SETTLE TODAY**
    (`openCloseDay(today)`). Globe artwork is repeated at low opacity inside the panel;
 2. an outlined pill action, **Add an expense manually**, opens the photo-free
-   confirmed-entry form;
+   confirmed-entry form, with a **52 dp round microphone** (`MicDisc`) to its right —
+   the home page's voice entry (see below);
 3. an underlined `The Trip` heading with the trip's start and end dates;
 4. four rounded `HomeShortcut` rows:
 
@@ -354,6 +361,17 @@ artwork faded behind the title.
 5. a **recent records** section across the trip, with up to four newest items; manual
    entries use a `MANUAL` placeholder instead of a photograph;
 6. closing line: "No account. No sync. The record stays here."
+
+**The home microphone.** Tapping the disc opens `HomeVoicePanel`, a sheet over the
+page (not over the bottom bar): the label `voice`, a 23 sp title that reads
+`Listening…`, then the figure it parsed, or `What did you spend?`; a serif line under it
+— *"Say the amount, and the shop if you like."*, the sentence it heard in quotes, or
+*"Say it the way you would to a friend — “coffee, two fifty”."* It starts listening on
+open. A sentence that parses is filed at once against today through `saveManualEntry`,
+and the sheet closes; one that does not says *"No amount in that. Try again, or type
+it."* and offers the 46 dp disc again plus the quiet line **Type it instead**
+(`ManualEntry`). Where the platform has no recogniser the disc is drawn in `inkGhost`,
+reads `No microphone in this build`, and the quiet line is the only way on.
 
 **No trip.** The Home text explains either first-run or all-trips-closed state, then
 **CREATE A TRIP** (`startEmptyTrip()`). With no trips, **OPEN THE TRIP REGISTER** is
@@ -554,10 +572,12 @@ off a roll. Inside:
   round control in the book; reads **DONE** once the entry is resolved
   (`Confirmed`, `No amount`, `In the record`);
 - **OPEN THE FULL EDITOR** — a quiet underlined action (`openFrame(capture.id)`);
-- **SAY THE AMOUNT** — shown only while the entry is open and the platform has a
-  recogniser (`LocalVoiceEntry`); it opens the platform's speech dialog and reads the
-  sentence with `SpokenExpense`, which files the figure and lands the entry confirmed.
-  While the recogniser is open the label reads **LISTENING…**.
+- **SAY THE AMOUNT** — a drawn microphone (`MicAction`: the 16 dp mark `MicMark` beside
+  the words, inside a hairline capsule that fills the column), shown only while the
+  entry is open. It opens the platform's speech dialog and reads the sentence with
+  `SpokenExpense`, which files the figure and lands the entry confirmed. While the
+  recogniser is open the capsule takes the blue wash and the label reads
+  **LISTENING…**; with no recogniser it reads **No microphone in this build**.
 
 Nothing on this page scrolls: the head, the card, the three lines and the answers are
 one column that fits the window.

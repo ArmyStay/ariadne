@@ -40,11 +40,14 @@ That gives three ways in, in order of how far the phone can stay in your pocket:
    look at the thing, and the day has the photograph before you have the phone out.
    The mark in the corner of the shutter says whether they are paired; the shutter then
    reads from the glasses instead of the phone's own sensor.
-2. **Voice.** On the kept photograph, **SAY THE AMOUNT** reads a sentence — `twelve
-   fifty`, `five euros fifty`, `coffee twelve fifty` — and files the figure and the
-   merchant. A spoken amount is a decision, so it lands confirmed. The parser is a pure
-   function with tests (`SpokenExpense` in `core/model`); a sentence it cannot read is
-   simply not a figure, and the entry stays open.
+2. **Voice.** There is a microphone in two places. On Home it sits beside **Add an
+   expense manually**; on the kept photograph it is the `Say the amount` row under the
+   two answers. Say it — `twelve fifty`, `five euros fifty`, `coffee twelve fifty` — and
+   the figure and the merchant are filed. On Home the sentence is filed the moment it
+   parses, because the point of a microphone is that the thumb never finds the keyboard.
+   A spoken amount is a decision, so it lands confirmed. The parser is a pure function
+   with tests (`SpokenExpense` in `core/model`); a sentence it cannot read is simply not
+   a figure, the sheet says what it heard, and the entry stays open.
 3. **The phone's camera**, exactly as before.
 
 Nothing about the rest changes: the photograph still lands on the day it was taken, the
@@ -161,9 +164,10 @@ Left for your machine and a bit of you:
 - **A note on Android versions:** the DAT SDK declares `minSdk 29`, so Ariadne's Android
   floor moved from 26 to 29 with it. That is the price of the glasses, and it was the
   reason the android build had been failing for several commits before this one.
-- **Speech:** `SAY THE AMOUNT` opens the platform recogniser (`RecognizerIntent`) and
-  parses what comes back; it needs a device with a recogniser app, and it is offered
-  only where that exists.
+- **Speech:** both microphones (Home, and `Say the amount` on the kept photograph) open
+  the platform recogniser (`RecognizerIntent`) and parse what comes back with
+  `SpokenExpense`; they need a device with a recogniser app, and where there is none the
+  control says `No microphone in this build` and **Type it instead** stays available.
 - **Public share links (the `onShare` path) — broken or stripped:** there is a `Route.TripShare` entry in the router, but the share link is not complete yet.
 - **Screenshots-from-your-machine / reality checks** of my claims on your build; mine are reasoned, yours are observed.
 

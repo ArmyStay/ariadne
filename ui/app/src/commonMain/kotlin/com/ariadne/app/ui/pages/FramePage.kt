@@ -332,15 +332,12 @@ private fun SheetActions(
     Spacer(Modifier.height(10.dp))
     QuietAction("Open the full editor", paper, onOpen, color = paper.inkSoft)
     // The microphone, where one exists and the entry is still open: the figure can be
-    // said now, at the shop, or left for Close Day.
+    // said now, at the shop, or left for Close Day. It is a drawn button rather than
+    // a line of underlined type, because it is the one action here you take without
+    // looking at the screen.
     if (!status.isResolved) {
-        Spacer(Modifier.height(6.dp))
-        QuietAction(
-            if (listening) "Listening…" else "Say the amount",
-            paper,
-            onSay,
-            color = paper.inkFaint,
-        )
+        Spacer(Modifier.height(10.dp))
+        MicAction(paper, listening = listening, onClick = onSay)
     }
 }
 

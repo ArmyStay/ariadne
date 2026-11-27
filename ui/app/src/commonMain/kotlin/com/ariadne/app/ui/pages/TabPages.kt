@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -122,44 +123,50 @@ private fun TabPage(
     onToggleRail: () -> Unit,
     rail: (@Composable ColumnScope.() -> Unit)? = null,
     backdrop: (@Composable () -> Unit)? = null,
+    // A sheet that belongs to the page but not to its scroller: it covers the page,
+    // not the bottom bar, so the four destinations stay where they are.
+    overlay: (@Composable BoxScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Page(
-        paper,
-        wide,
-        railDocked = railDocked,
-        onToggleRail = onToggleRail,
-        rail = rail,
-        backdrop = backdrop,
-    ) {
-        val scroll = rememberScrollState()
-        if (wide) {
-            Row(Modifier.fillMaxWidth()) {
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .verticalScroll(scroll)
-                        .padding(bottom = 40.dp),
-                ) { content() }
-                Box(Modifier.fillMaxHeight().padding(start = 10.dp)) {
-                    ScrollRail(scroll, paper, Modifier.fillMaxHeight().offset(x = 4.dp))
+    Box(Modifier.fillMaxSize()) {
+        Page(
+            paper,
+            wide,
+            railDocked = railDocked,
+            onToggleRail = onToggleRail,
+            rail = rail,
+            backdrop = backdrop,
+        ) {
+            val scroll = rememberScrollState()
+            if (wide) {
+                Row(Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .verticalScroll(scroll)
+                            .padding(bottom = 40.dp),
+                    ) { content() }
+                    Box(Modifier.fillMaxHeight().padding(start = 10.dp)) {
+                        ScrollRail(scroll, paper, Modifier.fillMaxHeight().offset(x = 4.dp))
+                    }
+                }
+            } else {
+                Box(Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(scroll)
+                            .padding(bottom = 40.dp),
+                    ) { content() }
+                    ScrollRail(
+                        scroll,
+                        paper,
+                        Modifier.align(Alignment.TopEnd).fillMaxHeight().offset(x = Bone.Margin),
+                        showTrack = wide,
+                    )
                 }
             }
-        } else {
-            Box(Modifier.fillMaxWidth()) {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(scroll)
-                        .padding(bottom = 40.dp),
-                ) { content() }
-                ScrollRail(
-                    scroll,
-                    paper,
-                    Modifier.align(Alignment.TopEnd).fillMaxHeight().offset(x = Bone.Margin),
-                    showTrack = wide,
-                )
-            }
+            if (overlay != null) overlay()
         }
     }
 }
@@ -180,11 +187,17 @@ private fun TabPage(
 public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
     val trip = state.trip
     val closedTrip = trip?.takeIf { it.isClosed }
+    var voiceOpen by remember { mutableStateOf(false) }
     TabPage(
         paper,
         wide,
         railDocked = state.railDocked,
         onToggleRail = { model.toggleRail() },
+        overlay = if (voiceOpen) {
+            { HomeVoicePanel(state, model, paper) { voiceOpen = false } }
+        } else {
+            null
+        },
         rail = {
             if (trip != null) {
                 RailFigure("today", state.today?.iso ?: "—", paper, 13.sp)
@@ -259,7 +272,18 @@ public fun HomePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             onSettle = { model.openCloseDay(state.today) },
         )
         Spacer(Modifier.height(14.dp))
-        HomeManualEntry(paper) { model.go(Route.ManualEntry) }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                HomeManualEntry(paper) { model.go(Route.ManualEntry) }
+            }
+            Spacer(Modifier.width(10.dp))
+            MicDisc(
+                paper = paper,
+                listening = false,
+                description = "Add an expense by voice",
+                extent = 52.dp,
+            ) { voiceOpen = true }
+        }
         Spacer(Modifier.height(18.dp))
         HomeTripHeading(
             start = trip.startDate,
@@ -413,7 +437,9 @@ private fun HomeHero(title: String, paper: Paper, wide: Boolean) {
             alignment = Alignment.TopEnd,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .offset(y = if (wide) (-120).dp else (-155).dp)
+                // Down, not up: the aeroplane and its spark are in the top third of
+                // the wallpaper, and cropping the top of it was cropping the story.
+                .offset(y = if (wide) (-100).dp else (-96).dp)
                 .width(if (wide) 380.dp else 350.dp)
                 .aspectRatio(0.5333f),
             opacity = if (paper.isNight) 0.3f else 0.92f,
@@ -421,13 +447,17 @@ private fun HomeHero(title: String, paper: Paper, wide: Boolean) {
         Box(
             Modifier
                 .fillMaxSize()
+                // The wash exists to put white under the trip's name, which sits on the
+                // left. It used to fade across the whole width, which left a veil of
+                // 36 % paper over the aeroplane and made it disappear; now it is done
+                // by two-thirds of the way across, where the type has already ended.
                 .background(
                     Brush.horizontalGradient(
-                        listOf(
-                            paper.bg.copy(alpha = 0.98f),
-                            paper.bg.copy(alpha = 0.78f),
-                            Color.Transparent,
-                        ),
+                        0f to paper.bg.copy(alpha = 0.99f),
+                        0.45f to paper.bg.copy(alpha = 0.94f),
+                        0.66f to paper.bg.copy(alpha = 0.28f),
+                        0.84f to Color.Transparent,
+                        1f to Color.Transparent,
                     ),
                 ),
         )
