@@ -2176,7 +2176,13 @@ public class AppModel(
     }
 
     public fun copyLedgerCode(day: LocalDay) {
-        val code = ledgerCodeFor(day) ?: return
+        val code = ledgerCodeFor(day)
+        if (code == null) {
+            // A button that copies nothing and says nothing is the one thing this app
+            // does not do. Say why there is no line to hand over.
+            say("That day has no confirmed figures to hand over yet.")
+            return
+        }
         val copied = clipboard?.copy(code) == true
         _state.value = _state.value.copy(codeCopied = copied)
         if (copied) say("The day is on the clipboard — send the whole line.")
@@ -2225,6 +2231,9 @@ public class AppModel(
                 store.createTrip(trip)
                 _state.value = _state.value.copy(joinCode = "", joinName = "", joinPlan = null, joinError = null)
                 bindTrip(trip)
+                // The join page is behind this trip now, not under it: Back from Home
+                // should leave the app, not offer to join the same trip again.
+                _state.value = _state.value.copy(history = emptyList())
                 say("Joined “$name”. The plan is yours now — nothing syncs.")
             }.onFailure(::report)
         }

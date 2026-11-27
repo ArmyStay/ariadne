@@ -1052,10 +1052,14 @@ no surface has been read at 200% text. Two screens have been seen on a phone
 | **Wasm** | none | `BrowserPhotoPicker` — an `<input type="file" accept="image/*">` built by a `@JsFun`, read as data URLs, rescaled to 1600px on a canvas, up to twelve | **none** — `WasmBrowserRecognizer` returns a failure by design, so a card waits for a figure at Close Day | none | in memory, photographs included (`BrowserPhotoFiles`; `BrowserPhotoImageRenderer` draws them) | none |
 | **iOS** | none | **none** — no picker is provided, so **LIBRARY** is not drawn | Vision | none | native SQLite (no photo file storage) | StoreKit |
 
-Visible consequences: where no camera is bound the plate reads **No camera here — tap the
-frame for a plate**; where no picker is bound **LIBRARY** is absent (iOS); on Wasm nothing —
-photographs included — survives a reload, which is what Preferences says; only Android can
-fetch a rate.
+Visible consequences. Where no camera is bound but a picker is, the frame reads **No camera
+here — tap to bring a photograph in** and opens the file dialog, and the dock's round button
+goes straight to it; where neither is bound the plate reads **No camera here — tap for a
+plate** and the drawn plate is what you get (iOS). Where no picker is bound **LIBRARY** is
+absent (iOS). On Wasm nothing — photographs included — survives a reload, which is what
+Preferences says. Only Android fetches a rate. Every target now has a clipboard
+(`UIPasteboard`, AWT, `execCommand('copy')`, Android's `ClipboardManager`), which is what the
+trip and ledger codes are copied with.
 
 ---
 
