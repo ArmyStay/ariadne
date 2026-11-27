@@ -9,7 +9,9 @@ layout and platform save/share behavior still need human verification.
 surface lists its blocks in order, with the exact words on every label, button, pill,
 placeholder, empty state and note, and the control each one calls. **Third revision
 (phase 8):** the timeline was rebuilt to the journey reference — globe backdrop,
-`MarkHead` sections, a ledger spine of days — and §5.4 was rewritten to match.
+`MarkHead` sections, a ledger spine of days — and §5.4 was rewritten. **Fourth
+revision (phase 9):** the photograph sheet was rebuilt to the receipt-viewer reference —
+a torn card holding the photograph, an ink primary — and §5.8 was rewritten.
 
 **What it is not.** Not a roadmap, not a changelog, and not a claim that any of this has
 been looked at on a screen. No screenshot in this repository was produced by this build:
@@ -506,22 +508,44 @@ file."* and **BACK TO THE DAY** alone.
 **Missing capture.** *"That photograph is not in the record any more."* + **BACK TO THE
 RECORD** (`closeDetail()`).
 
-### 5.8 The photograph sheet — `FramePage.kt`, overlay (or the legacy page)
+### 5.8 The photograph sheet — `FramePage.kt`, overlay over the shutter
 
-Bottom sheet at **84% height** over the photograph and a scrim, or, on a wide window, a
-two-column spread: the print on the left and the quick choice on the right.
+Full-screen paper; the shutter is covered, not peeking. On a wide window the same
+blocks are a two-column spread: the card on the left, the readout and the two answers on
+the right.
 
-**Header row.** A drawn back chevron (44dp target, `contentDescription = "Back"`, calls
-`keepFrameForLater()`), then `the photograph is kept` (8sp, `inkGhost`), then a pill with
-the entry status.
+**Header.** A drawn back chevron (44dp target, `contentDescription = "Back"`, calls
+`keepFrameForLater()`), then the serif title at 24sp — the merchant's name if the
+recogniser found one, otherwise `Receipt` — then, on the right, a hairline pill
+(`CircleShape`, `paper.ink` edge) carrying the entry status: `NEEDS AN AMOUNT`,
+`NOT CONFIRMED`, `CONFIRMED`, `NO AMOUNT`, `IN THE RECORD` or `COULDN'T READ IT`. Under
+it, a rule inset by the page margin, in `paper.edgeStrong`.
 
-**Quick choice.** `Photograph kept`; the photograph title; *"No amount is needed now.
-You can finish it at Close Day."* An unconfirmed OCR amount is shown quietly as a
-suggestion, never treated as saved.
+**The card** (`ReceiptCard`, `core/design/.../Receipt.kt`) — white paper, 16dp top
+corners, and a bottom edge cut into 7dp scallops, the mark a shop makes tearing a bill
+off a roll. Inside:
 
-**Foot, pinned.** **KEEP FOR LATER** (`keepFrameForLater()`, primary) and
-**OPEN THE FULL EDITOR** (`openFrame(capture.id)`, secondary). Amount, currency,
-merchant, category, note, and keypad remain in the full editor.
+1. the head line: `RECEIPT` (9sp, tracking 2.4) — a hairline — the time it was taken,
+   `04:54`;
+2. the photograph, the full width of the card less 18dp a side and 320dp tall (520dp
+   on a wide page), on `paper.sunk`; whatever cannot be decoded falls back to the plate
+   study, exactly as everywhere else.
+
+**The readout**, under the card:
+
+- `PHOTOGRAPH KEPT` (8sp, `inkGhost`);
+- the state as a serif headline at 27sp — `No amount is needed now.`, `Found ₹1,240.00.`,
+  `Confirmed.`, `Kept without an amount.`, or `In the record.`;
+- one serif line under it, 15sp `inkSoft` — `You can finish it at Close Day.`,
+  `Confirm it at Close Day.`, `It is already counted.`, `It stays in the record as it
+  is.`, or `The day it belongs to is closed.`
+
+**The two answers, pinned to the foot.**
+
+- **KEEP FOR LATER** — an ink block (`Action(fill = false)`) with a 14dp corner, the one
+  round control in the book; reads **DONE** once the entry is resolved
+  (`Confirmed`, `No amount`, `In the record`);
+- **OPEN THE FULL EDITOR** — a quiet underlined action (`openFrame(capture.id)`).
 
 **Missing capture.** *"That photograph is not here any more."* + **BACK TO TODAY**.
 
