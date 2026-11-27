@@ -91,10 +91,20 @@ adb shell am start -n com.ariadne.app/com.ariadne.android.MainActivity --ez mock
 
 ### Permission and privacy constraints the build encodes
 
-- The only permission requested is `INTERNET`, for the optional rate lookup.
-- The photo picker is `PickMultipleVisualMedia`, so no storage permission is declared.
-- Receipt photographs are written to app-private storage, scaled to 1600px on the long
-  edge and re-encoded at 88 before they are kept.
+The manifest declares four permissions, and nothing else:
+
+| Permission | Why |
+| --- | --- |
+| `CAMERA` | the shutter. `uses-feature android.hardware.camera` is `required="false"`, so the app installs on a device without one and falls back to the plate |
+| `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` | the glasses: the Wearables Device Access Toolkit talks to the phone over BLE |
+| `INTERNET` | the optional exchange-rate lookup, and nothing else |
+
+There is **no** storage permission: the photo picker is `PickMultipleVisualMedia`, which
+grants exactly the images a person chooses. Receipt photographs are written to
+app-private storage, scaled to 1600px on the long edge and re-encoded at 88 before they
+are kept. The manifest also carries a `<queries>` entry for
+`android.speech.RecognitionService`, which is how Android 11+ lets the microphone find a
+recogniser app — a query, not a permission.
 
 ---
 
@@ -174,6 +184,7 @@ and no photo picker.
 | Job | Runner | What it proves |
 | --- | --- | --- |
 | `shared tests` | ubuntu, JDK 21 | `jvmTest`, `:app:android:assembleDebug`, `:app:wasm:compileKotlinWasmJs`, `:app:wasm:wasmJsBrowserDistribution` |
+| `web demo` | ubuntu, JDK 21 | builds the wasm distribution and publishes it to Pages as an artifact |
 | `desktop` | ubuntu, JDK 21, tesseract | `:app:desktop:compileKotlinJvm` |
 | `ios` | macos, JDK 21 | `:app:ios:compileKotlinIosSimulatorArm64`, `:app:ios:compileKotlinIosArm64` |
 

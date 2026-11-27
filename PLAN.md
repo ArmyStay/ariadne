@@ -125,33 +125,39 @@ Ranked by "expensive to fake, cheap to be impressed by".
 
 ---
 
-## 5. Phase 1 — Be clickable and truthful (1–2 days, one PR)
+## 5. Phase 1 — Be clickable and truthful (done, `#24`)
 
 **Goal:** a judge with no toolchain can see the app in one click and install it in one
 tap, and nothing they read contradicts what they see.
 
-- [ ] **Flip Pages to GitHub Actions** (Settings → Pages → Source: *GitHub Actions*) and
-      merge this branch. The `pages.yml` workflow then publishes
-      `:app:wasm:wasmJsBrowserDistribution` as an artifact. Verify the deployed URL loads
-      the app, not the README, and that `?seed=demo` works from a subpath.
-- [ ] **Wire the demo seed.** Read `window.location.search` in `app/wasm/.../Main.kt`, call
-      `model.onStarted { if (seed) model.startTripDemo() }`. Better: when the page is the
-      deployed demo and no trip exists, seed it *by default* — a judge should never see a
-      form. (The code comment already describes this; make it true.)
-- [ ] **Cut a release.** A small workflow on a `v*` tag that builds `app-debug.apk` and the
-      wasm zip and attaches both. README gets **Install it** above **Build it**.
-- [ ] **Repo About:** homepage = demo URL; topics = `kotlin-multiplatform`,
-      `compose-multiplatform`, `android`, `ios`, `wasm`, `expense-tracker`, `travel`;
-      description without "nightfall".
-- [ ] **Correct the six claims** (P1 4–9), including the permission line and the iOS/shot
-      verification table. Replace the §11 table with what CI actually proves, dated.
-- [ ] **Re-shoot the two stills** against this build (navy dock), or date-stamp the caption.
-- [ ] **Add `tools/claim-check.sh`** to the gates: fails if a doc mentions a `Route` that
-      does not exist, a `window.ariadne*` hook that is not defined, or a permission the
-      manifest does not declare. Cheap, and it makes the honesty rule mechanical.
+- [x] **Pages deploys the app.** `pages.yml` publishes the wasm distribution as an
+      artifact; the deploy job succeeds on `main`. (The Pages *source* switch is a
+      repository setting, not a file — see the note at the end of this section.)
+- [x] **The landing page is an introduction, not a form.** `OnboardingPage` is now one
+      page: what this is in three beats — the shutter, Close Day, the record — one blue
+      **Begin a trip**, and a quiet **Or look at a sample trip**. `?seed=demo` in the
+      browser skips straight to a kept trip for anyone who wants to be sent a link.
+- [x] **A release workflow.** `.github/workflows/release.yml` builds `ariadne.apk` (debug,
+      debug-key signed) and `ariadne-web.zip` and attaches both to a tag, so a judge can
+      `adb install -r ariadne.apk` instead of installing a toolchain.
+- [x] **Repo About:** homepage = the demo URL, topics set, description without the word
+      "nightfall".
+- [x] **The six claims corrected**: the `window.ariadneRecognize` hook (never built), the
+      `TripShare` route (never existed), voice capture in the "not implemented" list, the
+      manifest's permission list, §11's verification table, and the stills' caption.
+- [x] **`tools/claim-check.sh`**, and it runs in CI: every `Route.*`, `window.*` hook,
+      `android.permission.*` and backticked path a document names must exist. It was
+      tested against the real defect: pointed at a document naming the share route that
+      never existed, it fails — which is the whole point.
+- [ ] **Re-shoot the two stills** on this build. The caption now says they predate the
+      navy dock, which is honest; a still with the navy dock is better.
 
-**Done when:** a stranger in a browser sees a populated trip; a stranger with a phone
-installs the APK; the honesty gate is green.
+**Still yours to click, once:** Settings → Pages → Source = **GitHub Actions**, if the
+deployed URL still shows the README. The workflow succeeds either way, but the branch
+build wins the race until the source is changed.
+
+**Done when:** a stranger in a browser sees a page that explains the app and one button;
+a stranger with a phone installs the APK; the honesty gate is green.
 
 ## 6. Phase 2 — Be believable (2–4 days, one PR)
 

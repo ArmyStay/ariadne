@@ -241,7 +241,7 @@ No other page responds to keys.
 
 ### 3.1 First run
 
-`Onboarding` → **CREATE A TRIP** (`startNewTrip()` → `NewTrip` with *from* = today,
+`Onboarding` → **BEGIN A TRIP** (`startNewTrip()` → `NewTrip` with *from* = today,
 *to* = today + 6, currency = the setting) → **CREATE TRIP** (`commitDraft()`) → `Home`.
 The user-facing onboarding and trip-register flows do not offer the demo roll.
 
@@ -335,12 +335,28 @@ Wide windows get a left margin column; phones get a single column.
 
 | Element | Text |
 | --- | --- |
-| eyebrow (wide: a rail of labels) | `Ariadne` (tracking 3sp), `edition one`, `no account` |
-| headline | **Welcome to / Ariadne** (42sp phone, 64sp wide; no italic styling) |
+| imprint (wide: left margin rail; phone: inline above the eyebrow) | a 16dp shutter mark in `paper.ink`, `Ariadne` (tracking 3sp), a 28dp `paper.blue` rule; the rail then carries `edition one`, `no account`, `no server` |
+| eyebrow | `01 — THE FIRST INSTALMENT` (9sp, `inkFaint`, tracking 1.8) |
+| headline | *A trip, kept / in photographs.* — serif **italic** (42sp phone, 64sp wide) |
 | rule | `paper.ink` |
-| paragraph | "Keep the moments from a trip without turning them into a chore. Take a photograph now, add the amount later, and keep the whole record on this device." |
-| primary | **CREATE A TRIP** (`startNewTrip()`), max width 360dp |
+| lede | "One press of the shutter in the shop; the figures wait until you close the day. Everything stays on this device." |
+| three beats | each: number (`01`) in `inkFaint`, an 18dp `blueEdge` rule, the name in tracked capitals, then one serif sentence — see below |
+| primary | **BEGIN A TRIP** (`startNewTrip()`) with the trip mark, blue, max width 360dp |
+| quiet | **OR LOOK AT A SAMPLE TRIP** (`startTripDemo()`) — a finished trip, no form |
 | foot | `No account · no server · no sync` |
+
+The three beats are the whole product, in the order it is used:
+
+1. `01` **THE SHUTTER** — "One photograph at the counter, under two seconds. No form, no
+   fields, nothing to type while someone waits for change."
+2. `02` **CLOSE DAY** — "In the evening the day's photographs arrive as cards. Confirm a
+   figure, or keep the card without one — no amount is a legal entry."
+3. `03` **THE RECORD** — "The day, the trip, and a card you keep at the end. No account, no
+   server: nothing leaves the phone but an optional rate lookup."
+
+There is no artwork, no carousel and no tour: the page answers "what is this?" and then
+gets out of the way. `?seed=demo` on the browser build skips this page and opens on the
+sample trip instead.
 
 ### 5.2 New trip — `NewTripPage.kt`, no bar
 
@@ -956,8 +972,9 @@ respect reduced motion and settle on the first frame when it is on.
 **Insets and length.** The shell applies window insets; tab pages end with a 96–104dp
 spacer so the bar and FAB never cover the last row.
 
-**Not verified.** Nothing below has been seen on a screen: no layout, spacing, contrast,
-motion or 200%-font check has been done for any surface in this document. See §11.
+**Not verified.** No layout has been measured, no contrast ratio has been computed, and
+no surface has been read at 200% text. Two screens have been seen on a phone
+(`docs/shots/current/`); everything else below is read from the source. See §11.
 
 ---
 
@@ -967,7 +984,7 @@ motion or 200%-font check has been done for any surface in this document. See §
 | --- | --- | --- | --- | --- | --- | --- |
 | **Android** | CameraX binding via `LocalCamera` | `PickMultipleVisualMedia(12)` | ML Kit on-device | `HttpURLConnection` → frankfurter.app, 5s timeouts | SQLDelight + private files | none |
 | **Desktop** | none — the engraved plate | system file dialog | Tess4J | none | SQLDelight (`~/.ariadne/ariadne.db`) | none |
-| **Wasm** | none | `BrowserPhotoPicker` — an `<input type="file" accept="image/*">` built by a `@JsFun`, read as data URLs, rescaled to 1600px on a canvas, up to twelve | optional `window.ariadneRecognize` hook, else a polite failure | none | in memory, photographs included (`BrowserPhotoFiles`; `BrowserPhotoImageRenderer` draws them) | none |
+| **Wasm** | none | `BrowserPhotoPicker` — an `<input type="file" accept="image/*">` built by a `@JsFun`, read as data URLs, rescaled to 1600px on a canvas, up to twelve | **none** — `WasmBrowserRecognizer` returns a failure by design, so a card waits for a figure at Close Day | none | in memory, photographs included (`BrowserPhotoFiles`; `BrowserPhotoImageRenderer` draws them) | none |
 | **iOS** | none | **none** — no picker is provided, so **LIBRARY** is not drawn | Vision | none | native SQLite (no photo file storage) | StoreKit |
 
 Visible consequences: where no camera is bound the plate reads **No camera here — tap the
@@ -989,9 +1006,13 @@ fetch a rate.
 - `Route.Settings` → `PreferencesPage` (retired name).
 
 **Not implemented anywhere in the UI:** deleting a single entry (trips can be deleted,
-captures cannot); editing an entry's date; voice capture; SMS import; bill splitting;
-accounts, sync, analytics; multiple photographs per entry; crop or rotate; importing an
-archive back into Ariadne. Local ZIP export and Trip Card PNG/text sharing are implemented.
+captures cannot); editing an entry's date; SMS import; bill splitting; accounts, sync,
+analytics; more than one photograph per entry; crop or rotate; importing an archive back
+into Ariadne. Local ZIP export and Trip Card PNG/text sharing are implemented.
+
+Voice *is* implemented — `SpokenExpense` in `core/model` with its tests, a microphone on
+Home and a `Say the amount` row on the kept photograph (§5.3, §5.7) — and it needs a
+device with a recogniser app, which is the only reason it is ever absent.
 
 ---
 
@@ -1014,16 +1035,18 @@ archive back into Ariadne. Local ZIP export and Trip Card PNG/text sharing are i
 
 ## 11. Verification status
 
-| Claim | Status |
-| --- | --- |
-| `:ui:app:jvmTest` | passed locally, including archive ZIP and manual-entry export cases |
-| `:app:android:compileDebugKotlin` | passed locally |
-| `:app:desktop:compileKotlinJvm` | passed locally |
-| `:app:wasm:compileKotlinWasmJs` | passed locally |
-| iOS compile | not run on this Windows machine |
-| `FlowCheck` (stack, overlays, undo, the sheet's pair) | written; **never executed** |
-| Any screen rendered, measured, contrast-checked, or read at 200% | **not yet; human/device review remains** |
-| Stills | `preview/Shots.kt` defines them; `docs/shots/` holds only the pre-redesign archive |
+| Claim | Status | Checked by |
+| --- | --- | --- |
+| shared tests (JVM suites, all modules) | passing on every push | `ci.yml` → `jvmTest` |
+| Android compiles | passing on every push | `ci.yml` → `:app:android:assembleDebug` |
+| desktop compiles | passing on every push | `ci.yml` → `:app:desktop:compileKotlinJvm` |
+| iOS compiles (simulator + device arm64) | passing on every push | `ci.yml` → macOS job |
+| browser compiles and builds its distribution | passing on every push | `ci.yml` and `pages.yml` |
+| the browser app is deployed | published as a Pages artifact on every push to `main` | `pages.yml` |
+| `FlowCheck` (stack, overlays, undo, the sheet's pair) | written, runnable offline; **not part of CI** | `tools/flow-check.sh` |
+| the page drawn on a real screen | yes: two stills from a phone in `docs/shots/current/` | human |
+| measured — spacing, contrast, 200% text | **not yet** | `tools/verify-ui.sh` + `tools/shoot.sh` |
 
-The gate for every visual claim on this page is `tools/verify-ui.sh` (and
-`tools/shoot.sh` for stills) on a machine with Gradle and a display.
+`tools/claim-check.sh` guards the mechanical half of this page: every `Route` and every
+`window.ariadne*` hook named here must exist in the code, and every relative link must
+resolve.

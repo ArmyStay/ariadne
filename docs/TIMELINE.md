@@ -108,6 +108,29 @@ as a data URL and rescaled to the same 1600px the Android picker uses, then hand
 the same `importPhotos` path as a camera frame. On iOS there is still no picker, so
 **LIBRARY** is not drawn there rather than drawn dead.
 
+## 27 November — the first instalment
+
+`#24`, after the merge of `#23`. The judge's read of the repository (`PLAN.md`) said the
+work was a finalist and the submission was not, because a reviewer could not install
+anything, could not read a page that was true, and landed on a form.
+
+- **The landing page is now an introduction.** One page that says what the object is
+  (three beats: the shutter, Close Day, the record), and one blue thing to press:
+  **Begin a trip**. Under it, quietly, **Or look at a sample trip** — the same demo roll,
+  as a door instead of a secret. `?seed=demo` on the browser build skips the page for
+  anyone who wants to link straight to a kept trip.
+- **A release workflow** (`release.yml`) builds `ariadne.apk` — debug, debug-key signed,
+  installable with `adb install -r` — and `ariadne-web.zip`, and attaches both to a tag.
+  A judge no longer needs JDK 21 and SDK 37 to look at a spending app.
+- **The claims were corrected**: no `window.ariadneRecognize` hook (never built), no
+  `TripShare` route (never existed), voice capture is implemented (§9 had it in the
+  "not implemented" list), the permission paragraph now lists all four permissions, and
+  §11's verification table says what CI proves rather than what a Windows machine once
+  could not.
+- **`tools/claim-check.sh`** runs in CI: every `Route.*`, every `window.*` hook, every
+  `android.permission.*` and every backticked path a document names has to exist. It was
+  written after finding five such claims in this repository, and it fails on the sixth.
+
 ## Where it stands
 
 **Built**: the shared domain (money, queue, FX, search, store with `openOrMigrate`), the

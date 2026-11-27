@@ -1,0 +1,93 @@
+name: release
+
+# A judge should not have to install JDK 21 and Android SDK 37 to look at a spending app.
+#
+# Two assets ride on every release:
+#   ariadne.apk     — a debug build, signed with the debug key, installable with adb
+#                     (and the only kind of build that can drive the mock-glasses path)
+#   ariadne-web.zip — the browser distribution, for serving locally
+#
+# Triggered by a tag, or by hand with a tag name — the hand-triggered route exists so a
+# release candidate can be cut from a branch before it is merged.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish, e.g. v1.0.0-rc1'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+
+      - name: Build the APK
+        run: ./gradlew :app:android:assembleDebug --console=plain --stacktrace
+
+      - name: Name the APK
+        run: |
+          mkdir -p dist
+          find app/android/build/outputs/apk/debug -name '*.apk' -print -exec cp {} dist/ariadne.apk \;
+          ls -l dist/ariadne.apk
+
+      - name: Build the browser distribution
+        run: ./gradlew :app:wasm:wasmJsBrowserDistribution --console=plain --stacktrace
+
+      - name: Zip the browser build
+        run: |
+          cd app/wasm/build/dist/wasmJs/productionExecutable
+          zip -qr "$GITHUB_WORKSPACE/dist/ariadne-web.zip" .
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag || github.ref_name }}"
+          PRE=""
+          case "$TAG" in
+            *-rc*|*-beta*|*-alpha*) PRE="--prerelease" ;;
+          esac
+          NOTES=$(cat <<'EOF'
+          `ariadne.apk` is a **debug** build, signed with the debug key. Install it with
+          `adb install -r ariadne.apk`, or from your file manager after allowing installs
+          from that source. Debug builds are also the only ones that can drive the glasses
+          path without glasses:
+
+          ```
+          adb shell am start -n com.ariadne.app/com.ariadne.android.MainActivity --ez mock_glasses true
+          ```
+
+          `ariadne-web.zip` is the browser distribution — unzip it and serve the folder, or
+          use the published demo at https://armystay.github.io/ariadne/ .
+
+          Nothing in either artefact talks to a server: the only outbound request in the
+          product is the optional exchange-rate lookup.
+          EOF
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/ariadne.apk dist/ariadne-web.zip --clobber
+          else
+            gh release create "$TAG" dist/ariadne.apk dist/ariadne-web.zip \
+              --target "$GITHUB_SHA" \
+              --title "Ariadne $TAG" \
+              --notes "$NOTES" \
+              $PRE
+          fi

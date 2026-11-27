@@ -21,12 +21,23 @@ import kotlinx.browser.window
 /**
  * The judge's entry point: a browser, nothing installed.
  *
- * No OCR engine is bundled in Wasm. Manual entry remains available, and a host
- * page may provide the optional browser recognition hook below.
+ * There is no OCR engine in this build. The browser gets the shutter (a plate, unless
+ * the person imports a photograph), **Library** for a receipt already on disk, manual
+ * entry, and the whole shared record; extraction simply never runs, and the app treats
+ * that as it treats any extraction failure — the card waits at Close Day for a figure.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     val graph = AppGraph(WasmServices(), SystemClock())
+
+    // `?seed=demo` opens on a trip that has already been kept, instead of the first
+    // instalment: one link a reviewer can paste, no clicking through a form first.
+    // The intro's own "Or look at a sample trip" does the same thing without a URL.
+    graph.model.onStarted {
+        if (wantsDemoSeed() && graph.model.state.value.route == com.ariadne.app.Route.Onboarding) {
+            graph.model.startTripDemo()
+        }
+    }
     val body = document.body ?: error("Ariadne needs a <body> to mount into")
     val reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     ComposeViewport(body) {
@@ -48,6 +59,10 @@ fun main() {
         }
     }
 }
+
+/** True when the page was opened with `?seed=demo`. */
+private fun wantsDemoSeed(): Boolean =
+    window.location.search.contains("seed=demo")
 
 private class WasmServices : PlatformServices {
 

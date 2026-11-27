@@ -289,9 +289,12 @@ public class AppModel(
 
     /**
      * A callback for platform entry points: invoked once, right after
-     * [start] has run the initial routing pass. The Wasm demo page uses it to
-     * open on the demo roll when the URL carries `?seed=demo`, so a judge who
-     * lands on the Pages deploy sees a populated app instead of an empty form.
+     * [start] has run the initial routing pass.
+     *
+     * The browser build registers one: when the page carries `?seed=demo` it opens on
+     * the sample trip instead of the first instalment, so a reviewer can be sent one
+     * link that lands on a kept trip. The intro also offers the same thing as a quiet
+     * action, so the URL is a shortcut rather than the only door.
      */
     public fun onStarted(action: () -> Unit) {
         onStartedAction = action
