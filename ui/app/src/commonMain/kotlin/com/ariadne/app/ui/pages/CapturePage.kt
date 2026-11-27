@@ -37,6 +37,7 @@ import com.ariadne.design.Paper
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Rule
 import com.ariadne.app.ui.tap
+import com.ariadne.design.tap
 
 /**
  * Page 4 — Capture.

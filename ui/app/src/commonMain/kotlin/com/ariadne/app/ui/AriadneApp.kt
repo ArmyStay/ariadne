@@ -78,7 +78,6 @@ import com.ariadne.app.ui.pages.StatsPage
 import com.ariadne.app.ui.pages.TimelinePage
 import com.ariadne.app.ui.pages.TripCardPage
 import com.ariadne.app.ui.pages.TripsPage
-import com.ariadne.app.ui.pages.TripPage
 import com.ariadne.app.ui.pages.MorePage
 import com.ariadne.app.ui.pages.ManualEntryPage
 import com.ariadne.app.ui.pages.DataExportPage

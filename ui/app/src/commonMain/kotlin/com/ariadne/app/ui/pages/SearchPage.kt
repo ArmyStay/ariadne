@@ -2,7 +2,6 @@ package com.ariadne.app.ui.pages
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,7 +31,6 @@ import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
 import com.ariadne.app.DetailOrigin
-import com.ariadne.app.Route
 import com.ariadne.design.EmptyState
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
@@ -42,11 +40,8 @@ import com.ariadne.design.NavRow
 import com.ariadne.design.SectionBreak
 import com.ariadne.design.Numeral
 import com.ariadne.design.Masthead
-import com.ariadne.design.PageAction
 import com.ariadne.design.ScrollRail
-import com.ariadne.design.ScrollingMargin
 import com.ariadne.design.Paper
-import com.ariadne.design.QuietAction
 import com.ariadne.design.Plate
 import com.ariadne.design.Reveal
 import com.ariadne.design.Rule
@@ -55,6 +50,7 @@ import com.ariadne.design.Title
 import com.ariadne.model.Capture
 import com.ariadne.model.Money
 import com.ariadne.app.ui.tap
+import com.ariadne.design.tap
 
 /**
  * Page 8 — Search.

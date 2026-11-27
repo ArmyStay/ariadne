@@ -11,46 +11,39 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
-import com.ariadne.app.Route
 import com.ariadne.design.EmptyState
-import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.Glyph
 import com.ariadne.design.Icon
 import com.ariadne.design.Label
 import com.ariadne.design.Masthead
-import com.ariadne.design.Motion
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
-import com.ariadne.design.PageAction
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import com.ariadne.design.ScrollRail
 import com.ariadne.design.Paper
-import com.ariadne.design.QuietAction
 import com.ariadne.design.Reveal
 import com.ariadne.design.Rule
 import com.ariadne.design.Tick
 import com.ariadne.design.Title
-import com.ariadne.design.motionSpec
 import com.ariadne.model.Money
 import com.ariadne.model.Trip
 import com.ariadne.app.ui.tap
+import com.ariadne.design.tap
 
 /**
  * The register.

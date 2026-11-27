@@ -19,7 +19,6 @@ import com.ariadne.model.Traveller
 import com.ariadne.model.TravellerEntry
 import com.ariadne.model.TravellerShare
 import com.ariadne.model.Trip
-import com.ariadne.model.dayRange
 import com.ariadne.queue.Outbox
 import com.ariadne.queue.QueueEvent
 import com.ariadne.search.SearchIndex

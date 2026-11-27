@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
@@ -35,11 +34,9 @@ import com.ariadne.design.Bone
 import com.ariadne.design.Label
 import com.ariadne.design.Masthead
 import com.ariadne.design.Optical
-import com.ariadne.design.OutlineAction
 import com.ariadne.design.Page
 import com.ariadne.design.Paper
 import com.ariadne.design.Rule
-import com.ariadne.design.SectionHead
 import com.ariadne.design.Title
 
 /**

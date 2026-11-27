@@ -54,6 +54,7 @@ import com.ariadne.model.CurrencyCatalog
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.symbol
 import com.ariadne.app.ui.tap
+import com.ariadne.design.tap
 
 /**
  * Page — one capture, open in the hand.

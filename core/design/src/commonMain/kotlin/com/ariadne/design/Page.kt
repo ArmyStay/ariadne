@@ -3,7 +3,6 @@ package com.ariadne.design
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +21,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -181,7 +178,7 @@ public fun PageAction(
     Box(
         Modifier
             .clipToBounds()
-            .pointerInput(label) { detectTapGestures(onTap = { onClick() }) }
+            .tap(label) { onClick() }
             .padding(horizontal = 4.dp, vertical = 6.dp),
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -223,10 +220,8 @@ private fun FoldRail(
     Box(
         Modifier
             .size(30.dp)
-            .semantics { contentDescription = description }
-            .pointerInput(docked) {
-                detectTapGestures(onTap = { onClick() })
-            },
+            .tap(description) { onClick() }
+            .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
         androidx.compose.foundation.Canvas(Modifier.size(17.dp)) {

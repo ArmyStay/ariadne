@@ -181,7 +181,7 @@ make it feel like an errand.
 | 2 | `Trips` | Home | The register. Every trip this device holds, newest first; the one active is marked by blue rather than by a badge. |
 | 3 | `Home` | Home | Today's figure, the one blue action, and the way into everything else. |
 | 4 | `Timeline` | Timeline | The trip as a run of days, each with its 24-hour band. |
-| 5 | `Stats` | Stats | What it came to: by what it was, then by currency. Finished photographs only. |
+| 5 | `Stats` | Stats | Four cards: the trip's total and its fence, daily spending, what it was, then by currency. Finished photographs only. |
 | 6 | `Trip` | Trip | Dates, progress, the card. The tab the register used to leave unreachable. |
 | 7 | `Capture` | — | The shutter. Full bleed, no chrome, no fields. |
 | 8 | `CloseDay` | — | Close Day. The ritual. Plate, merchant, amount, two taps. |
@@ -205,9 +205,9 @@ state (`SETTLED`, `IN THE RECORD`, `2 TO SETTLE`) rather than by its hours. A da
 with eight photographs has a shape whether or not the app draws it; the state is
 the fact the traveller cannot get from the photographs themselves.
 
-**The breakdown** (Stats) is a ruled column, not a donut, because a ledger should
-be readable to the rupee rather than only glanceable. It is always in the trip's
-base currency, converted through the same `FxTable` the ritual uses, so the
+**The breakdown** (Stats) is a column of ruled rows on a card, not a donut, because a
+ledger should be readable to the rupee rather than only glanceable. It is always in the
+trip's base currency, converted through the same `FxTable` the ritual uses, so the
 breakdown and the total can never disagree.
 
 The one sentence underneath it (`PatternLine`) states a fact about this trip's own

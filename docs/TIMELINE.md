@@ -122,15 +122,17 @@ one thing assistive technology cannot do. The shutter, the day sheet's scrim, th
 mark, the category and currency chips, every register row, the search results and the
 microphone were all unpressable that way.
 
-There is one way now. `Modifier.tap` (`ui/app/.../ui/Tap.kt`) is `clickable` with no
-ripple, a role and — the part that was missing — the words for what the action performs:
-*"Keep the photograph"*, *"Open this photograph"*, *"Delete it now"* once the mark is
-armed, *"Close the microphone"*. `rowTap` and `androidTap` are gone, with their callers
-moved to it. `tools/a11y-check.sh` refuses a raw gesture anywhere but the two dimmed
-scrims that close a sheet (a scrim is not a control, and the sheet behind it has a
-labelled one), refuses a press with no label, and refuses a one-word one, because
-*"Select"* names the gesture rather than the consequence. `ci.yml` runs it beside
-`claim-check.sh`, in a second, without a JDK.
+There is one way now. `Modifier.tap` (`design/Tap.kt`) is `clickable` with no ripple, a
+role and — the part that was missing — the words for what the action performs: *"Keep the
+photograph"*, *"Open this photograph"*, *"Delete it now"* once the mark is armed,
+*"Close the microphone"*. `rowTap` and `androidTap` are gone, with their callers moved to
+it, and so is the raw gesture inside `Action`, `LinkAction`, `NavRow`, `PageAction`, the
+keypad, the ink block and the field: the components were the larger half of the problem,
+and the first pass had only swept the pages. `tools/a11y-check.sh` now holds both trees
+to the rule: a raw gesture is refused anywhere but the two dimmed scrims that close a
+sheet (a scrim is not a control, and the sheet behind it has a labelled one), as is a
+press with no label or a generic one, because *"Select"* names the gesture rather than
+the consequence. `ci.yml` runs it beside `claim-check.sh`, in a second, without a JDK.
 
 What it cannot say: that TalkBack makes the press. That is the device pass, and
 `UI-AND-FLOW.md` §11 now lists it as *not yet* instead of implying otherwise.

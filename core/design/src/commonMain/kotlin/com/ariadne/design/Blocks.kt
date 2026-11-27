@@ -1,7 +1,6 @@
 package com.ariadne.design
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -51,7 +49,7 @@ public fun NavRow(
     Row(
         modifier
             .fillMaxWidth()
-            .pointerInput(label) { detectTapGestures(onTap = { onClick() }) }
+            .tap(label) { onClick() }
             .padding(vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -143,12 +141,12 @@ public fun FigureRow(
  */
 @Composable
 public fun TapSurface(
+    label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    key: Any = Unit,
     content: @Composable () -> Unit,
 ) {
-    Box(modifier.pointerInput(key) { detectTapGestures(onTap = { onClick() }) }) {
+    Box(modifier.tap(label) { onClick() }) {
         content()
     }
 }

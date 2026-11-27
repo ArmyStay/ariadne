@@ -47,7 +47,8 @@ design system change how they appear on screen and are worth stating once:
 | The bar, the tabs, tab↔route mapping | `ui/app/.../ui/Nav.kt` |
 | What the model can do | `ui/app/.../AppModel.kt` |
 | What a screen can read | `AppUiState` in `Route.kt` |
-| Home, Timeline, Stats, Preferences | `ui/app/.../ui/pages/TabPages.kt` |
+| Home, Timeline, Preferences | `ui/app/.../ui/pages/TabPages.kt` |
+| Stats | `ui/app/.../ui/pages/StatsPage.kt` |
 | Everything else | `ui/app/.../ui/pages/*.kt` |
 | Design primitives, palette, glyphs | `core/design/src/commonMain/kotlin/com/ariadne/design/` |
 
@@ -846,31 +847,44 @@ No trip: *"No trip is open. A photograph needs a journey to belong to."* + **THE
 REGISTER**. Closed: *"This trip is closed. Its photographs are still here, and its card is
 still yours."* + **SEE THE CARD** + **THE REGISTER**.
 
-### 5.11 Stats — `StatsPage` in `TabPages.kt`, Stats tab
+### 5.11 Stats — `StatsPage.kt`, Stats tab
 
-**Header.** `Masthead(03, eyebrow = trip name \| "Stats", title = "What it came to")`.
+**Header.** `Masthead(03, eyebrow = "Stats", title = "Your travel stats", italic, lede =
+"A quick look at this trip's spending, and what it went on.")`.
 **Rail:** `the trip` (its figure), `entries` (count), `finished only`.
 
-1. `the trip so far` + the trip's figure (50sp/64sp), animated to its value;
-2. a rule at `paper.ink`, then `finished entries only`;
-3. when a budget exists: `against a budget of` + the figure + `left`/`over` + the
-   difference (blue when over);
-5. the note *"Only entries that were finished. Anything still waiting across this trip
-   is not in this figure, and is not counted as zero."*;
-6. `SectionHead("II", "daily spending")` — a bar chart for up to the last seven trip days;
-7. `SectionHead("III", "what it was")` — a `Breakdown` by category (`Food`, `Transport`,
-   … or `Uncategorised`; `N entries`; the figure; `of`), a `PatternLine` sentence
-   (*"Most of this trip so far went on food — 34% of it, across 6 entries. Everything
-   else is in the column above."*), and the note *"Nothing here is sorted for you. A
-   category is a claim you make on an entry, and most entries never need
-   one."*;
-8. `SectionHead("IV", "by currency, before conversion")` — a row per currency with a
-   tick, the code and the figure, then `these are the amounts as they were paid, not
-   converted`;
-9. if nothing is tallied: *"Nothing has been tallied yet. The figures appear here the
-   first time you confirm an entry."*;
-10. **CLOSE TODAY** (`openCloseDay(today)`, accent; enabled only when the stack is
-   non-empty, today is open and the trip is open).
+The page is four cards on the paper, each with a disc of `paper.blueWash`, a tracked
+label and one figure. A card is a container — `paper.raised`, a hairline, 18dp corners,
+an 8dp lift in daylight and none at night — never a material.
+
+1. **The trip so far.** Disc (`Glyph.Trip`) + `the trip so far`, then the figure
+   (36sp phone / 48sp wide) with the currency symbol before it, animated to its value.
+   Right column: `finished entries only`, and when a budget exists `against a budget of`
+   + `₹1,00,000.00 left` (or `over`) + the difference in `paper.blue`. No budget says
+   `no budget set`. Under the rule, the note *"Only entries that were finished. Anything
+   still waiting across this trip is not in this figure, and is not counted as zero."*
+2. **`II` daily spending.** Disc (`Glyph.Stats`) + `daily spending`, and a pill at the
+   right that reads `this trip` or `last 7 days` and swaps the range on a tap
+   (`"Draw the chart from the last seven days"` / `"… the whole trip"`). One bar per day
+   of the range, `paper.navy`, in a 132dp plot: four ruled intervals with the money on
+   the left in brief shorthand (`0`, `250`, `25k`, `1L`), and the largest day's figure
+   in a small bubble above its bar. Days with nothing finished have no bar. The note says
+   so: *"One bar per day of the trip, in the base currency. A day with nothing finished
+   is a day with no bar, not a day with a zero."*
+3. **`III` what it was.** A row per category — the label, `N entries`, the figure; the
+   unclaimed column is `Uncategorised`, set in italic serif; an `of` row for the trip
+   total; then *"Nothing here is sorted for you. A category is a claim you make on an
+   entry, and most entries never need one."* Under the card, `PatternLine` prints its
+   one sentence when a category holds at least 30% of the categorised money.
+4. **`IV` by currency, before conversion.** A row per currency: disc with the symbol
+   (`₹`, `€`), the code, the amount as paid, then *"These are the amounts as they were
+   paid, not converted."*
+5. If nothing is tallied: *"Nothing has been tallied yet. The figures appear here the
+   first time you confirm an entry."*
+6. **CLOSE TODAY** (`openCloseDay(today)`, accent, 12dp corners; enabled only when the
+   stack is non-empty, today is open and the trip is open), then `Privacy policy` ·
+   `Terms of use` as two `LinkAction`s around a hairline, going to `PrivacyPolicy` and
+   `Terms`.
 
 ### 5.12 Trip — legacy route
 
@@ -1058,13 +1072,14 @@ still the record.`
 *"Your trip could not be opened. …"* · *"That trip could not be opened. …"* · `not a
 number` (rate field) · `no rate on file — this currency is not being converted`.
 
-**Press labels as well as descriptions.** Every control in the app is a press through
-`Modifier.tap` (`ui/Tap.kt`): `clickable` with no ripple, a role, and the words for what
-the action will perform — `"Keep the photograph"`, `"Open this photograph"`,
-`"Delete this photograph"`, `"Close the microphone"`. A raw gesture is refused by
-`tools/a11y-check.sh`, which runs in CI and also refuses a press with no label or a
-one-word one (`"Select"`); the only exceptions are the two dimmed scrims that close a
-sheet, where the sheet itself carries the labelled control.
+**Press labels as well as descriptions.** Every control in the app — the components in
+`:core:design` as much as the pages — is a press through `Modifier.tap`
+(`design/Tap.kt`): `clickable` with no ripple, a role, and the words for what the action
+will perform — `"Keep the photograph"`, `"Open this photograph"`, `"Delete this
+photograph"`, `"Close the microphone"`. A raw gesture is refused by
+`tools/a11y-check.sh`, which runs in CI over both trees and also refuses a press with no
+label or a generic one (`"Select"`); the only exceptions are the two dimmed scrims that
+close a sheet, where the sheet itself carries the labelled control.
 
 **Accessibility descriptions written in source.** `"Take a photograph"` (and
 `"Take a photograph. N waiting across this trip"`, `"A closed trip takes no photographs"`) ·

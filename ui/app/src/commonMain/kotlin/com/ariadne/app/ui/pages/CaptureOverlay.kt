@@ -49,6 +49,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import kotlinx.coroutines.launch
 import com.ariadne.app.ui.tap
+import com.ariadne.design.tap
 
 /**
  * The camera, open over the page you were on.
