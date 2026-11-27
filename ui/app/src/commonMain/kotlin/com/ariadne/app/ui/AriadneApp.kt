@@ -68,6 +68,7 @@ import com.ariadne.app.ui.pages.HomePage
 import com.ariadne.app.ui.pages.CloseDayPage
 import com.ariadne.app.ui.pages.OnboardingPage
 import com.ariadne.app.ui.pages.PreferencesPage
+import com.ariadne.app.ui.pages.ReminderOverlay
 import com.ariadne.app.ui.pages.RecordPage
 import com.ariadne.app.ui.pages.SearchPage
 import com.ariadne.app.ui.pages.StatsPage
@@ -235,7 +236,9 @@ public fun AriadneApp(
                     NoticeBar(
                         notice = notice,
                         paper = paper,
-                        onAction = { model.undoLastEdit() },
+                        // The offer names what it does: an undo most of the time, the
+                        // day for the evening reminder.
+                        onAction = { model.noticeAction() },
                         onDismiss = { model.dismissNotice() },
                     )
                 }
@@ -285,6 +288,15 @@ public fun AriadneApp(
             }
             state.sheetCaptureId?.let { id ->
                 FramePage(state, model, paper, wide, id)
+            }
+
+            // Last, so it covers everything: the reminder question is about the app
+            // rather than about where you are in it, and it is asked over whatever
+            // page the trip happens to have left you on. Not over a viewfinder or a
+            // photograph being framed — a question asked there is a question
+            // interrupting a photograph.
+            if (!state.shutterOpen && state.sheetCaptureId == null) {
+                ReminderOverlay(state = state, model = model, paper = paper, wide = wide)
             }
         }
     }
@@ -537,7 +549,9 @@ private fun handleKey(
     if (event.type != KeyEventType.KeyDown) return false
     // Whatever is open over the page closes first, exactly as Back does. Escape is
     // the desktop's version of that gesture and should not mean something else.
-    if (event.key == Key.Escape && (state.shutterOpen || state.sheetCaptureId != null)) {
+    if (event.key == Key.Escape &&
+        (state.shutterOpen || state.sheetCaptureId != null || state.reminderSheetOpen)
+    ) {
         model.back()
         return true
     }

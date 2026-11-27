@@ -199,6 +199,11 @@ private val AddedColumns: List<Triple<String, String, String>> = listOf(
     Triple("capture", "note", "TEXT"),
     Triple("trip", "place", "TEXT"),
     Triple("trip", "budgetMinor", "INTEGER"),
+    // 7: the evening reminder.
+    Triple("settings", "reminderEnabled", "INTEGER"),
+    Triple("settings", "reminderHour", "INTEGER"),
+    Triple("settings", "reminderMinute", "INTEGER"),
+    Triple("settings", "reminderAsked", "INTEGER"),
 )
 
 /** Add whichever of [AddedColumns] the file is missing. Safe to run twice. */

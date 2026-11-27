@@ -76,6 +76,15 @@ Timeline shows the trip and its days; Stats breaks it down; the record lists wha
 kept. Everything is local — no account, no sync, nothing leaves the device except a rate
 lookup that the app works without.
 
+One thing reaches out of the app, and only as far as your own phone: the **evening
+reminder**. Turn it on once (a single popup after the first trip, or Settings → *the
+evening*), choose the hour, and at that time each day Ariadne says how many photographs
+are still waiting for a figure. On Android it is an alarm the system keeps after the app
+is closed; on desktop, iOS and the browser there is nothing to arm, so the same line
+appears inside the app while it is open — and the panel says which of the two you are
+getting rather than promising the first and delivering the second. No server, no push
+service, no account.
+
 ## A photograph is the note
 
 The reason a spending app gets abandoned is that it asks for the receipt to be re-typed.
@@ -220,6 +229,11 @@ chips, and settings that survive a restart. The stills above are from that build
 - **A link that opens your trip for someone else.** The card saves as a PNG and copies as
   text, and the record exports as a ZIP — but there is no share link, no route pretending
   to be one, and nothing that syncs two phones.
+- **The evening reminder firing on a real phone.** The Android path compiles —
+  `AndroidReminders` arms an inexact daily `AlarmManager` alarm and `ReminderReceiver`
+  posts one notification on a channel of its own — but no build in this repository has
+  sat on a device until 20:00 with the app closed. The in-app fallback, the setting, and
+  the once-only offer are exercised by the shared tests and the desktop renderer.
 
 Apache-2.0. Kotlin Multiplatform Contest 2027 entry. The entry essay is
 [`ESSAY.md`](ESSAY.md); the history is [`docs/TIMELINE.md`](docs/TIMELINE.md).

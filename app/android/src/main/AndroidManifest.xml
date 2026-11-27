@@ -9,6 +9,11 @@
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- The evening reminder: one notification a day, from an alarm on this phone.
+         Requested only when somebody turns the reminder on, and the app works
+         exactly the same with it refused (the reminder then appears inside the app). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- The amount, said out loud: the recogniser lives in another app, and Android 11+
          only lets us see it if we ask. -->
     <queries>
@@ -47,5 +52,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- The alarm's other end. Not exported: nothing outside this app sends it. -->
+        <receiver
+            android:name=".ReminderReceiver"
+            android:exported="false" />
     </application>
 </manifest>

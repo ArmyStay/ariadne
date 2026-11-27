@@ -200,27 +200,34 @@ It is set like a cover, not like a spinner:
 ### 2.2 The stack, Back, Escape
 
 - `go(route)`: moving **between** destinations replaces the stack; moving **into** a page
-  pushes the current route onto `history`; any navigation clears both overlays.
-- `back()`: closes the sheet → closes the shutter → pops `history` → returns `false`,
-  which is the app's cue to leave.
+  pushes the current route onto `history`; any navigation clears the capture overlays.
+- `back()`: closes the sheet → closes the shutter → closes the reminder question (which
+  is an answer, so it is written) → pops `history` → returns `false`, which is the app's
+  cue to leave.
 - `canGoBack` = an overlay is open **or** `history` is not empty.
 - A stacked page with a history parent shows a consistent top-left **BACK TO [PARENT]**
   action; its destination is read from the same route history as system Back.
 - Escape mirrors Back for overlays; on the pager it leaves for `Route.Capture`.
 
-### 2.3 The two overlays
+### 2.3 The three overlays
 
 | State | Drawn by | Opened by | Closed by |
 | --- | --- | --- | --- |
 | `shutterOpen` | `CaptureOverlay`, full cover | `openCapture()` with an open trip; the FAB; record **CAPTURE**; record **ADD A PHOTOGRAPH**; Home **TAKE PHOTO** | **CLOSE**, Back, Escape, taking a frame |
 | `sheetCaptureId` | `FramePage`, photograph sheet | one successful photo from camera or picker | **KEEP FOR LATER**, **OPEN THE FULL EDITOR**, Back, Escape |
+| `reminderSheetOpen` | `ReminderOverlay`, the evening reminder question | `offerReminderOnce()` once a trip exists; Settings' evening row | **SET THE REMINDER**, **TURN IT OFF**, **NOT FOR ME**, **NOT NOW**, the scrim |
 
 Picking multiple photographs files them into the shutter's day and returns to the
 underlying page. A single picked photograph opens the same sheet as a camera photo.
 
 The **day sheet** is drawn inside `CaptureOverlay`, not by the shell, so it is not a
-third entry in this table: it is the shutter's own choice of day, and it closes with
+fourth entry in this table: it is the shutter's own choice of day, and it closes with
 **DONE**, the scrim, or a day.
+
+The reminder panel is drawn **last**, over the page, the notice bar and the dock — it is a
+question about the app rather than about where you are in it — and it is suppressed while
+the shutter or the photograph sheet is open, because a question asked there is a question
+interrupting a photograph.
 
 ### 2.4 Desktop keys (`handleKey`)
 
@@ -295,9 +302,43 @@ AMOUNT**; **CLOSE THE DAY** → the summary → **BACK TO THE DAY**.
 ### 3.6 Registers, settings, switching
 
 `More` → **TRIPS** → tap a row (`switchTrip`); **SETTINGS & PROFILE** → `Preferences`.
-Settings keeps a local display name, appearance and currencies, and provides the ZIP
-export action. **ADD MANUALLY** saves a confirmed expense without a photo or OCR queue.
+Settings keeps a local display name, appearance and currencies, provides the ZIP export
+action, and holds the evening reminder (see 3.7). **ADD MANUALLY** saves a confirmed expense without a photo or OCR queue.
 Privacy and terms are in-app drafts that need review before publication.
+
+### 3.7 The evening reminder
+
+One line a day, at an hour the person chooses, saying how many photographs are still
+waiting for a figure. It is the only thing in the app that can speak while the app is
+closed, and the only thing in the app that asks for a system permission.
+
+There is no push service. Nothing is sent from a server, no device token exists, and the
+app has no account to attach one to. What happens instead is one of three honest things,
+and the panel says which:
+
+| Where | What actually happens |
+| --- | --- |
+| Android, permission granted | An inexact daily `AlarmManager` alarm plus `ReminderReceiver` → one notification on the `evening` channel, the app closed or not. Re-armed at every launch; no boot receiver, so a reboot needs the app opened once. |
+| Android, permission refused | Nothing in the tray. The line appears inside the app once a day, at or after the hour, while the app is open. |
+| Desktop, iOS, browser | Nothing in the tray. The same in-app line. |
+
+**The offer.** Once, and only after a trip exists: a popup over whatever page is showing
+(`reminderIsOffer`), with EARLIER / `HH:MM` / LATER, the sentence about what will be
+delivered, **SET THE REMINDER**, and **NOT FOR ME**. Declining counts as an answer:
+`reminderAsked` is written either way, so the question is asked once in a
+lifetime — the same panel reached later from Settings does not bring it back.
+
+**The setting.** Settings → **V · the evening** → a `Date` icon row reading
+`Reminder · every evening at 20:00` or `Reminder · off`, with the same panel behind it.
+When it is on, the row carries the honest line underneath: `One notification a day, from
+an alarm on this phone. Nothing leaves the device.` — or, where that is not what this
+build does, the sentence that says so.
+
+**Changing the hour** while it is on re-arms immediately: a time you moved and did not
+get is a setting that lied. **TURN IT OFF** cancels the alarm and writes the setting.
+
+**Nothing to remind about** is not a reminder: the in-app line is skipped before the
+trip's first day, and the popup never appears with no trip.
 
 ---
 
@@ -309,6 +350,8 @@ Privacy and terms are in-app drafts that need review before publication.
 | `shutterOpen`, `sheetCaptureId` | the shell (overlays) |
 | `shutterDay` | the shutter's day line and day sheet; `capturePhoto`, `importPhotos` |
 | `theme`, `displayName` | `AriadneApp` → `AriadneTheme`; More, Settings |
+| `reminder`, `reminderAsked` | Settings' evening row; the reminder panel; `AppModel`'s daily tick |
+| `reminderSheetOpen`, `reminderIsOffer`, `reminderNote` | `ReminderOverlay` and the row's note; written by `openReminderSheet`, `offerReminderOnce`, `enableReminder`, `disableReminder` |
 | `trip` | every page |
 | `today` | Home, Record, CloseDay, Preferences, Search |
 | `dayCards` | Home, Timeline, Record, Stats' "Close today" |
@@ -909,7 +952,12 @@ exchange-rate request sends anything off-device. If a failure was recorded, Pref
 shows its message explicitly. **EXPORT ALL DATA AS A ZIP ARCHIVE** opens the local export
 flow.
 
-**V · this trip.** The trip's name (or `No trip`), the place (or `no place set`), then
+**V · the evening.** A `Date` icon row reading `Reminder · every evening at 20:00` when it
+is on, `Reminder · off` when it is not (`openReminderSheet()`), and beneath it the line
+about what this build will actually deliver (see 3.7). The row opens the same panel the
+one-time offer uses.
+
+**VI · this trip.** The trip's name (or `No trip`), the place (or `no place set`), then
 icon rows: **SEE THE TRIP'S PAGE**; **CLOSE THE TRIP INTO A CARD** (`closeTripIntoCard()`)
 or **SEE THE CARD** when already closed; **DELETE THIS TRIP** (`armTripDeletion()`) with
 the paragraph *"Deletes its photographs and its record. Nothing is kept anywhere else, so

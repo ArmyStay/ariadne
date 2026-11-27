@@ -319,6 +319,11 @@ public fun LegalPage(state: AppUiState, paper: Paper, wide: Boolean, terms: Bool
             } else {
                 LegalSection("What stays here", state.storageDisclosure, paper)
                 LegalSection("Network requests", state.rateDisclosure, paper)
+                LegalSection(
+                    "Notifications",
+                    "The evening reminder is set, computed and delivered on this device. Turning it on asks your system for permission to post notifications; no account, device token or server is involved, and turning it off cancels the alarm.",
+                    paper,
+                )
                 LegalSection("No account or sync", "Ariadne does not ask you to create an account or sync trips to an Ariadne server in this build. If you export or share an archive, that copy goes wherever you choose.", paper)
                 LegalSection("Review required", "This is a factual in-app draft, not a complete legal policy. Add the responsible organization, contact details, and jurisdiction before publication.", paper)
             }

@@ -12,6 +12,7 @@ import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
 import com.ariadne.model.MerchantName
 import com.ariadne.model.RecordDates
+import com.ariadne.model.Reminder
 import com.ariadne.model.Settings
 import com.ariadne.model.ShareCodes
 import com.ariadne.model.Traveller
@@ -45,6 +46,8 @@ public class AppModel(
     private val files: PhotoFiles? = null,
     private val clipboard: Clipboard? = null,
     private val reviewManager: AppReviewManager = NoAppReviewManager,
+    /** The evening reminder's delivery, where the platform has one. */
+    private val reminders: Reminders? = null,
     private val clock: Clock,
     private val scope: CoroutineScope,
     private val newId: () -> String,
@@ -193,6 +196,18 @@ public class AppModel(
                 // first page is drawn, so the app never flashes white at launch.
                 _state.value = _state.value.copy(theme = settings.theme)
                 _state.value = _state.value.copy(displayName = settings.displayName)
+                _state.value = _state.value.copy(reminder = settings.reminder.normalised())
+                // A reminder that was on yesterday is armed again on launch: an alarm
+                // does not survive a reboot, and the honest place to repair that is the
+                // moment the app is next opened rather than a boot receiver that asks
+                // for another permission.
+                if (settings.reminder.enabled) {
+                    armSystemReminder(settings.reminder)
+                    // Say, at launch, which kind of reminder this build can actually
+                    // deliver. A caveat you only meet when you change something is a
+                    // caveat about the wrong moment.
+                    _state.value = _state.value.copy(reminderNote = currentReminderNote())
+                }
                 runCatching { outbox.resume() }.onFailure(::report)
                 runCatching { extraction.drain() }.onFailure(::report)
                 val trips = runCatching { store.trips() }.getOrElse {
@@ -280,6 +295,8 @@ public class AppModel(
                 // Rates last, and off the launch path: a slow or missing network
                 // cannot keep the startup page visible.
                 runCatching { refreshRates() }.onFailure(::report)
+                startReminderLoop()
+                offerReminderOnce()
                 onStartedAction?.invoke()
             } finally {
                 _state.value = _state.value.copy(isStartingUp = false)
@@ -485,6 +502,9 @@ public class AppModel(
         refreshDay(day)
         loadTripDays(trip)
         loadTravellers(trip)
+        // A trip exists now, and a reminder needs a trip to be about. This is the
+        // one moment the app asks — the answer, either way, is remembered.
+        offerReminderOnce()
     }
 
     // -- onboarding --------------------------------------------------------
@@ -1734,14 +1754,20 @@ public class AppModel(
     private var noticeSeq = 0L
 
     /** Say the last thing that happened, and forget it after long enough to act. */
-    private fun say(text: String, actionLabel: String? = null) {
+    private fun say(
+        text: String,
+        actionLabel: String? = null,
+        kind: NoticeKind = NoticeKind.UNDO,
+        // Long enough to read and reach, short enough that a stale offer never sits
+        // there claiming to undo something three edits ago. A reminder is not an
+        // offer about the last tap, so it is allowed to sit a little longer.
+        millis: Long = 9_000,
+    ) {
         noticeSeq += 1
         val id = noticeSeq
-        _state.value = _state.value.copy(notice = Notice(text, actionLabel, id))
-        // Long enough to read and reach, short enough that a stale offer never sits
-        // there claiming to undo something three edits ago.
+        _state.value = _state.value.copy(notice = Notice(text, actionLabel, id, kind))
         scope.launch {
-            kotlinx.coroutines.delay(9_000)
+            kotlinx.coroutines.delay(millis)
             if (_state.value.notice?.id == id) _state.value = _state.value.copy(notice = null)
         }
     }
@@ -1922,6 +1948,12 @@ public class AppModel(
             closeShutter()
             return true
         }
+        // The reminder question is answered, not navigated past: Back closes it and
+        // records the answer, exactly like **NOT FOR ME**.
+        if (state.reminderSheetOpen) {
+            closeReminderSheet()
+            return true
+        }
         val target = state.history.lastOrNull() ?: return false
         _state.value = state.copy(route = target, history = state.history.dropLast(1))
         // The place being returned to owns its own figures; re-read them rather
@@ -2091,16 +2123,240 @@ public class AppModel(
         }
     }
 
-    // -- internals ---------------------------------------------------------
+    // -- the evening reminder ----------------------------------------------
+    //
+    // Three layers, and they are deliberately separate because they can honestly
+    // differ: the *setting* (on, and when), the *delivery* (an alarm the phone keeps,
+    // where the platform has one), and the *fallback* (a line inside the app while it
+    // is open, which every target can do). The note in the sheet says which one you
+    // are actually getting, because a reminder that silently never arrives is worse
+    // than no reminder at all.
+
+    /** True while the platform is holding a real alarm, not just a wish. */
+    private var systemReminderArmed = false
+
+    /** The last day the in-app line was shown, so it is once a day and not once a minute. */
+    private var remindedOn: LocalDay? = null
+
+    /** Opens the sheet from Preferences, with the setting as it stands. */
+    public fun openReminderSheet() {
+        _state.value = _state.value.copy(
+            reminderSheetOpen = true,
+            reminderIsOffer = false,
+            reminderNote = currentReminderNote(),
+        )
+    }
 
     /**
-     * The whole trip in one pass: two queries, grouped by day.
+     * The one-time offer: made once, after there is a trip to remind about.
      *
-     * The timeline shows every day with its own band, so loading only the open day
-     * would leave the others claiming "no photographs here" — a statement the app
-     * has not earned the right to make. Figures are converted through the same FX
-     * table the ritual uses.
+     * It is a popup rather than a page because it is a question, not a place: the
+     * answer is one of two buttons, and "not for me" is remembered as an answer.
      */
+    private fun offerReminderOnce() {
+        val state = _state.value
+        if (state.reminderAsked || state.reminder.enabled) return
+        if (state.trip == null) return
+        _state.value = _state.value.copy(
+            reminderSheetOpen = true,
+            reminderIsOffer = true,
+            reminderNote = currentReminderNote(),
+        )
+    }
+
+    /**
+     * Dismissing the panel is an answer, and it is remembered.
+     *
+     * Whether it was the offer or the same panel reached from Settings, the person has
+     * now seen the question and closed it. Asking again next launch would be the app
+     * mistaking a decision for an oversight.
+     */
+    public fun closeReminderSheet() {
+        _state.value = _state.value.copy(
+            reminderSheetOpen = false,
+            reminderIsOffer = false,
+            reminderNote = currentReminderNote(),
+        )
+        markReminderAsked()
+    }
+
+    public fun setReminderHour(hour: Int) {
+        val reminder = _state.value.reminder.atHour(hour)
+        _state.value = _state.value.copy(reminder = reminder)
+        // A live change to a reminder that is already on takes effect immediately: a
+        // time you moved and did not get is a setting that lied.
+        if (reminder.enabled) {
+            persistReminder(reminder, asked = true)
+            armSystemReminder(reminder)
+            _state.value = _state.value.copy(reminderNote = currentReminderNote())
+        }
+    }
+
+    /** Turns it on with the clock already chosen, asking the system if it must. */
+    public fun enableReminder() {
+        val reminder = _state.value.reminder.copy(enabled = true)
+        _state.value = _state.value.copy(
+            reminder = reminder,
+            reminderSheetOpen = false,
+            reminderIsOffer = false,
+        )
+        persistReminder(reminder, asked = true)
+        val platform = reminders
+        when {
+            platform == null || !platform.available -> {
+                _state.value = _state.value.copy(reminderNote = currentReminderNote())
+            }
+
+            platform.permitted -> {
+                armSystemReminder(reminder)
+                _state.value = _state.value.copy(reminderNote = currentReminderNote())
+            }
+
+            else -> platform.request { granted ->
+                if (granted) armSystemReminder(reminder)
+                _state.value = _state.value.copy(reminderNote = currentReminderNote())
+            }
+        }
+        say("A reminder at ${reminder.clock}, every evening.")
+    }
+
+    public fun disableReminder() {
+        val reminder = _state.value.reminder.copy(enabled = false)
+        _state.value = _state.value.copy(
+            reminder = reminder,
+            reminderSheetOpen = false,
+            reminderIsOffer = false,
+            reminderNote = currentReminderNote(),
+        )
+        reminders?.cancel()
+        systemReminderArmed = false
+        persistReminder(reminder, asked = true)
+        say("The evening reminder is off.")
+    }
+
+    private fun markReminderAsked() {
+        if (_state.value.reminderAsked) return
+        persistReminder(_state.value.reminder, asked = true)
+    }
+
+    /**
+     * Writes the preference and mirrors it into state.
+     *
+     * Written immediately rather than on a "save": this is a preference of the person,
+     * and one that resets when the app closes is a bug wearing a setting's clothes.
+     */
+    private fun persistReminder(reminder: Reminder, asked: Boolean) {
+        val updated = settings.copy(reminder = reminder, reminderAsked = asked || settings.reminderAsked)
+        settings = updated
+        _state.value = _state.value.copy(
+            reminder = updated.reminder,
+            reminderAsked = updated.reminderAsked,
+        )
+        scope.launch {
+            runCatching { store.saveSettings(updated) }.onFailure(::report)
+        }
+    }
+
+    /** Asks the platform to hold an alarm; records whether it agreed. */
+    private fun armSystemReminder(reminder: Reminder) {
+        val platform = reminders
+        systemReminderArmed = if (platform != null && platform.available && platform.permitted) {
+            runCatching { platform.schedule(reminder.hour, reminder.minute) }.getOrDefault(false)
+        } else {
+            false
+        }
+    }
+
+    /**
+     * What this build will actually do, in one line — null when it will do exactly
+     * what was asked.
+     */
+    private fun currentReminderNote(): String? {
+        val reminder = _state.value.reminder
+        if (!reminder.enabled) return null
+        val platform = reminders
+        if (platform == null || !platform.available) {
+            return "This build cannot notify you while it is closed. The reminder appears " +
+                "inside the app at ${reminder.clock}, when it is open."
+        }
+        if (!platform.permitted) {
+            return "Notifications are not allowed for Ariadne on this device, so the reminder " +
+                "will appear inside the app at ${reminder.clock} instead."
+        }
+        if (!systemReminderArmed) {
+            return "This build cannot wake on its own while it is closed. The reminder appears " +
+                "inside the app at ${reminder.clock}, when it is open."
+        }
+        return null
+    }
+
+    /**
+     * The fallback every target shares: once a day, after the chosen time, say it.
+     *
+     * It runs while the app is open and no more often than once a day. On a platform
+     * that is holding a real alarm the line is skipped — the notification in the tray
+     * is already the reminder, and two of them at 20:00 is one too many.
+     */
+    private fun startReminderLoop() {
+        if (reminderLoopStarted) return
+        reminderLoopStarted = true
+        scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(30_000)
+                runCatching { tickReminder() }.onFailure(::report)
+            }
+        }
+    }
+
+    private var reminderLoopStarted = false
+
+    private fun tickReminder() {
+        val state = _state.value
+        val reminder = state.reminder
+        if (!reminder.enabled) return
+        if (state.trip == null) return
+        // Nothing to remind about on a trip that has not begun.
+        val today = clock.today()
+        if (today < state.trip.startDate) return
+        val now = clock.nowMillis()
+        if (!reminder.isDueAt(clock.hourOf(now), clock.minuteOf(now))) return
+        if (remindedOn == today) return
+        remindedOn = today
+
+        val waiting = state.tripPending.size
+        val text = when (waiting) {
+            0 -> "It's ${reminder.clock}. Everything is settled — nothing is waiting."
+            1 -> "It's ${reminder.clock}. One photograph is still waiting for its figure."
+            else -> "It's ${reminder.clock}. $waiting photographs are waiting for their figures."
+        }
+        val actionable = waiting > 0
+        if (!systemReminderArmed) {
+            say(
+                text,
+                actionLabel = if (actionable) "close day" else null,
+                kind = NoticeKind.CLOSE_DAY,
+                millis = 20_000,
+            )
+        }
+        // A browser can raise a notification without an alarm; Android's alarm has
+        // already done it, and its `notifyNow` is the default false.
+        reminders?.notifyNow("Ariadne — close day", text)
+    }
+
+    /** What the notice bar's action does, by kind. */
+    public fun noticeAction() {
+        when (_state.value.notice?.kind) {
+            NoticeKind.CLOSE_DAY -> {
+                dismissNotice()
+                openCloseDay(_state.value.today)
+            }
+
+            NoticeKind.UNDO, null -> undoLastEdit()
+        }
+    }
+
+    // -- internals ---------------------------------------------------------
+
     // -- two phones, one ledger --------------------------------------------
     //
     // A code is a copy, not a link. Everything below produces or consumes one, and
@@ -2355,6 +2611,14 @@ public class AppModel(
         )
     }
 
+    /**
+     * The whole trip in one pass: two queries, grouped by day.
+     *
+     * The timeline shows every day with its own band, so loading only the open day
+     * would leave the others claiming "no photographs here" — a statement the app
+     * has not earned the right to make. Figures are converted through the same FX
+     * table the ritual uses.
+     */
     private suspend fun loadTripDays(trip: Trip) {
         val all = store.confirmedForTrip(trip.id) + store.openCaptures().filter { it.tripId == trip.id }
         val byDay = all.groupBy { it.localDate.iso }

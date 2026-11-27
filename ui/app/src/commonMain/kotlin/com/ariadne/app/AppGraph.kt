@@ -81,6 +81,7 @@ public class AppGraph(
             files = files(),
             clipboard = platform.clipboard(),
             reviewManager = platform.reviewManager(),
+            reminders = platform.reminders(),
             clock = clock,
             scope = scope,
             // Time-ordered ids sort the way the photographs were taken, so the record
@@ -143,6 +144,13 @@ public interface PlatformServices {
     public fun reviewManager(): AppReviewManager = NoAppReviewManager
 
     /**
+     * The evening reminder, as this platform can deliver it. Null where a target has
+     * nothing to deliver it with — desktop and iOS today, which still get the in-app
+     * line while they are open.
+     */
+    public fun reminders(): Reminders? = null
+
+    /**
      * Where exchange rates are fetched from, when the platform can reach a network.
      *
      * Optional, and null is a working state: the app keeps the rates it already has
@@ -152,6 +160,40 @@ public interface PlatformServices {
     public fun rateSource(): com.ariadne.fx.RateSource? = null
 
     public fun close()
+}
+
+/**
+ * A daily reminder, delivered the only way a device with no server can deliver one.
+ *
+ * Three separate questions, because the answers genuinely differ by platform and a
+ * single `Boolean` would flatten them into a lie:
+ *
+ *  - [available] — can this build put a line on screen while the app is closed?
+ *  - [permitted] — has the person allowed it? (Android 13+, and every browser.)
+ *  - [schedule] — arm it; true only when the platform will really wake up by itself.
+ *
+ * A browser cannot promise delivery with the tab closed (that needs a service worker
+ * and a push service, which is a server), so it returns false from [schedule] and the
+ * app says so instead of pretending. Android's alarm survives the app being killed; it
+ * does not survive a reboot, and the reminder is re-armed the next time the app opens.
+ */
+public interface Reminders {
+    public val available: Boolean
+    public val permitted: Boolean
+
+    /** Asks the system. [then] runs once, with whether it is allowed now. */
+    public fun request(then: (Boolean) -> Unit)
+
+    /** Arms a daily delivery at [hour]:[minute]. False when the platform will not. */
+    public fun schedule(hour: Int, minute: Int): Boolean
+
+    public fun cancel()
+
+    /**
+     * Posts one immediately, where the platform allows a notification without an alarm.
+     * Used by the in-app loop on a target that cannot schedule; false elsewhere.
+     */
+    public fun notifyNow(title: String, body: String): Boolean = false
 }
 
 /**

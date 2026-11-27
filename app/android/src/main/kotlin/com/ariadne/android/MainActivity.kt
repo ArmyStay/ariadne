@@ -153,6 +153,16 @@ private class AndroidServices(
 
     override fun clipboard(): com.ariadne.app.Clipboard = AndroidClipboard(activity)
 
+    /**
+     * The evening reminder: an alarm the phone keeps after the app is closed.
+     *
+     * Lazy and single: [AndroidReminders] registers an activity-result launcher, and a
+     * launcher may only be registered before the activity is started — and only once.
+     */
+    private val evening: AndroidReminders by lazy { AndroidReminders(activity) }
+
+    override fun reminders(): com.ariadne.app.Reminders = evening
+
     override fun reviewManager(): AppReviewManager {
         val manager = ReviewManagerFactory.create(activity.applicationContext)
         return object : AppReviewManager {

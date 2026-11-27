@@ -94,6 +94,12 @@ adb install -r ariadne.apk
 4. **Close day** → the day's figure.
 5. Trip page → **the codes** → copy the trip code, paste it into a note to check it is the
    sixteen characters the page claims.
+6. Settings → **the evening** → the reminder row → pick the next hour, **SET THE
+   REMINDER**, allow notifications when Android asks. Then close the app from the
+   switcher and wait for that hour: the notification should arrive with the app closed,
+   and tapping it should open Ariadne. If nothing arrives, say so — the fallback line
+   inside the app is the only thing tested so far, and the alarm path has never run on a
+   device.
 
 **Why:** none of this has been seen on a screen. CI compiles; it does not look.
 
