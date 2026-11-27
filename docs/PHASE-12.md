@@ -47,6 +47,28 @@ shadow.
 - `docs/brand/ariadne-icon.png` (512 px) is the copy in this repository, and the README
   opens with it.
 
+## The dock's shutter, and the loading page
+
+Two more frames, both from the same design sheet.
+
+**The shutter is navy.** The dock's circle was `paper.blue` (`#2563EB`) with the
+aperture glyph — a scanner, not the app's own mark. It is now `paper.navy` (`#1C3155`,
+sampled from the supplied dock artwork) with `SparkGlyph`: a four-point spark with
+concave sides and a small diamond cut out of its centre in the circle's own colour. The
+closed-trip state still falls back to `paper.edge`. `ApertureGlyph` is gone with it.
+
+**The loading page is a cover.** `StartupPage` was three lines centred on blank paper
+(a 34sp wordmark, a hairline rule, a 9sp label). It now carries the design sheet's
+composition:
+
+- `Ariadne` at 62sp, a 62×2dp blue rule, **OPENING YOUR RECORD** at 9sp/2.6sp tracking;
+- the serif italic line *“Every journey / leaves a trace”*;
+- the globe-and-flight artwork bleeding off the bottom-right (94 % width, offset
+  `+30dp / +70dp`, 94 % opacity);
+- at the foot a 150×3dp track with a navy segment sweeping along it, and
+  **PREPARING YOUR JOURNEY** beneath it. The bar sweeps rather than filling, because
+  the app cannot measure that wait and will not pretend to.
+
 ## Verified, and not
 
 - **Compiled:** the `four targets` workflow — `shared` (JVM tests, wasm, android

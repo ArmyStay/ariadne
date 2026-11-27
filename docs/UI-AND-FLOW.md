@@ -95,9 +95,12 @@ destinations around the central shutter's reserved slot:
 - Item labels are 11sp, sentence case, tracking 0.2sp: `Home`, `Timeline`, `Stats`,
   `More`. Settings is reached from More rather than occupying its own tab.
 - Selected item: `paper.ink` icon and text on a `paper.sunk` indicator.
-- The **shutter** is a `FloatingActionButton`: 56dp, `CircleShape`, `paper.blue`
-  (`paper.edge` when a trip is closed), aligned top-centre and offset up 20dp, drawn
-  aperture glyph (circle, inner ring, six blades).
+- The **shutter** is a `FloatingActionButton`: 56dp, `CircleShape`, **`paper.navy`**
+  (`#1C3155`, sampled from the supplied dock artwork; `paper.edge` when a trip is
+  closed), aligned top-centre and offset up 20dp. Its mark is `SparkGlyph` — a
+  four-point spark with concave sides, filled in `paper.onBlue`, with a small diamond
+  cut out of its centre in the circle's own colour, so the mark reads as a cut in the
+  navy rather than a shape laid on it.
 - **Badge** on Timeline only: a `paper.blue` circle containing the trip-wide waiting count, positioned
   `x = 8dp, y = -6dp` from the icon's top end — a numeral, not a dot.
 - **Content descriptions**: a stacked Trips or Preferences dock includes its actual
@@ -130,9 +133,23 @@ obstruct the capture decision.
 
 ### 1.4 Where the app opens
 
-The app holds on a quiet startup page while settings and trips are read, so a
-returning person never sees the first-run welcome page flash before their saved
-destination appears.
+The app holds on a quiet startup page (`StartupPage` in `AriadneApp.kt`) while settings
+and trips are read, so a returning person never sees the first-run welcome page flash
+before their saved destination appears.
+
+It is set like a cover, not like a spinner:
+
+- `Ariadne` in Instrument Serif at 62sp, centred, then a 62×2dp rule in `paper.blue`;
+- **OPENING YOUR RECORD** — a `Label` at 9sp, tracking 2.6sp, `paper.inkSoft`;
+- a serif italic line, centred, 17sp: *“Every journey / leaves a trace”*;
+- the globe-and-flight artwork bleeding off the bottom-right corner —
+  `TravelGlobeArtwork` at 94 % of the width, `ContentScale.Crop`, offset `x = +30dp,
+  y = +70dp`, at 94 % opacity (22 % on night stock);
+- at the foot, `StartupBar`: a 150×3dp hairline track in `paper.edgeStrong` with a
+  34 %-wide `paper.navy` segment sweeping along it (`infiniteRepeatable`,
+  1300 ms, `RepeatMode.Reverse`) — a sweep, not a percentage, because nothing here can
+  measure the wait;
+- under it, **PREPARING YOUR JOURNEY** — 8sp, tracking 2.6sp.
 
 `startRoute(hasAnyTrip, hasOpenTrip)`:
 
