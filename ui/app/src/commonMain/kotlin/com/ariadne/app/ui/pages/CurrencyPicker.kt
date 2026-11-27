@@ -44,6 +44,7 @@ import com.ariadne.design.Title
 import com.ariadne.design.motionSpec
 import com.ariadne.model.CurrencyCatalog
 import com.ariadne.model.CurrencyOption
+import com.ariadne.app.ui.tap
 
 /**
  * The currency, chosen rather than spelled.
@@ -75,7 +76,7 @@ public fun CurrencyField(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
-                .androidTap { open = !open }
+                .tap("Choose a currency") { open = !open }
                 .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -200,7 +201,7 @@ private fun CurrencyRow(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .androidTap(onTap)
+            .tap("Choose ${option.code}", onClick = onTap)
             .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -48,6 +48,7 @@ import com.ariadne.model.LocalDay
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import kotlinx.coroutines.launch
+import com.ariadne.app.ui.tap
 
 /**
  * The camera, open over the page you were on.
@@ -253,7 +254,7 @@ private fun GlassesButton(wearable: WearableCapture, paper: Paper, onClick: () -
             .clip(CircleShape)
             .background(if (wearable.connected) paper.blueWash else Color.Transparent)
             .semantics { contentDescription = "Meta AI glasses: ${wearable.status}" }
-            .rowTap(onClick),
+            .tap("Open the glasses panel") { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         GlassesMark(if (wearable.connected) paper.blue else paper.inkSoft, 18.dp)
@@ -274,7 +275,7 @@ private fun GlassesPanel(paper: Paper, wearable: WearableCapture?, onClose: () -
             Modifier
                 .fillMaxSize()
                 .background(paper.scrim.copy(alpha = 0.45f))
-                .rowTap(onClose),
+                .tap("Close the glasses panel") { onClose() },
         )
         Column(
             Modifier
@@ -355,7 +356,7 @@ private fun FrameBox(
             .clip(RoundedCornerShape(22.dp))
             .background(paper.ink)
             .semantics { contentDescription = "Viewfinder. Tap to keep the photograph." }
-            .rowTap(onFire),
+            .tap("Keep the photograph") { onFire() },
     ) {
         CameraPlate(paper, Modifier.fillMaxSize(), live = true, onFrame = onFrame)
         PlateMarks(paper.raised, Modifier.fillMaxSize())
@@ -423,7 +424,7 @@ private fun DaySheet(
             Modifier
                 .fillMaxSize()
                 .background(paper.scrim.copy(alpha = 0.45f))
-                .rowTap(onClose),
+                .tap("Close the day sheet") { onClose() },
         )
         Column(
             Modifier
@@ -505,7 +506,7 @@ private fun DayPip(
                 RoundedCornerShape(10.dp),
             )
             .semantics { contentDescription = "File on ${spokenDay(day.iso)}" }
-            .rowTap(onClick)
+            .tap("File this photograph on that day") { onClick() }
             .padding(vertical = 9.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

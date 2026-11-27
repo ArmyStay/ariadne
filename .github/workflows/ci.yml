@@ -28,6 +28,10 @@ jobs:
         # name has to exist. This is the gate that would have caught a share route that
         # was only ever a sentence.
         run: ./tools/claim-check.sh
+      - name: Accessibility
+        # A second, no JDK: every press in the UI has to be a click action with a label a
+        # screen reader can read, not a bare gesture it can only describe.
+        run: ./tools/a11y-check.sh
       - name: Install Linux OCR natives (Tess4J)
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr libtesseract-dev libleptonica-dev
       - name: shared JVM tests
@@ -58,7 +62,7 @@ jobs:
           set -o pipefail
           [ -f "$RUNNER_TEMP/build.log" ] || exit 0
           summary=$(sed 's|file:///home/runner/work/ariadne/ariadne/||' "$RUNNER_TEMP/build.log" \
-            | grep -E "^e: |FAILED|AssertionError|expected:|Expected|Caused by:|What went wrong|> Task .*FAILED|demo-check" \
+            | grep -E "^e: |FAILED|AssertionError|expected:|Expected|Caused by:|What went wrong|> Task .*FAILED|demo-check|a11y-check" \
             | head -40 | paste -sd '\n' -)
           if [ -z "$summary" ]; then
             summary=$(tail -n 25 "$RUNNER_TEMP/build.log")

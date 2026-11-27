@@ -101,6 +101,16 @@ the ledger uses, an unfinished capture is *not* yet a figure, and a currency wit
 no stored rate reports its raw amount rather than a zero.
 
 ```bash
+./tools/a11y-check.sh
+```
+
+Every press in the UI goes through `Modifier.tap` — `clickable` with no ripple, a role,
+and the words for what the action does — so a screen reader can make it, not just read
+it. The gate fails on raw gesture detection anywhere but the two scrims that close a
+sheet, and on a press whose label is missing or generic (`"Select"`). It is the one
+accessibility property that can be checked without a device.
+
+```bash
 ./tools/entry-check.sh
 ```
 
