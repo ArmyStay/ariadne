@@ -4,7 +4,20 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
-    <application
+        <!-- The glasses talk to the phone over Bluetooth; the DAT needs both halves. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- The amount, said out loud: the recogniser lives in another app, and Android 11+
+         only lets us see it if we ask. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
+<application
         android:label="Ariadne"
         android:icon="@drawable/ariadne_mark"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
@@ -14,7 +27,10 @@
         <!-- Meta Wearable Device Access Toolkit (DAT) Configuration -->
         <meta-data
             android:name="com.meta.wearable.mwdat.APPLICATION_ID"
-            android:value="PLACEHOLDER_APPLICATION_ID" />
+            android:value="${mwdatApplicationId}" />
+        <meta-data
+            android:name="com.meta.wearable.mwdat.CLIENT_TOKEN"
+            android:value="${mwdatClientToken}" />
         <meta-data
             android:name="com.meta.wearable.mwdat.ANALYTICS_OPT_OUT"
             android:value="true" />
