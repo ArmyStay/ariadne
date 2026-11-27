@@ -411,6 +411,15 @@ public data class AppUiState(
     public val reminderIsOffer: Boolean = false,
 
     /**
+     * Whether the question has been asked and answered, either way.
+     *
+     * Mirrors `Settings.reminderAsked` so the offer is decided from state rather than
+     * from a query, and so an answer written to the store is not forgotten until the
+     * next launch.
+     */
+    public val reminderAsked: Boolean = false,
+
+    /**
      * What the platform managed to do, in one line, or null when it did exactly what
      * the person asked for. Never a silent failure dressed as success.
      */

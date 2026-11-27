@@ -196,7 +196,10 @@ public class AppModel(
                 // first page is drawn, so the app never flashes white at launch.
                 _state.value = _state.value.copy(theme = settings.theme)
                 _state.value = _state.value.copy(displayName = settings.displayName)
-                _state.value = _state.value.copy(reminder = settings.reminder.normalised())
+                _state.value = _state.value.copy(
+                    reminder = settings.reminder.normalised(),
+                    reminderAsked = settings.reminderAsked,
+                )
                 // A reminder that was on yesterday is armed again on launch: an alarm
                 // does not survive a reboot, and the honest place to repair that is the
                 // moment the app is next opened rather than a boot receiver that asks
