@@ -1,4 +1,4 @@
-package com.ariadne.app.ui
+package com.ariadne.design
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -17,11 +17,14 @@ import androidx.compose.ui.semantics.Role
  * role, and the words for what the action will perform — with no indication, because
  * nothing in this book ripples.
  *
- * Pass the words the tap performs, not its name: "Delete this photograph" is an
- * instruction a person can follow without seeing the icon; "Tap" is not.
+ * Pass the words the tap performs, not its name: "Close today" is an instruction a
+ * person can follow without seeing the block; "Tap" is not.
+ *
+ * It lives in the design module because every control in the app is built here, and
+ * `tools/a11y-check.sh` holds both this module and the pages to it.
  */
 @Composable
-internal fun Modifier.tap(
+public fun Modifier.tap(
     label: String,
     enabled: Boolean = true,
     role: Role = Role.Button,

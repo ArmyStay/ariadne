@@ -1,12 +1,10 @@
 package com.ariadne.app.ui.pages
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.aspectRatio
@@ -46,8 +44,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -57,55 +53,43 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.app.AppModel
 import com.ariadne.app.AppUiState
-import androidx.compose.ui.text.font.FontWeight
 import com.ariadne.app.Route
 import com.ariadne.design.Action
 import com.ariadne.design.Body
 import com.ariadne.design.Bone
 import com.ariadne.design.ScrollRail
 import com.ariadne.design.Label
-import com.ariadne.design.Motion
 import com.ariadne.design.NavRow
 import com.ariadne.design.Reveal
 import com.ariadne.design.SectionBreak
 import com.ariadne.design.Rule
 import com.ariadne.design.Numeral
-import com.ariadne.design.motionSpec
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.Masthead
 import com.ariadne.design.Page
 import com.ariadne.design.RailFigure
 import com.ariadne.design.SectionHead
-import com.ariadne.design.GlobeSky
 import com.ariadne.design.Glyph
 import com.ariadne.design.MarkHead
 import com.ariadne.design.StatusTag
-import com.ariadne.design.animatedLong
-import com.ariadne.design.Grid
 import com.ariadne.design.Icon
-import com.ariadne.design.PageAction
 import com.ariadne.design.Paper
-import com.ariadne.design.Pill
-import com.ariadne.design.PillTone
 import com.ariadne.design.QuietAction
 import com.ariadne.design.Tick
 import com.ariadne.design.Title
 import com.ariadne.design.TravelGlobeArtwork
-import com.ariadne.model.Capture
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.DaySummary
 import com.ariadne.model.LocalDay
 import com.ariadne.model.Money
 import com.ariadne.model.Settings
 import com.ariadne.model.dayRange
-import com.ariadne.model.symbol
-import com.ariadne.app.ui.tap
+import com.ariadne.design.tap
 
 /**
  * Wraps every tab view in the same page furniture.
@@ -115,7 +99,7 @@ import com.ariadne.app.ui.tap
  * away and the same content is one column at 24dp margins.
  */
 @Composable
-private fun TabPage(
+internal fun TabPage(
     paper: Paper,
     wide: Boolean,
     railDocked: Boolean,
@@ -1001,236 +985,6 @@ private fun localMonth(day: LocalDay): String = listOf(
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 )[(day.month - 1).coerceIn(0, 11)]
-
-// ── 3. Stats ────────────────────────────────────────────────────────────────
-
-@Composable
-public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
-    TabPage(
-        paper,
-        wide,
-        railDocked = state.railDocked,
-        onToggleRail = { model.toggleRail() },
-        rail = {
-            RailFigure(
-                "the trip",
-                Money.ofMinor(state.tripTotalMinor)
-                    .formatWithSymbol(state.trip?.baseCurrency ?: CurrencyCode.of(state.dayCurrency)),
-                paper,
-                16.sp,
-            )
-            Spacer(Modifier.height(26.dp))
-            RailFigure("entries", "${state.categoryTotals.sumOf { it.captures }}", paper, 26.sp)
-            Spacer(Modifier.height(26.dp))
-            Label("finished only", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.2.sp)
-        },
-    ) {
-        Masthead(
-            number = "03",
-            eyebrow = state.trip?.name ?: "Stats",
-            title = "What it came to",
-            paper = paper,
-            italic = true,
-            wide = wide,
-        )
-
-        Spacer(Modifier.height(20.dp))
-
-        // The trip's figure, not the open day's: this page is about the whole thing,
-        // and a headline that disagreed with the breakdown below it would be a bug
-        // wearing a design.
-        val tripTotal = state.tripTotalMinor
-        val base = state.trip?.baseCurrency ?: CurrencyCode.of(state.dayCurrency)
-
-        // The figure, set on the paper itself. No card: a number this size carries
-        // its own emphasis, and a white box around it is decoration that also
-        // happens to be the default container in every generated layout.
-        Label("the trip so far", paper, color = paper.inkSoft)
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Numeral(CurrencyCode.of(base.code).symbol(), paper, color = paper.inkFaint, size = 22.sp)
-            Spacer(Modifier.width(6.dp))
-            // Counts to the new total rather than snapping: this figure is read
-            // against a fence, and seeing which way it moved is the point.
-            val shown = animatedLong(tripTotal)
-            Numeral(
-                Money.ofMinor(shown).format(base),
-                paper,
-                size = if (wide) 64.sp else 50.sp,
-                weight = FontWeight.Medium,
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        Rule(paper, color = paper.ink)
-        Spacer(Modifier.height(7.dp))
-        // The qualifier belongs to the figure, not to the note three sections
-        // below it: a total is read before anything under it.
-        Label("finished entries only", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.3.sp)
-        Spacer(Modifier.height(14.dp))
-
-        // The fence, if one was set. Over budget is stated plainly and in the same
-        // voice as under it: this is a record, not a scold.
-        val budget = state.trip?.budgetMinor
-        if (budget != null) {
-            val remaining = budget - tripTotal
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Label("against a budget of", paper, color = paper.inkFaint, size = 9.sp, tracking = 1.4.sp)
-                Spacer(Modifier.width(8.dp))
-                Label(
-                    Money.ofMinor(budget).formatWithSymbol(base),
-                    paper,
-                    color = paper.inkSoft,
-                    size = 10.sp,
-                    tracking = 1.2.sp,
-                )
-                Spacer(Modifier.weight(1f))
-                Label(
-                    if (remaining >= 0) "left" else "over",
-                    paper,
-                    color = paper.inkFaint,
-                    size = 9.sp,
-                    tracking = 1.4.sp,
-                )
-                Spacer(Modifier.width(8.dp))
-                Numeral(
-                    Money.ofMinor(if (remaining >= 0) remaining else -remaining).format(base),
-                    paper,
-                    size = 15.sp,
-                    weight = FontWeight.Medium,
-                    color = if (remaining >= 0) paper.ink else paper.blue,
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-        }
-
-        Body(
-            "Only entries that were finished. Anything still waiting across this trip is not " +
-                "in this figure, and is not counted as zero.",
-            paper,
-            color = paper.inkFaint,
-            size = 12.sp,
-            lineHeight = 18.sp,
-        )
-
-        if (state.dayFigures.isNotEmpty()) {
-            Spacer(Modifier.height(18.dp))
-            SectionHead("II", "daily spending", paper)
-            Label(
-                "finished entries · ${base.code}",
-                paper,
-                color = paper.inkFaint,
-                size = 9.sp,
-                tracking = 1.2.sp,
-            )
-            Spacer(Modifier.height(10.dp))
-            DailySpendChart(state, paper)
-            Spacer(Modifier.height(22.dp))
-        }
-
-        if (state.categoryTotals.isNotEmpty()) {
-            SectionHead("III", "what it was", paper)
-            Breakdown(
-                totals = state.categoryTotals,
-                baseCurrency = base,
-                totalBaseMinor = state.tripTotalMinor,
-                paper = paper,
-            )
-            PatternLine(state.categoryTotals, base, paper)
-            Spacer(Modifier.height(10.dp))
-            Body(
-                "Nothing here is sorted for you. A category is a claim you make on an entry, " +
-                    "and most entries never need one.",
-                paper,
-                color = paper.inkFaint,
-                size = 12.sp,
-                lineHeight = 18.sp,
-            )
-            Spacer(Modifier.height(26.dp))
-        }
-
-        if (state.tripPerCurrency.isNotEmpty()) {
-            // The same finished photographs, seen from the other side. The two
-            // columns must always add to the same figure.
-            SectionHead("IV", "by currency, before conversion", paper)
-            state.tripPerCurrency.forEach { (code, minor) ->
-                Row(
-                    Modifier.fillMaxWidth().padding(vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Tick(paper, 16.dp, paper.inkGhost)
-                        Spacer(Modifier.width(12.dp))
-                        Title(code, paper, size = 18.sp)
-                    }
-                    Numeral(Money.ofMinor(minor).format(CurrencyCode.of(code)), paper, size = 17.sp)
-                }
-                Rule(paper)
-            }
-            Label(
-                "these are the amounts as they were paid, not converted",
-                paper,
-                color = paper.inkFaint,
-                tracking = 1.2.sp,
-                size = 9.sp,
-            )
-        } else if (state.categoryTotals.isEmpty()) {
-            Body(
-                "Nothing has been tallied yet. The figures appear here the first time you confirm an entry.",
-                paper,
-                color = paper.inkSoft,
-                size = 15.sp,
-                lineHeight = 22.sp,
-            )
-        }
-
-        Spacer(Modifier.height(24.dp))
-        // Nothing to settle on a day already filed: the bar goes inert rather
-        // than opening a ritual with an empty stack.
-        val todayClosed = state.dayCards.firstOrNull { it.localDate == state.today }?.isClosed == true
-        val tripClosed = state.trip?.isClosed == true
-        Action(
-            "Close today",
-            paper,
-            { model.openCloseDay(state.today) },
-            accent = true,
-            enabled = state.stack.isNotEmpty() && !todayClosed && !tripClosed,
-        )
-
-        Spacer(Modifier.height(96.dp))
-    }
-}
-
-@Composable
-private fun DailySpendChart(state: AppUiState, paper: Paper) {
-    val values = state.dayCards.map { it.localDate }.takeLast(7).map { day ->
-        day to (state.dayFigures[day.iso] ?: 0L)
-    }
-    val maximum = values.maxOfOrNull { it.second }?.coerceAtLeast(1L) ?: 1L
-    Canvas(Modifier.fillMaxWidth().height(108.dp)) {
-        val columnWidth = size.width / (values.size * 2f)
-        val chartHeight = size.height - 2f
-        values.forEachIndexed { index, (_, value) ->
-            val barHeight = (value.toDouble() / maximum.toDouble() * chartHeight).toFloat()
-            drawRect(
-                color = if (index == values.lastIndex) paper.blue else paper.inkSoft.copy(alpha = 0.62f),
-                topLeft = Offset(columnWidth * (index * 2 + 0.5f), chartHeight - barHeight),
-                size = Size(columnWidth, barHeight),
-            )
-        }
-        drawLine(
-            color = paper.edgeStrong,
-            start = Offset(0f, chartHeight),
-            end = Offset(size.width, chartHeight),
-            strokeWidth = 1.dp.toPx(),
-        )
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        values.forEach { (day, _) ->
-            Label(day.iso.takeLast(2), paper, color = paper.inkFaint, size = 8.sp)
-        }
-    }
-}
 
 // ── 4. Preferences ──────────────────────────────────────────────────────────
 

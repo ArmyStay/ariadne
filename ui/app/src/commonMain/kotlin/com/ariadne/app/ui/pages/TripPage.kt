@@ -1,8 +1,5 @@
 package com.ariadne.app.ui.pages
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,7 +36,7 @@ import com.ariadne.design.Glyph
 import com.ariadne.model.BudgetPlan
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.Money
-import com.ariadne.app.ui.tap
+import com.ariadne.design.tap
 
 /**
  * Trip — the journey as an object, in the bar rather than behind a link.

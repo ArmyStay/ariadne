@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,8 +28,6 @@ import com.ariadne.design.Label
 import com.ariadne.design.Numeral
 import com.ariadne.design.OutlineAction
 import com.ariadne.design.Paper
-import com.ariadne.design.Plate
-import com.ariadne.design.Subject
 import com.ariadne.design.QuietAction
 import com.ariadne.design.RuledKeypad
 import com.ariadne.design.Rule

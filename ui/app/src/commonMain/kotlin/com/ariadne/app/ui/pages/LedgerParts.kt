@@ -1,32 +1,21 @@
 package com.ariadne.app.ui.pages
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ariadne.design.Body
-import com.ariadne.design.Label
-import com.ariadne.design.Numeral
 import com.ariadne.design.Paper
-import com.ariadne.design.Rule
-import com.ariadne.design.Title
 import com.ariadne.model.Category
 import com.ariadne.model.CategoryTotal
 import com.ariadne.model.CurrencyCode
 import com.ariadne.model.Money
 import com.ariadne.model.isoWeekday
-import kotlin.math.abs
 
 /**
  * Two pieces of the ledger that earn their space: the breakdown, and the sentence
@@ -37,82 +26,6 @@ import kotlin.math.abs
  * was for, the sentence says which row was the largest, and both stop there. That
  * is the difference between a record and a coach.
  */
-
-/**
- * The breakdown: what the money was for, in the trip's base currency.
- *
- * Rendered as a ruled column rather than the usual donut. A list can be read to
- * the rupee; a donut can only be glanced at, and this is a ledger. The bar beside
- * each figure is proportional to the largest row, so the shape is still visible
- * without pretending to be a chart.
- */
-@Composable
-internal fun Breakdown(
-    totals: List<CategoryTotal>,
-    baseCurrency: CurrencyCode,
-    totalBaseMinor: Long,
-    paper: Paper,
-    modifier: Modifier = Modifier,
-) {
-    val largest = totals.maxOfOrNull { abs(it.baseMinor) }?.coerceAtLeast(1L) ?: 1L
-
-    Column(modifier.fillMaxWidth()) {
-        totals.forEachIndexed { index, row ->
-            val proportion = (abs(row.baseMinor).toDouble() / largest.toDouble()).toFloat().coerceIn(0.02f, 1f)
-            Column(Modifier.fillMaxWidth().padding(vertical = 13.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Title(
-                            row.category?.label ?: "Uncategorised",
-                            paper,
-                            size = 17.sp,
-                            italic = row.category == null,
-                            color = if (row.category == null) paper.inkSoft else paper.ink,
-                        )
-                        Spacer(Modifier.height(3.dp))
-                        Label(
-                            "${row.captures} entr${if (row.captures == 1) "y" else "ies"}",
-                            paper,
-                            color = paper.inkFaint,
-                            tracking = 1.2.sp,
-                            size = 9.sp,
-                        )
-                    }
-                    Numeral(
-                        Money.ofMinor(row.baseMinor).formatWithSymbol(baseCurrency),
-                        paper,
-                        size = 16.sp,
-                        weight = FontWeight.Medium,
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
-                // The bar is drawn in a wash, never a colour: the page has one
-                // chromatic value and it belongs to the actions.
-                Box(Modifier.fillMaxWidth().height(3.dp).background(paper.sunk)) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth(proportion)
-                            .height(3.dp)
-                            .background(if (row.category == null) paper.inkGhost else paper.ink),
-                    )
-                }
-            }
-            if (index < totals.lastIndex) Rule(paper)
-        }
-
-        if (totals.isNotEmpty() && totalBaseMinor > 0) {
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Label("of", paper, color = paper.inkSoft)
-                Numeral(
-                    Money.ofMinor(totalBaseMinor).formatWithSymbol(baseCurrency),
-                    paper,
-                    size = 13.sp,
-                )
-            }
-        }
-    }
-}
 
 /**
  * The one sentence the breakdown is allowed to say about you.

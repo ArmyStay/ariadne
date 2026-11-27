@@ -50,7 +50,7 @@ import com.ariadne.model.CurrencyCode
 import com.ariadne.model.Money
 import com.ariadne.model.SpokenAmount
 import com.ariadne.model.SpokenExpense
-import com.ariadne.app.ui.tap
+import com.ariadne.design.tap
 
 /**
  * The microphone, drawn.

@@ -44,7 +44,7 @@ import com.ariadne.design.Title
 import com.ariadne.design.motionSpec
 import com.ariadne.model.CurrencyCatalog
 import com.ariadne.model.CurrencyOption
-import com.ariadne.app.ui.tap
+import com.ariadne.design.tap
 
 /**
  * The currency, chosen rather than spelled.

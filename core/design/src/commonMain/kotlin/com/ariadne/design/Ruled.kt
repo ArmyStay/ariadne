@@ -2,7 +2,6 @@ package com.ariadne.design
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -16,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -66,8 +64,8 @@ public fun RuledKeypad(
                         Modifier
                             .weight(1f)
                             .heightIn(min = rowHeight)
-                            .rulerTap { onDigit(digit) }
-                            .semantics { contentDescription = digit.toString() },
+                            .tap(if (digit == '.') "Type the point" else "Type $digit") { onDigit(digit) }
+                            .semantics { contentDescription = if (digit == '.') "point" else digit.toString() },
                         contentAlignment = Alignment.Center,
                     ) {
                         Numeral(digit.toString(), paper, size = digitSize, weight = FontWeight.Medium)
@@ -79,7 +77,7 @@ public fun RuledKeypad(
                         Modifier
                             .weight(1f)
                             .heightIn(min = rowHeight)
-                            .rulerTap { onBackspace() }
+                            .tap("Delete a digit") { onBackspace() }
                             .semantics { contentDescription = "Backspace" },
                         contentAlignment = Alignment.Center,
                     ) { Icon(Glyph.Backspace, paper, size = 18.dp) }
@@ -93,9 +91,6 @@ public fun RuledKeypad(
 private fun KeySeparator(paper: Paper) {
     Box(Modifier.width(Bone.Hairline).fillMaxHeight().background(paper.edge))
 }
-
-private fun Modifier.rulerTap(onClick: () -> Unit): Modifier =
-    pointerInput(onClick) { detectTapGestures(onTap = { onClick() }) }
 
 /**
  * A measured rule: the done portion drawn solid, the rest as a ruler.

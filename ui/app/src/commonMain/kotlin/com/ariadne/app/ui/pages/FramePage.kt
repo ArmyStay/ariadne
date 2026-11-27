@@ -49,7 +49,7 @@ import com.ariadne.model.EntryStatus
 import com.ariadne.model.Money
 import com.ariadne.model.SpokenExpense
 import com.ariadne.model.entryStatus
-import com.ariadne.app.ui.tap
+import com.ariadne.design.tap
 
 /**
  * The photograph you have just kept.

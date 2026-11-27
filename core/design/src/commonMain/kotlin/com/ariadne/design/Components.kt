@@ -2,7 +2,6 @@ package com.ariadne.design
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,8 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -282,13 +279,8 @@ public fun Action(
             // corner on a renderer without antialiasing, too little to read as a
             // card. The reference's blocks are rectangles.
             .background(bg, shape(corner))
-            .semantics {
-                contentDescription = text
-                role = Role.Button
-            }
-            .pointerInput(text, enabled) {
-                if (enabled) detectTapGestures(onTap = { onClick() })
-            }
+            .tap(text, enabled = enabled) { onClick() }
+            .semantics { contentDescription = text }
             .padding(horizontal = 20.dp, vertical = 17.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -341,13 +333,8 @@ public fun OutlineAction(
             .fillMaxWidth()
             .heightIn(min = Bone.ButtonHeight)
             .border(Bone.Hairline, if (enabled) paper.edgeStrong else paper.edge, shape(2.dp))
-            .semantics {
-                contentDescription = text
-                role = Role.Button
-            }
-            .pointerInput(text, enabled) {
-                if (enabled) detectTapGestures(onTap = { onClick() })
-            }
+            .tap(text, enabled = enabled) { onClick() }
+            .semantics { contentDescription = text }
             .padding(horizontal = 20.dp, vertical = 17.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -386,11 +373,8 @@ public fun QuietAction(
     Box(
         modifier
             .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
-            .semantics {
-                contentDescription = text
-                role = Role.Button
-            }
-            .pointerInput(text) { detectTapGestures(onTap = { onClick() }) }
+            .tap(text) { onClick() }
+            .semantics { contentDescription = text }
             .padding(vertical = 6.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
@@ -417,11 +401,8 @@ public fun LinkAction(
 ) {
     Box(
         modifier
-            .semantics {
-                contentDescription = text
-                role = Role.Button
-            }
-            .pointerInput(text) { detectTapGestures(onTap = { onClick() }) }
+            .tap(text) { onClick() }
+            .semantics { contentDescription = text }
             .padding(vertical = 6.dp),
     ) {
         Text(
@@ -457,8 +438,8 @@ public fun Field(
             .then(
                 if (onClick != null) {
                     Modifier
+                        .tap(label) { onClick() }
                         .semantics { contentDescription = label }
-                        .pointerInput(label) { detectTapGestures(onTap = { onClick() }) }
                 } else {
                     Modifier
                 }
@@ -574,7 +555,7 @@ public fun FigureRow(
             .fillMaxWidth()
             .then(
                 if (onClick != null) {
-                    Modifier.pointerInput(label) { detectTapGestures(onTap = { onClick() }) }
+                    Modifier.tap(label) { onClick() }
                 } else {
                     Modifier
                 }
@@ -638,11 +619,8 @@ public fun InkBlock(
         modifier
             .size(size)
             .background(paper.ink, shape(2.dp))
-            .semantics {
-                contentDescription = glyph
-                role = Role.Button
-            }
-            .pointerInput(glyph) { detectTapGestures(onTap = { onClick() }) },
+            .tap(glyph) { onClick() }
+            .semantics { contentDescription = glyph },
         contentAlignment = Alignment.Center,
     ) {
         Text(
