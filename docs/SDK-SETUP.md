@@ -91,20 +91,23 @@ adb shell am start -n com.ariadne.app/com.ariadne.android.MainActivity --ez mock
 
 ### Permission and privacy constraints the build encodes
 
-The manifest declares four permissions, and nothing else:
+The app manifest declares these permissions (SDK manifests may contribute others):
 
 | Permission | Why |
 | --- | --- |
 | `CAMERA` | the shutter. `uses-feature android.hardware.camera` is `required="false"`, so the app installs on a device without one and falls back to the plate |
-| `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` | the glasses: the Wearables Device Access Toolkit talks to the phone over BLE |
-| `INTERNET` | the optional exchange-rate lookup, and nothing else |
+| `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` | the glasses: the Wearables Device Access Toolkit talks to the phone over BLE; scanning declares `neverForLocation`, not location use |
+| `INTERNET` | explicitly declared for exchange-rate requests; this is not proof that the wearables SDK makes no network requests |
+| `POST_NOTIFICATIONS` | requested only when enabling the evening reminder |
 
 There is **no** storage permission: the photo picker is `PickMultipleVisualMedia`, which
 grants exactly the images a person chooses. Receipt photographs are written to
 app-private storage, scaled to 1600px on the long edge and re-encoded at 88 before they
 are kept. The manifest also carries a `<queries>` entry for
 `android.speech.RecognitionService`, which is how Android 11+ lets the microphone find a
-recogniser app — a query, not a permission.
+recogniser app — a query, not a permission. Voice uses an external recognition activity,
+with `EXTRA_PREFER_OFFLINE` as a best-effort hint. Providers can ignore it and upload
+audio; the app warns before launch and offers typing instead.
 
 ---
 

@@ -42,6 +42,8 @@ SELECT * FROM capture
 WHERE tripId = ? AND localDate = ?
 ORDER BY createdAt ASC;
 
+-- Intentionally global: background extraction/resume must not abandon older trips.
+-- Not the Nightfall stack: AppModel.refreshDay uses selectCapturesForDay (trip + day).
 selectOpenCaptures:
 SELECT * FROM capture
 WHERE state IN ('QUEUED', 'EXTRACTING', 'NEEDS_AMOUNT', 'NEEDS_CONFIRMATION', 'FAILED')

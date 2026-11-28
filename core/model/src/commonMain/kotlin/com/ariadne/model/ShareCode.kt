@@ -68,6 +68,10 @@ public object ShareCodes {
     private const val MAX_NAME_CHARS: Int = 19
     private const val MAX_ENTRIES: Int = 200
 
+    // A maximum-size formatted ledger is under 4,200 characters. Allow whitespace
+    // from pasting, but bound work before uppercase/filter/array allocations on untrusted text.
+    private const val MAX_INPUT_CHARS: Int = 8192
+
     /** Sixteen symbols after the prefix, whatever the group separators look like. */
     public const val TRIP_LENGTH: Int = 16
 
@@ -148,6 +152,7 @@ public object ShareCodes {
 
     /** Reads a trip code, with a reason when it cannot be read. */
     public fun decodeTrip(text: String): Outcome<Plan> {
+        if (text.length > MAX_INPUT_CHARS) return Outcome.Failed("The code is too long.")
         val symbols = symbolsOf(text, TRIP_PREFIX) ?: return Outcome.Failed(
             if (text.isBlank()) "Type or paste a code first." else "A trip code starts with AR1.",
         )
@@ -216,6 +221,7 @@ public object ShareCodes {
 
     /** Reads a ledger code, with a reason when it cannot be read. */
     public fun decodeLedger(text: String): Outcome<Ledger> {
+        if (text.length > MAX_INPUT_CHARS) return Outcome.Failed("The code is too long.")
         val symbols = symbolsOf(text, LEDGER_PREFIX) ?: return Outcome.Failed(
             if (text.isBlank()) "Paste the line they sent you." else "A ledger code starts with AR2.",
         )

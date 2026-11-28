@@ -2680,6 +2680,7 @@ public class AppModel(
 
     private suspend fun refreshDay(day: LocalDay) {
         val trip = _state.value.trip ?: return
+        // Nightfall is trip-and-day scoped; the global open-capture queue is only for background work.
         val captures = store.capturesForDay(trip.id, day).sortedBy { it.createdAt }
         val stack = captures.filter {
             it.state == CaptureState.QUEUED ||

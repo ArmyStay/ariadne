@@ -36,6 +36,22 @@ class OutboxTest {
     }
 
     @Test
+    fun background_work_spans_trips_but_day_review_does_not() = runTest {
+        val repo = InMemoryCaptureRepository(listOf(
+            capture("old-trip", 1).copy(tripId = "previous-trip"),
+            capture("today", 2),
+            capture("other-day", 3).copy(localDate = day.plusDays(-1)),
+        ))
+        val outbox = Outbox(repo, now = { 0L })
+        outbox.resume()
+        assertEquals(listOf("old-trip", "today", "other-day"), outbox.pending.value.map { it.id })
+        assertEquals("old-trip", outbox.nextForExtraction()?.id)
+        assertEquals(listOf("today"), outbox.forDay("trip-1", day).map { it.id })
+        assertEquals(listOf("today"), outbox.unconfirmedForDay("trip-1", day).map { it.id })
+        assertEquals(listOf("old-trip"), outbox.forDay("previous-trip", day).map { it.id })
+    }
+
+    @Test
     fun batch_capture_keeps_capture_order() = runTest {
         val repo = InMemoryCaptureRepository()
         val outbox = Outbox(repo, now = { 0L })

@@ -128,7 +128,8 @@ kotlinc -nowarn -jvm-target 17 -Xallow-kotlin-package \
 java -cp "$WORK/out-model:$STDLIB" RunnerKt \
   com.ariadne.model.MoneyTest com.ariadne.model.LocalDayTest \
   com.ariadne.model.MerchantNameTest com.ariadne.model.EntryStatusTest \
-  com.ariadne.model.BudgetPlanTest com.ariadne.model.SpokenExpenseTest
+  com.ariadne.model.BudgetPlanTest com.ariadne.model.SpokenExpenseTest \
+  com.ariadne.model.ShareCodeTest com.ariadne.model.ShareCodeFuzzTest
 
 echo "== core:fx =="
 kotlinc -nowarn -jvm-target 17 -Xallow-kotlin-package \
