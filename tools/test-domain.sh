@@ -28,6 +28,7 @@ run_jvm() {
   "$T/kotlinc/bin/kotlinc" -nowarn -jvm-target 17 -cp "$CP" -d "$OUT" $SRCS
   "$JAVA_HOME/bin/java" -cp "$CP:$OUT" org.junit.runner.JUnitCore \
     com.ariadne.model.MoneyTest com.ariadne.model.LocalDayTest \
+    com.ariadne.model.ShareCodeTest com.ariadne.model.ShareCodeFuzzTest \
     com.ariadne.fx.FxTest \
     com.ariadne.extract.ReceiptParserFixtureTest \
     com.ariadne.model.BudgetPlanTest \
