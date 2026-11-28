@@ -118,23 +118,51 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
         Spacer(Modifier.height(if (wide) 24.dp else 20.dp))
         TripTotalCard(state, base, tripTotal, paper, wide)
 
-        if (state.dayFigures.isNotEmpty()) {
-            Spacer(Modifier.height(if (wide) 22.dp else 18.dp))
-            SpendCard(state, base, paper, wide)
-        }
-
-        if (state.categoryTotals.isNotEmpty()) {
-            Spacer(Modifier.height(if (wide) 22.dp else 18.dp))
-            CategoryCard(state.categoryTotals, base, tripTotal, paper)
-            PatternLine(state.categoryTotals, base, paper)
-        }
-
-        if (state.tripPerCurrency.isNotEmpty()) {
-            // The same finished photographs, seen from the other side. The two
-            // columns must always add to the same figure.
-            Spacer(Modifier.height(if (wide) 22.dp else 18.dp))
-            CurrencyCard(state.tripPerCurrency, paper)
-        } else if (state.categoryTotals.isEmpty()) {
+        if (wide) {
+            // The total anchors the page; the detail reads as two related columns
+            // beneath it instead of a long stack of equally weighted cards.
+            Spacer(Modifier.height(22.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(Modifier.weight(1.15f)) {
+                    if (state.dayFigures.isNotEmpty()) SpendCard(state, base, paper, wide = true)
+                    if (state.tripPerCurrency.isNotEmpty()) {
+                        Spacer(Modifier.height(20.dp))
+                        CurrencyCard(state.tripPerCurrency, paper)
+                    }
+                }
+                Column(Modifier.weight(0.85f)) {
+                    if (state.categoryTotals.isNotEmpty()) {
+                        CategoryCard(state.categoryTotals, base, tripTotal, paper)
+                        PatternLine(state.categoryTotals, base, paper)
+                    } else if (state.dayFigures.isEmpty()) {
+                        Body(
+                            "Nothing has been tallied yet. The figures appear here the first time you confirm an entry.",
+                            paper,
+                            color = paper.inkSoft,
+                            size = 15.sp,
+                            lineHeight = 22.sp,
+                        )
+                    }
+                }
+            }
+        } else {
+            if (state.dayFigures.isNotEmpty()) {
+                Spacer(Modifier.height(18.dp))
+                SpendCard(state, base, paper, wide = false)
+            }
+            if (state.categoryTotals.isNotEmpty()) {
+                Spacer(Modifier.height(18.dp))
+                CategoryCard(state.categoryTotals, base, tripTotal, paper)
+                PatternLine(state.categoryTotals, base, paper)
+            }
+            if (state.tripPerCurrency.isNotEmpty()) {
+                Spacer(Modifier.height(18.dp))
+                CurrencyCard(state.tripPerCurrency, paper)
+            } else if (state.categoryTotals.isEmpty() && state.dayFigures.isEmpty()) {
             Spacer(Modifier.height(20.dp))
             Body(
                 "Nothing has been tallied yet. The figures appear here the first time you confirm an entry.",
@@ -143,6 +171,7 @@ public fun StatsPage(state: AppUiState, model: AppModel, paper: Paper, wide: Boo
                 size = 15.sp,
                 lineHeight = 22.sp,
             )
+            }
         }
 
         Spacer(Modifier.height(26.dp))

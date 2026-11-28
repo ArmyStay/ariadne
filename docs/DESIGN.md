@@ -116,6 +116,9 @@ vocabulary of every Material-derived layout. The book now uses **2dp on
 controls and 1dp on tags**: enough to survive a renderer without
 antialiasing, too little to read as a card. Capsule pills became
 rule-bordered rectangles; the keypad became a grid of hairlines with no fills.
+Panels are a separate role: the Home spending panel keeps its 16dp radius, while
+the actions inside and below it use the square control shape. The circular shutter
+and microphone remain circular because their shape identifies those distinct actions.
 
 ### The grid
 

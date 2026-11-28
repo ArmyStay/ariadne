@@ -37,7 +37,6 @@ import com.ariadne.design.Bone
 import com.ariadne.design.FlightSky
 import com.ariadne.design.Glyph
 import com.ariadne.design.Icon
-import com.ariadne.design.IndexCard
 import com.ariadne.design.Label
 import com.ariadne.design.Leaf
 import com.ariadne.design.Masthead
@@ -50,9 +49,37 @@ import com.ariadne.design.Rule
 import com.ariadne.design.SectionHead
 import com.ariadne.design.SectionMark
 import com.ariadne.design.Title
+import com.ariadne.design.tap
 import com.ariadne.model.Category
 
 public val LocalDataArchiveExporter = staticCompositionLocalOf<DataArchiveExporter?> { null }
+
+@Composable
+private fun MoreDestination(
+    glyph: Glyph,
+    title: String,
+    detail: String,
+    paper: Paper,
+    onClick: () -> Unit,
+) {
+    Column(
+        Modifier.fillMaxWidth().tap("Open $title", onClick = onClick).padding(vertical = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(glyph, paper, size = 17.dp, color = paper.blue)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Title(title, paper, size = 16.sp, lineHeight = 20.sp)
+                Spacer(Modifier.height(2.dp))
+                Body(detail, paper, color = paper.inkSoft, size = 11.sp, lineHeight = 15.sp)
+            }
+            Spacer(Modifier.width(10.dp))
+            Icon(Glyph.Chevron, paper, size = 13.dp, color = paper.inkFaint)
+        }
+        Spacer(Modifier.height(7.dp))
+        Rule(paper, color = paper.edge)
+    }
+}
 
 @Composable
 public fun MorePage(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
@@ -90,33 +117,36 @@ public fun MorePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
         ) {
             // No eyebrow and no plate number: this page is a door, not a chapter,
             // and the title does the work of both.
-            Spacer(Modifier.height(if (wide) 14.dp else 18.dp))
+            Spacer(Modifier.height(if (wide) 14.dp else 12.dp))
             Title(
                 "More",
                 paper,
-                size = if (wide) 68.sp else 52.sp,
-                lineHeight = if (wide) 70.sp else 54.sp,
+                size = if (wide) 56.sp else 42.sp,
+                lineHeight = if (wide) 60.sp else 46.sp,
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(4.dp))
             Body(
-                "Trips, settings, and the things you can do with your record.",
+                "Trips, settings, and your record.",
                 paper,
                 color = paper.inkSoft,
-                size = if (wide) 16.sp else 14.sp,
-                lineHeight = if (wide) 24.sp else 21.sp,
+                size = if (wide) 14.sp else 13.sp,
+                lineHeight = if (wide) 20.sp else 18.sp,
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(14.dp))
             Rule(paper, color = paper.edge)
 
             // ── the journeys ────────────────────────────────────────────────
+            if (wide) {
+                MoreColumns(state, model, paper)
+            } else {
             Spacer(Modifier.height(26.dp))
             SectionMark("the journeys", paper)
             Spacer(Modifier.height(14.dp))
-            IndexCard(Glyph.Trip, "Trips", "${state.trips.size} on this device", paper) {
+            MoreDestination(Glyph.Trip, "Trips", "${state.trips.size} on this device", paper) {
                 model.go(Route.Trips)
             }
             Spacer(Modifier.height(10.dp))
-            IndexCard(Glyph.Budget, "Add manually", "An expense without a photograph", paper) {
+            MoreDestination(Glyph.Budget, "Add manually", "An expense without a photograph", paper) {
                 model.go(Route.ManualEntry)
             }
 
@@ -124,25 +154,33 @@ public fun MorePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
             Spacer(Modifier.height(28.dp))
             SectionMark("your copy", paper)
             Spacer(Modifier.height(14.dp))
-            IndexCard(Glyph.Edit, "Settings & profile", "Name, currencies, appearance", paper) {
+            MoreDestination(Glyph.Edit, "Settings & profile", "Name, currencies, appearance", paper) {
                 model.go(Route.Preferences)
             }
+            Spacer(Modifier.height(10.dp))
+            MoreDestination(
+                Glyph.Date,
+                "Notifications",
+                if (state.reminder.enabled) "Evening reminder · ${state.reminder.clock}" else "Evening reminder · off",
+                paper,
+            ) { model.openReminderSheet() }
 
             // ── about Ariadne ───────────────────────────────────────────────
             Spacer(Modifier.height(28.dp))
             SectionMark("about Ariadne", paper)
             Spacer(Modifier.height(14.dp))
-            IndexCard(Glyph.Shield, "Privacy policy", "How this build handles your data", paper) {
+            MoreDestination(Glyph.Shield, "Privacy policy", "How this build handles your data", paper) {
                 model.go(Route.PrivacyPolicy)
             }
             Spacer(Modifier.height(10.dp))
-            IndexCard(Glyph.Record, "Terms of use", "Draft for review", paper) {
+            MoreDestination(Glyph.Record, "Terms of use", "Draft for review", paper) {
                 model.go(Route.Terms)
             }
 
             // ── the one ask ─────────────────────────────────────────────────
             Spacer(Modifier.height(28.dp))
-            FeedbackCard(state, model, paper, wide)
+            FeedbackCard(state, model, paper, wide = false)
+            }
 
             Spacer(Modifier.height(18.dp))
             Body(
@@ -165,6 +203,40 @@ public fun MorePage(state: AppUiState, model: AppModel, paper: Paper, wide: Bool
  * it copies is the shape of a report — what were you doing, what happened — and the
  * line under the title says so before the button is pressed.
  */
+@Composable
+private fun MoreColumns(state: AppUiState, model: AppModel, paper: Paper) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(32.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column(Modifier.weight(1f)) {
+            SectionMark("the journeys", paper)
+            Spacer(Modifier.height(5.dp))
+            MoreDestination(Glyph.Trip, "Trips", "${state.trips.size} on this device", paper) { model.go(Route.Trips) }
+            MoreDestination(Glyph.Budget, "Add manually", "An expense without a photograph", paper) { model.go(Route.ManualEntry) }
+            Spacer(Modifier.height(18.dp))
+            SectionMark("your copy", paper)
+            Spacer(Modifier.height(5.dp))
+            MoreDestination(Glyph.Edit, "Settings & profile", "Name, currencies, appearance", paper) { model.go(Route.Preferences) }
+            MoreDestination(
+                Glyph.Date,
+                "Notifications",
+                if (state.reminder.enabled) "Evening reminder · ${state.reminder.clock}" else "Evening reminder · off",
+                paper,
+            ) { model.openReminderSheet() }
+        }
+        Column(Modifier.weight(1f)) {
+            SectionMark("about Ariadne", paper)
+            Spacer(Modifier.height(5.dp))
+            MoreDestination(Glyph.Shield, "Privacy policy", "How this build handles your data", paper) { model.go(Route.PrivacyPolicy) }
+            MoreDestination(Glyph.Record, "Terms of use", "Draft for review", paper) { model.go(Route.Terms) }
+            Spacer(Modifier.height(18.dp))
+            FeedbackCard(state, model, paper, wide = true)
+        }
+    }
+}
+
 @Composable
 private fun FeedbackCard(state: AppUiState, model: AppModel, paper: Paper, wide: Boolean) {
     val label = if (state.feedbackCopied) "Copied" else "Share feedback"

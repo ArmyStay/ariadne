@@ -102,12 +102,9 @@ destinations around the central shutter's reserved slot:
 - Selected item: `paper.ink` icon and text on a `paper.sunk` indicator.
 - The **shutter** is a `FloatingActionButton`: 56dp, `CircleShape`, **`paper.navy`**
   (`#1C3155`, sampled from the supplied dock artwork; `paper.edge` when a trip is
-  closed), aligned top-centre and offset up 20dp. Its mark is `SparkGlyph` — a
-  four-point spark whose arms are cubic curves with both control points at a tenth of
-  the tip radius, so they taper to needles and meet at a small waist; filled in
-  `paper.onBlue`, with a diamond cut out of its centre in the circle's own colour, so
-  the mark reads as a cut in the navy rather than a shape laid on it. The tips reach
-  42 % of the circle's radius.
+  closed), aligned top-centre and offset up 20dp. Its mark is a four-point `SparkGlyph`
+  with the circle's own colour cut from its centre. The FAB's accessible name remains
+  `Take a photograph` (with the trip-wide waiting count when present).
 - **Badge** on Timeline only: a `paper.blue` circle containing the trip-wide waiting count, positioned
   `x = 8dp, y = -6dp` from the icon's top end — a numeral, not a dot.
 - **Content descriptions**: a stacked Trips or Preferences dock includes its actual
@@ -462,18 +459,18 @@ and Home says which one it is in: the balance panel's status reads **NOT BEGUN Y
 instead of `Finished today` / `N waiting today`, and the rail's date is labelled
 **STARTS** rather than `today`.
 
-**Header.** `HomeHero`: the `01 — ARIADNE` plate, the current trip name in the large
-Instrument Serif italic, and `PLAN · TRACK · SPEND`, with the shared globe-and-flight
-artwork (`home_globe.png`, `TravelGlobeArtwork`) behind the title: **310 dp wide
-(350 dp on the wide layout)**, `ContentScale.Crop`, pinned `TopEnd`, and offset **up
-56 dp (64 dp on wide)** — down from 96/100 dp, and smaller than it was, because at the
-old size only a 190 dp sliver of a 640 dp-tall wallpaper was ever visible and the
-aeroplane fell outside it. At this size the whole subject — spark at a third of the
-artwork's height, aeroplane just below it, the globe's limb under both — fits inside
-the band, and the offset puts all three in the band's lower half. A paper wash is
-drawn over the left two-thirds (`0 → 0.99`, `0.45 → 0.94`, `0.66 → 0.28`,
-`0.84 → transparent`) so the trip's name reads on white and the aeroplane is left
-alone.
+**Header.** `HomeHero`: the `01 - ARIADNE` plate, current trip name in large Instrument
+Serif italic, and `PLAN / TRACK / SPEND`. The globe-and-flight artwork is rendered at
+its full **310 by 581 dp** source ratio (350 by 657 dp wide), pinned `TopEnd`, and clipped
+to the hero. A 72 dp downward placement reveals the plane and globe limb in the upper
+right, while the paper wash protects the title on the left. A second wash starts at the
+hero's lower third and fades the artwork into the page background. It bleeds 12 dp past
+the scroll rail at the right before fading back to the page stock. The balance panel's
+crop follows the same globe scene beneath its deeper navy overlay.
+
+The hero is **190 dp high on a phone and 218 dp on a wide layout** when a trip is
+selected, matching the roomier source composition. The same 190/218 dp height applies
+to the no-trip introduction.
 
 **Rail (wide).** `today` = today's ISO or `—`; `days` = the trip's length; `closed N`;
 `waiting today` = `stack.size`; `on this day`.
@@ -481,9 +478,9 @@ alone.
 **Open trip, top to bottom:**
 
 1. a dark, rounded daily-spend panel with the correctly scoped `dayTotalMinor`,
-   `Finished today` or the current day's waiting count, and **SETTLE TODAY**
+   `Finished today` or the current day's waiting count, and **Close Day**
    (`openCloseDay(today)`). Globe artwork is repeated at low opacity inside the panel;
-2. an outlined pill action, **Add an expense manually**, opens the photo-free
+2. a square-corner outlined action, **Add an expense manually**, opens the photo-free
    confirmed-entry form, with a **52 dp round microphone** (`MicDisc`) to its right —
    the home page's voice entry (see below);
 3. an underlined `The Trip` heading with the trip's start and end dates;
@@ -853,7 +850,9 @@ still yours."* + **SEE THE CARD** + **THE REGISTER**.
 "A quick look at this trip's spending, and what it went on.")`.
 **Rail:** `the trip` (its figure), `entries` (count), `finished only`.
 
-The page is four leaves of paper, each cut by the same `Leaf` the More page uses:
+The trip total anchors the page. On wide layouts, the daily chart and currency breakdown
+share the left column while category totals sit in the right; phones retain a single
+reading column. Each detail uses the same `Leaf` the More page uses:
 `paper.raised`, a `Bone.Hairline`, 20dp corners and a 6dp lift in daylight, no lift at
 night. Every head is one `CardHead` — the blue-wash disc, then a tracked label; on the
 three sections below the first the roman numeral lives *inside* that label
@@ -950,9 +949,14 @@ Stacked entry points use the shell's **BACK TO [PARENT]**
 action.
 **Rail:** `on device only`, `no account · no sync`.
 
-**I · your profile.** A display-name field (`Your name`) saved only on this device.
+The page groups controls into five raised paper panels: profile; currencies, dates, and
+appearance; exchange rates; local data; and the current trip. Each group has a serif
+heading, one-line purpose, and a navy rule, keeping related controls together during the
+long phone scroll. The Home globe's top and bottom edges both fade into the page stock.
 
-**II · the record**
+**Your profile.** A display-name field (`Your name`) saved only on this device.
+
+**Currencies & dates**
 
 | Row | Type | Note under it |
 | --- | --- | --- |
@@ -964,7 +968,7 @@ action.
 The Paper chips read `Light`, `System`, `Night` and call `setTheme(...)`; fresh settings
 default to `Light`, and the chosen one is drawn in `paper.blue`.
 
-**III · the exchange.** One row per currency in use, plus `THB`, `USD`, `EUR`, `GBP`,
+**Exchange rates.** One row per currency in use, plus `THB`, `USD`, `EUR`, `GBP`,
 `JPY`. Each row, top to bottom:
 
 - a budget glyph, the currency **code** as a serif `Title` (e.g. `SGD`), a blue tick when
@@ -980,19 +984,17 @@ default to `Light`, and the chosen one is drawn in `paper.blue`.
 With nothing foreign: *"Everything so far is already in the base currency."* A rejected
 rate is stated under the list (`state.rateError`).
 
-**IV · what leaves this device.** A `Storage` read-out (`Local to this build`) followed by
+**Your data.** A `Storage` read-out (`Local to this build`) followed by
 platform-specific `storageDisclosure` and `rateDisclosure` text. This states where the
 record and photographs are kept, whether data persists across launches, and whether an
 exchange-rate request sends anything off-device. If a failure was recorded, Preferences
 shows its message explicitly. **EXPORT ALL DATA AS A ZIP ARCHIVE** opens the local export
 flow.
 
-**V · the evening.** A `Date` icon row reading `Reminder · every evening at 20:00` when it
-is on, `Reminder · off` when it is not (`openReminderSheet()`), and beneath it the line
-about what this build will actually deliver (see 3.7). The row opens the same panel the
-one-time offer uses.
+Notifications are listed in More under “your copy”; that row shows the evening reminder's
+current time or off state and opens `openReminderSheet()`.
 
-**VI · this trip.** The trip's name (or `No trip`), the place (or `no place set`), then
+**This trip.** The trip's name (or `No trip`), the place (or `no place set`), then
 icon rows: **SEE THE TRIP'S PAGE**; **CLOSE THE TRIP INTO A CARD** (`closeTripIntoCard()`)
 or **SEE THE CARD** when already closed; **DELETE THIS TRIP** (`armTripDeletion()`) with
 the paragraph *"Deletes its photographs and its record. Nothing is kept anywhere else, so
@@ -1002,26 +1004,20 @@ this is the one action in the app you cannot take back."* Armed, the block becom
 
 ### 5.17 More, manual entry, export, and legal pages
 
-**More.** `More` set as a 52sp serif display (68sp wide) with the line *"Trips, settings,
-and the things you can do with your record."* and one rule. Then three groups, each
-opened by a `SectionMark` — a 3×13dp navy bar and a tracked label — over `IndexCard`
-rows (a blue-wash disc, a 19sp serif name, the 11sp faint detail beneath it, a chevron;
-the whole card is one tap target at 44dp or better):
-
-- **the journeys** — **Trips** (`N on this device`) and **Add manually** (*"An expense
-  without a photograph"*);
-- **your copy** — **Settings & profile** (*"Name, currencies, appearance"*);
-- **about Ariadne** — **Privacy policy** and **Terms of use** (both marked drafts).
+**More.** A compact 42sp serif title on phones (56sp wide) and the line *"Trips,
+settings, and your record."* Three groups keep their `SectionMark` labels and use
+practical, ruled destination rows: a small navy glyph, 16sp serif title, concise detail,
+and a chevron. Each full row is an accessible tap target. On wide screens, journeys and
+your copy sit in the left column, with legal links and feedback in the right; phones keep
+the groups in one scrollable column. Notifications is a row in “your copy” on both layouts;
+it opens the existing reminder sheet without adding a route.
 
 The page closes on a **Have feedback?** leaf in `paper.blueWash`: a heart in outline, the
 title, the line *"Copies a note you can paste into an email."* and an outlined pill
 **Share feedback** (`copyFeedbackNote()`). Wide, the heart, a hairline divider, the words
-and the pill sit on one line; on a phone the pill drops under the words, so the card is
-read before it is pressed. There is no server and no
-address this build may write to, so the button copies a note — *what I was doing*, *what
-happened*, the trip, its counts — and the card then says *"Copied. Paste it wherever you
-write to us."* A button labelled *send* that silently did nothing would be the one lie
-this page could tell.
+and the pill sit on one line; on a phone the pill drops under the words. There is no server
+or address this build may write to, so the button copies a note; after the action the card
+says *"Copied. Paste it wherever you write to us."*
 
 **The sky behind More.** `FlightSky(paper)` draws the page's ground: three arcs off the
 top-right corner at a 9% wash, a paper plane crossing them with a fold and a shadowed
