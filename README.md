@@ -6,20 +6,11 @@
 
 **A trip's spending, remembered as photographs — one shutter press in the shop, the figures settled at the end of the day.**
 
-### ▶ [**Open the demo — a trip with photographs already in it**](https://armystay.github.io/ariadne/?seed=demo)
+### ▶ [**Open the app in your browser**](https://armystay.github.io/ariadne/)
 
-**No toolchain, no install, no account, no server.** That link runs the same shared Compose
-UI that ships to Android, iOS and desktop, built by
-[`pages.yml`](.github/workflows/pages.yml) and published as an artifact. It opens on a trip
-that has already been kept, so the first frame is the record and not a title screen; the
-bare [`/ariadne/`](https://armystay.github.io/ariadne/) opens on the introduction instead,
-three beats and one button, for when you would rather be told what this is first.
-
-<p align="center">
-  <img src="docs/brand/demo-qr.png" width="132" alt="A QR code carrying https://armystay.github.io/ariadne/?seed=demo">
-</p>
-
-<p align="center"><em>Or point a phone at that.</em></p>
+No install, no account, no server. The link runs the same shared Compose UI that ships to
+Android, iOS and desktop — built by [`pages.yml`](.github/workflows/pages.yml) and
+published as an artifact.
 
 <p align="center">
   <img src="docs/shots/demo-stills.gif" width="300" alt="The home screen, then one day's record: date chips and receipt rows with amounts">
@@ -56,7 +47,7 @@ key — [on the human list](docs/HUMAN-TASKS.md).
 | Retries survive a dead zone | retry/backoff by outbox + extraction service, resumed on start |
 | A button never silently does nothing | `commitDraft` reports a failed write on the page; `failureNote` in Preferences |
 | An old install keeps its data | `openOrMigrate`: decides from the columns present, not from `PRAGMA user_version` alone |
-| Rates have an offline fallback | Android requests rates from a public feed (`AndroidRateSource`), disclosing currency pairs and IP address; failures fall back to the last known rate |
+| Only one outbound call, and it is optional | one GET to a public rate feed (`AndroidRateSource`); no trip data is sent, and every failure falls back to the last known rate |
 | Startup cannot be blocked by background work | every step in `AppModel.start()` is guarded on its own |
 | The trip card holds the trip | `Trip`, `TripCard` — the product screen and where it ends |
 | A spoken amount is parsed by a pure function, not by a service | `SpokenExpense` over word and digit tokens — `core/model`, with tests |
@@ -82,7 +73,8 @@ figures back — quoted beside your total, never merged into it. Nothing syncs. 
 
 The record is per trip and per day. Home shows today's spend and what is waiting;
 Timeline shows the trip and its days; Stats breaks it down; the record lists what you
-kept. Records are stored locally, with no account or sync. Android rate requests disclose currency pairs and IP address, and its external voice recognizer may process audio remotely.
+kept. Everything is local — no account, no sync, nothing leaves the device except a rate
+lookup that the app works without.
 
 One thing reaches out of the app, and only as far as your own phone: the **evening
 reminder**. Turn it on once (a single popup after the first trip, or Settings → *the
@@ -127,8 +119,8 @@ Five things the app will not do, because a record that bends is not a record:
   typed date is refused with a sentence, not an error dialog, and a trip that starts
   next month has no shutter at all until it starts.
 - **No red.** Failure is a sentence in the same ink as everything else.
-- **Local records, no sync.** Android rate requests disclose currency pairs and IP address;
-  its external voice recognizer may send audio to its provider. Exports can leave the device.
+- **Nothing leaves the device** except the one optional rate lookup, which carries no
+  trip data.
 - **A photograph needs a journey.** With no open trip the shutter explains itself
   instead of filing into nowhere.
 - **Money is never a float**, and an amount you cannot convert is named in its own
@@ -149,33 +141,22 @@ with the words it actually prints, in [`docs/UI-AND-FLOW.md`](docs/UI-AND-FLOW.m
 
 ## Run it, install it, build it
 
-**In a browser, one click:** [the demo, on a kept trip](https://armystay.github.io/ariadne/?seed=demo)
-— no install, no account, no toolchain. The browser build keeps its record in the tab and
-nothing else: there is no IndexedDB in it, so a reload starts again, and a private window
-behaves exactly the same because there is no storage it could be refused. Look at it,
-press everything, and do not type a trip you care about into it.
+**In a browser, one click:** [armystay.github.io/ariadne](https://armystay.github.io/ariadne/).
+It opens on the first instalment — what this is, in three beats, and one button. Add
+[`?seed=demo`](https://armystay.github.io/ariadne/?seed=demo) to land on a trip that has
+already been kept instead. No install, no account; the browser build keeps its data in
+the tab, so a reload starts again.
 
-**On a phone: the second door.** [`v1.0.0`](https://github.com/ArmyStay/ariadne/releases/tag/v1.0.0)
-carries `ariadne.apk`, and it is the only way to see the camera, the photo library, the
-microphone and the glasses path — the browser cannot reach the sensor. **You do not need a
-toolchain for it either:** download it on the phone and tap it, after allowing your files
-app to install. The debug signature is expected; there is no Play listing, so Android will
-say so once and then install.
-
-It is large — around 120 MB — because five on-device OCR models are bundled rather than
-downloaded, which is also whttps://github.com/ArmyStay/ariadne/pull/32/conflict?name=README.md&ancestor_oid=365eae4bc23ab05f41d6ee2242511572721729d8&base_oid=1f62c955dcf1ab79c7fa6c8ad52b408c21d5e81d&head_oid=8209ad5625699b4d4577141f04de0a476b7d7070hy recognition works in a shop with no signal. From a machine
-with `adb` on it, the same thing in one line:
+**On a phone:** the [releases](https://github.com/ArmyStay/ariadne/releases) carry
+`ariadne.apk`, a debug build signed with the debug key. It is large — around 120 MB —
+because five on-device OCR models are bundled rather than downloaded, which is also why
+recognition works in a shop with no signal:
 
 ```bash
 adb install -r ariadne.apk
 ```
 
-New release builds require the GitHub Actions secrets `ARIADNE_KEYSTORE_BASE64`,
-`ARIADNE_STORE_PASSWORD`, `ARIADNE_KEY_ALIAS`, and `ARIADNE_KEY_PASSWORD`.
-Use a securely held production keystore; do not put it in this repository. An APK signed
-with a different key cannot update an existing debug-signed installation in place.
-
-Locally built debug APKs can drive the glasses path without glasses:
+Debug builds are the ones that can drive the glasses path without glasses:
 
 ```bash
 adb shell am start -n com.ariadne.app/com.ariadne.android.MainActivity --ez mock_glasses true
@@ -198,10 +179,6 @@ that happened to get here, is in [`docs/TIMELINE.md`](docs/TIMELINE.md).
 ./gradlew jvmTest
 ./gradlew :app:wasm:wasmJsBrowserDevelopmentRun   # or the local web demo
 ```
-
-**Release and recovery:** see [Release and recovery](docs/RELEASE-AND-RECOVERY.md).
-Existing debug-signed installations cannot be updated in place by a production-signed APK;
-do not uninstall them while there is no restore path.
 
 Every version those targets need — the JDK, the Android SDK path, `minSdk 29`, the
 glasses artifacts, Xcode — is in [`docs/SDK-SETUP.md`](docs/SDK-SETUP.md).
@@ -268,3 +245,6 @@ chips, and settings that survive a restart. The stills above are from that build
 
 Apache-2.0. Kotlin Multiplatform Contest 2027 entry. The entry essay is
 [`ESSAY.md`](ESSAY.md); the history is [`docs/TIMELINE.md`](docs/TIMELINE.md).
+
+
+Run : .\gradlew.bat :app:android:installDebug --console=plain
