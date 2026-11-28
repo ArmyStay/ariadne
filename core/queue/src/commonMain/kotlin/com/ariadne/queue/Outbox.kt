@@ -131,6 +131,7 @@ public interface CaptureRepository {
         confirmedAt: Long?,
     )
     public suspend fun findById(id: String): Capture?
+    /** Global work queue across trips; day review must use [capturesForDay] instead. */
     public suspend fun openCaptures(): List<Capture>
     public suspend fun capturesForDay(tripId: String, day: LocalDay): List<Capture>
     public suspend fun delete(id: String)

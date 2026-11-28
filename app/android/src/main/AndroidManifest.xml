@@ -4,9 +4,11 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
-        <!-- The glasses talk to the phone over Bluetooth; the DAT needs both halves. -->
+    <!-- The glasses talk to the phone over Bluetooth; the DAT needs both halves. -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <!-- Exchange-rate requests; do not claim this permission is only SDK-injected. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- The evening reminder: one notification a day, from an alarm on this phone.

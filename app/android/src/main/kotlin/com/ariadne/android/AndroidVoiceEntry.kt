@@ -43,6 +43,8 @@ public class AndroidVoiceEntry(private val activity: Activity) : VoiceEntry {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     putExtra(RecognizerIntent.EXTRA_PROMPT, "Say the amount")
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                    // A preference, not a guarantee: providers may ignore this. Keep the warning.
+                    putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
                 }
                 if (runCatching { opener(intent) }.isFailure) {
                     pending = null

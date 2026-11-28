@@ -56,6 +56,7 @@ key — [on the human list](docs/HUMAN-TASKS.md).
 | Retries survive a dead zone | retry/backoff by outbox + extraction service, resumed on start |
 | A button never silently does nothing | `commitDraft` reports a failed write on the page; `failureNote` in Preferences |
 | An old install keeps its data | `openOrMigrate`: decides from the columns present, not from `PRAGMA user_version` alone |
+| Local records, not a no-network guarantee | The app manifest explicitly declares `INTERNET` for Android exchange-rate requests; the glasses use DAT. No claim that SDK traffic is limited to the glasses has been verified |
 | Rates have an offline fallback | Android requests rates from a public feed (`AndroidRateSource`), disclosing currency pairs and IP address; failures fall back to the last known rate |
 | Startup cannot be blocked by background work | every step in `AppModel.start()` is guarded on its own |
 | The trip card holds the trip | `Trip`, `TripCard` — the product screen and where it ends |
@@ -128,7 +129,9 @@ Five things the app will not do, because a record that bends is not a record:
   next month has no shutter at all until it starts.
 - **No red.** Failure is a sentence in the same ink as everything else.
 - **Local records, no sync.** Android rate requests disclose currency pairs and IP address;
-  its external voice recognizer may send audio to its provider. Exports can leave the device.
+  its external voice recognizer may send audio to its provider, even though Ariadne requests
+  `EXTRA_PREFER_OFFLINE`. That hint is not enforced by Android; a warning appears before
+  voice input, and typing stays available. Exports can leave the device.
 - **A photograph needs a journey.** With no open trip the shutter explains itself
   instead of filing into nowhere.
 - **Money is never a float**, and an amount you cannot convert is named in its own

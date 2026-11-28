@@ -79,9 +79,32 @@ display at all. It is also the fastest way to see a layout change.
 ./tools/test-domain.sh
 ```
 
-`OK (70 tests)` — money never a float, `HALF_UP` only at the FX boundary, the
-retry backoff surviving a restart, JPY at scale 0, the parser's confidence gate,
-search ranking, and the queue state machine. Pure Kotlin, no Gradle, no device.
+Money never a float, `HALF_UP` only at the FX boundary, the retry backoff surviving
+a restart, JPY at scale 0, the parser's confidence gate, search ranking, share-code
+parsing, and the queue state machine. Pure Kotlin, no Gradle, no device.
+
+### Untrusted input and subprocess regressions
+
+```bash
+./gradlew :core:model:jvmTest :core:queue:jvmTest :app:desktop:jvmTest
+```
+
+- `ShareCodeFuzzTest` is deterministic common Kotlin coverage: arbitrary UTF-16,
+  valid-checksum garbage, mutations of valid ledgers, truncations, 200-entry round
+  trips, signed amount bounds and giant pastes. Seeds are fixed in each test. Raw
+  codes over 8,192 characters are rejected before normalization. Checksums detect
+  damage, **not** malicious senders or forged figures.
+- `DesktopOcrProcessTest` launches portable JVM subprocesses, not Tesseract: a hang,
+  pipe-filling stderr, stdout/stderr floods, the combined output boundary, nonzero
+  exits, cancellation, and a successful job after a timeout. Production limits are
+  eight seconds and 1 MiB of combined output. This tests process handling, not OCR accuracy.
+- `OutboxTest.background_work_spans_trips_but_day_review_does_not` keeps work from
+  old trips in the extraction queue while restricting day review to its trip and date.
+  Nightfall itself uses the trip-and-day store query, not the global pending list.
+
+`tools/bootstrap-toolchain.sh` also runs both share-code suites in the standalone
+compiler harness when Gradle dependencies are unreachable. Full platform builds and
+on-device speech/Bluetooth behavior still need Gradle/CI and a phone respectively.
 
 ---
 
